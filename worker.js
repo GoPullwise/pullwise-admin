@@ -1,0 +1,95 @@
+const API_PREFIX = "/api";
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    if (isApiRequest(url)) {
+      return proxyApiRequest(request, env, url);
+    }
+    if (!env.ASSETS) {
+      return json({ message: "Static assets binding is not configured." }, 500);
+    }
+    return env.ASSETS.fetch(request);
+  },
+};
+
+export async function proxyApiRequest(request, env, incomingUrl = new URL(request.url)) {
+  const origin = env.PULLWISE_API_ORIGIN;
+  if (!origin) {
+    return json({ message: "PULLWISE_API_ORIGIN is not configured." }, 500);
+  }
+
+  const targetUrl = new URL(backendPath(incomingUrl.pathname) + incomingUrl.search, origin);
+  const headers = withoutHopByHopHeaders(request.headers);
+  headers.delete("host");
+  headers.set("X-Forwarded-Proto", incomingUrl.protocol.replace(":", ""));
+  headers.set("X-Forwarded-Host", incomingUrl.host);
+  headers.set("X-Forwarded-Prefix", API_PREFIX);
+
+  const methodHasBody = hasBody(request.method);
+  const init = {
+    method: request.method,
+    headers,
+    body: methodHasBody ? request.body : undefined,
+    redirect: "manual",
+  };
+  if (methodHasBody) {
+    init.duplex = "half";
+  }
+
+  const response = await fetch(targetUrl, init);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: withoutHopByHopHeaders(response.headers),
+  });
+}
+
+export function isApiRequest(url) {
+  return url.pathname === API_PREFIX || url.pathname.startsWith(`${API_PREFIX}/`);
+}
+
+export function backendPath(pathname) {
+  const stripped = pathname.replace(/^\/api/, "");
+  if (!stripped || stripped === "/") return "/";
+  return `/${stripped.replace(/^\/+/, "")}`;
+}
+
+function hasBody(method) {
+  return !["GET", "HEAD"].includes(method.toUpperCase());
+}
+
+const HOP_BY_HOP_HEADERS = new Set([
+  "connection",
+  "keep-alive",
+  "proxy-authenticate",
+  "proxy-authorization",
+  "te",
+  "trailer",
+  "transfer-encoding",
+  "upgrade",
+]);
+
+function withoutHopByHopHeaders(sourceHeaders) {
+  const headers = new Headers(sourceHeaders);
+  const connectionTokens = headers
+    .get("connection")
+    ?.split(",")
+    .map((token) => token.trim().toLowerCase())
+    .filter(Boolean);
+
+  for (const name of HOP_BY_HOP_HEADERS) {
+    headers.delete(name);
+  }
+  for (const name of connectionTokens || []) {
+    headers.delete(name);
+  }
+  return headers;
+}
+
+function json(payload, status) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+  });
+}

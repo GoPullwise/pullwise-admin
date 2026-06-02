@@ -28,16 +28,38 @@ VITE_API_BASE_URL=http://localhost:8080
 
 ## Cloudflare Workers Deployment
 
-For same-origin API proxying:
+For the current `workers.dev` admin URL:
 
 ```bash
 # .env.production
 VITE_APP_URL=https://pullwise-admin.danuberiverferryman.workers.dev
+VITE_API_BASE_URL=https://api.pull-wise.com
+```
+
+This keeps GitHub OAuth on the existing API callback URL:
+
+```text
+https://api.pull-wise.com/auth/github/callback
+```
+
+Because `workers.dev` and `pull-wise.com` are different sites, the server must
+allow credentialed cross-site requests:
+
+```bash
+PULLWISE_ALLOWED_ORIGINS=https://pull-wise.com,https://pullwise-admin.danuberiverferryman.workers.dev
+PULLWISE_COOKIE_SAME_SITE=None
+PULLWISE_COOKIE_SECURE=true
+```
+
+The `/api` proxy remains available for deployments that want same-origin API
+proxying:
+
+```bash
 VITE_API_BASE_URL=/api
 ```
 
-Configure the Worker runtime origin separately in `wrangler.jsonc` or as a
-Cloudflare Worker variable:
+When using that proxy, configure the Worker runtime origin separately in
+`wrangler.jsonc` or as a Cloudflare Worker variable:
 
 ```bash
 PULLWISE_API_ORIGIN=https://api.pull-wise.com
@@ -62,8 +84,8 @@ allowed origins:
 PULLWISE_ALLOWED_ORIGINS=https://pull-wise.com,https://pullwise-admin.danuberiverferryman.workers.dev
 ```
 
-If the server derives OAuth callback URLs from trusted proxy headers, make sure
-GitHub OAuth allows the admin callback URL:
+If the server derives OAuth callback URLs from trusted proxy headers for the
+proxy mode, make sure GitHub OAuth allows the admin callback URL:
 
 ```text
 https://pullwise-admin.danuberiverferryman.workers.dev/api/auth/github/callback

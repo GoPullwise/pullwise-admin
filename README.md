@@ -32,7 +32,7 @@ For same-origin API proxying:
 
 ```bash
 # .env.production
-VITE_APP_URL=https://admin.your-domain.com
+VITE_APP_URL=https://pullwise-admin.danuberiverferryman.workers.dev
 VITE_API_BASE_URL=/api
 ```
 
@@ -40,7 +40,7 @@ Configure the Worker runtime origin separately in `wrangler.jsonc` or as a
 Cloudflare Worker variable:
 
 ```bash
-PULLWISE_API_ORIGIN=https://api.your-domain.com
+PULLWISE_API_ORIGIN=https://api.pull-wise.com
 ```
 
 `PULLWISE_API_ORIGIN` is read by `worker.js` or `functions/api/[[path]].js` at
@@ -59,14 +59,14 @@ When deploying this admin domain, add the exact admin origin to the server's
 allowed origins:
 
 ```bash
-PULLWISE_ALLOWED_ORIGINS=https://app.your-domain.com,https://admin.your-domain.com
+PULLWISE_ALLOWED_ORIGINS=https://pull-wise.com,https://pullwise-admin.danuberiverferryman.workers.dev
 ```
 
 If the server derives OAuth callback URLs from trusted proxy headers, make sure
 GitHub OAuth allows the admin callback URL:
 
 ```text
-https://admin.your-domain.com/api/auth/github/callback
+https://pullwise-admin.danuberiverferryman.workers.dev/api/auth/github/callback
 ```
 
 If the server is configured with a fixed `PULLWISE_API_BASE_URL`, GitHub only

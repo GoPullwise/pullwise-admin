@@ -78,7 +78,12 @@ describe("WorkersScreen", () => {
     pullwiseApi.system.enableWorker.mockResolvedValue({ worker: workers[0] });
     pullwiseApi.system.updateWorker.mockResolvedValue({ worker: workers[0] });
     pullwiseApi.system.testWorker.mockResolvedValue({ result: { ok: true } });
-    pullwiseApi.system.rotateWorkerToken.mockResolvedValue({ worker_token: "pwk_rotated" });
+    pullwiseApi.system.rotateWorkerToken.mockResolvedValue({
+      worker_token: "pwk_rotated",
+      install_commands: {
+        standard: "curl -fsSL https://api.example.com/install-worker.sh | bash",
+      },
+    });
     pullwiseApi.system.commandWorker.mockResolvedValue({ ok: true, command: { id: "cmd_1", status: "pending" } });
 
     render(<WorkersScreen />);
@@ -102,7 +107,11 @@ describe("WorkersScreen", () => {
     expect(pullwiseApi.system.rotateWorkerToken).toHaveBeenCalledWith("wk_1");
     expect(pullwiseApi.system.commandWorker).toHaveBeenCalledWith("wk_1", "stop");
     expect(pullwiseApi.system.commandWorker).toHaveBeenCalledWith("wk_1", "uninstall");
-    expect(await screen.findByText("pwk_rotated")).toBeInTheDocument();
+    const rotatedToken = await screen.findByText("pwk_rotated");
+    const workerRow = rotatedToken.closest(".worker-row");
+    expect(workerRow).toBeTruthy();
+    expect(within(workerRow).getByText("US-East Worker")).toBeInTheDocument();
+    expect(screen.queryByText(/install-worker\.sh/)).not.toBeInTheDocument();
   });
 
   it("copies install commands when clipboard is available", async () => {

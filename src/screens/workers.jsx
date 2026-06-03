@@ -88,6 +88,32 @@ function ResultBlock({ result }) {
   );
 }
 
+function WorkerTokenBlock({ token }) {
+  const [copied, setCopied] = useState(false);
+
+  const copy = async () => {
+    if (!token || !navigator.clipboard) return;
+    await navigator.clipboard.writeText(token);
+    setCopied(true);
+  };
+
+  if (!token) return null;
+
+  return (
+    <div className="result-block worker-token-result">
+      <div className="code-block">
+        <div className="code-head">
+          <strong>Rotated worker token</strong>
+          <button className="btn ghost sm" type="button" onClick={copy}>
+            <I.Clipboard size={13} /> {copied ? "Copied" : "Copy"}
+          </button>
+        </div>
+        <pre>{token}</pre>
+      </div>
+    </div>
+  );
+}
+
 function CreateWorkerModal({ onClose, onCreated }) {
   const [name, setName] = useState("");
   const [region, setRegion] = useState("");
@@ -234,7 +260,7 @@ function WorkerDetail({ worker }) {
   );
 }
 
-function WorkerRow({ worker, onAction, pendingAction }) {
+function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editRegion, setEditRegion] = useState(worker.region || "");
@@ -320,6 +346,7 @@ function WorkerRow({ worker, onAction, pendingAction }) {
               <I.Trash size={13} /> {confirmDelete ? "Confirm delete" : "Delete service"}
             </button>
           </div>
+          <WorkerTokenBlock token={rotatedToken} />
           <div className="edit-panel">
             <div className="edit-head">
               <h3>Configuration</h3>
@@ -373,7 +400,7 @@ export function WorkersScreen() {
   const [showCreate, setShowCreate] = useState(false);
   const [pendingAction, setPendingAction] = useState("");
   const [actionMessage, setActionMessage] = useState("");
-  const [tokenResult, setTokenResult] = useState(null);
+  const [rotatedTokens, setRotatedTokens] = useState({});
 
   const loadWorkers = useCallback(async () => {
     try {
@@ -424,7 +451,11 @@ export function WorkersScreen() {
         setActionMessage(result?.result?.ok ? "Health check passed." : "Health check needs attention.");
       } else if (action === "rotate") {
         result = await pullwiseApi.system.rotateWorkerToken(workerId);
-        setTokenResult(result);
+        setRotatedTokens((current) => ({
+          ...current,
+          [workerId]: tokenFromResult(result),
+        }));
+        setActionMessage("Worker token rotated.");
       } else if (action === "stop-service") {
         result = await pullwiseApi.system.commandWorker(workerId, "stop");
         setActionMessage("Stop command queued. Running jobs finish first.");
@@ -468,7 +499,6 @@ export function WorkersScreen() {
         </div>
       )}
       {actionMessage && <div className="notice">{actionMessage}</div>}
-      {tokenResult && <ResultBlock result={tokenResult} />}
 
       <section className="kpis" aria-label="Worker summary">
         <div className="kpi">
@@ -501,6 +531,7 @@ export function WorkersScreen() {
               worker={worker}
               onAction={handleAction}
               pendingAction={pendingAction}
+              rotatedToken={rotatedTokens[worker.worker_id]}
             />
           ))
         )}

@@ -22,7 +22,7 @@ function statusLabel(status) {
 
 function commandLabel(command) {
   const value = textValue(command, "command");
-  if (value === "uninstall") return "Delete service";
+  if (value === "uninstall") return "Uninstall service";
   if (value === "stop") return "Stop service";
   return statusLabel(value);
 }
@@ -268,6 +268,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const [editCapacity, setEditCapacity] = useState(String(worker.max_concurrent_jobs || 1));
   const [confirmStop, setConfirmStop] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   useEffect(() => {
     if (!editing) {
@@ -330,6 +331,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
               } else {
                 setConfirmStop(true);
                 setConfirmDelete(false);
+                setConfirmRemove(false);
               }
             }}>
               <I.Power size={13} /> {confirmStop ? "Confirm stop" : "Stop service"}
@@ -341,9 +343,22 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
               } else {
                 setConfirmDelete(true);
                 setConfirmStop(false);
+                setConfirmRemove(false);
               }
             }}>
-              <I.Trash size={13} /> {confirmDelete ? "Confirm delete" : "Delete service"}
+              <I.Trash size={13} /> {confirmDelete ? "Confirm uninstall" : "Uninstall service"}
+            </button>
+            <button className="btn sm danger" type="button" disabled={busy} onClick={() => {
+              if (confirmRemove) {
+                setConfirmRemove(false);
+                onAction("delete", workerId);
+              } else {
+                setConfirmRemove(true);
+                setConfirmStop(false);
+                setConfirmDelete(false);
+              }
+            }}>
+              <I.Trash size={13} /> {confirmRemove ? "Confirm remove" : "Remove worker"}
             </button>
           </div>
           <WorkerTokenBlock token={rotatedToken} />
@@ -461,10 +476,17 @@ export function WorkersScreen() {
         setActionMessage("Stop command queued. Running jobs finish first.");
       } else if (action === "delete-service") {
         result = await pullwiseApi.system.commandWorker(workerId, "uninstall");
-        setActionMessage("Delete command queued. The worker cannot be restarted from admin.");
+        setActionMessage("Uninstall command queued. The worker cannot be restarted from admin.");
       } else if (action === "delete") {
         result = await pullwiseApi.system.deleteWorker(workerId);
-        setActionMessage("Worker deleted.");
+        setWorkers((current) => current.filter((worker) => worker.worker_id !== workerId));
+        setRotatedTokens((current) => {
+          const next = { ...current };
+          delete next[workerId];
+          return next;
+        });
+        setActionMessage("Worker removed from registry.");
+        return result;
       }
       await loadWorkers();
       return result;

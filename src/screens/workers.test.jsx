@@ -44,6 +44,7 @@ describe("WorkersScreen", () => {
     render(<WorkersScreen />);
 
     expect(await screen.findByText("US-East Worker")).toBeInTheDocument();
+    expect(screen.getByText(/us-east/)).toBeInTheDocument();
   });
 
   it("creates a worker and shows the one-time token", async () => {
@@ -60,11 +61,12 @@ describe("WorkersScreen", () => {
 
     await user.click(await screen.findByRole("button", { name: /register worker/i }));
     await user.type(screen.getByLabelText(/^name/i), "New Worker");
+    await user.type(screen.getByLabelText(/^region/i), "eu-west");
     await user.click(screen.getByRole("button", { name: /^create worker$/i }));
 
     await waitFor(() =>
       expect(pullwiseApi.system.createWorker).toHaveBeenCalledWith(
-        expect.objectContaining({ name: "New Worker" })
+        expect.objectContaining({ name: "New Worker", region: "eu-west" })
       )
     );
     expect(await screen.findByText("pwk_once")).toBeInTheDocument();
@@ -98,8 +100,8 @@ describe("WorkersScreen", () => {
     await user.click(screen.getByRole("button", { name: /rotate token/i }));
     await user.click(screen.getByRole("button", { name: /^stop service$/i }));
     await user.click(screen.getByRole("button", { name: /confirm stop/i }));
-    await user.click(screen.getByRole("button", { name: /^delete service$/i }));
-    await user.click(screen.getByRole("button", { name: /confirm delete/i }));
+    await user.click(screen.getByRole("button", { name: /^uninstall service$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm uninstall/i }));
 
     await waitFor(() => expect(pullwiseApi.system.disableWorker).toHaveBeenCalledWith("wk_1"));
     expect(pullwiseApi.system.updateWorker).toHaveBeenCalledWith("wk_1", expect.objectContaining({ region: "eu-west" }));
@@ -112,6 +114,21 @@ describe("WorkersScreen", () => {
     expect(workerRow).toBeTruthy();
     expect(within(workerRow).getByText("US-East Worker")).toBeInTheDocument();
     expect(screen.queryByText(/install-worker\.sh/)).not.toBeInTheDocument();
+  });
+
+  it("removes a worker from the registry", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await user.click(screen.getByRole("button", { name: /^remove worker$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm remove/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
+    expect(screen.queryByText("US-East Worker")).not.toBeInTheDocument();
+    expect(screen.getByText("Worker removed from registry.")).toBeInTheDocument();
   });
 
   it("copies install commands when clipboard is available", async () => {

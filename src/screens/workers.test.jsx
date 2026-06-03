@@ -13,6 +13,7 @@ vi.mock("../api/pullwise.js", () => ({
       updateWorker: vi.fn(),
       enableWorker: vi.fn(),
       disableWorker: vi.fn(),
+      commandWorker: vi.fn(),
       rotateWorkerToken: vi.fn(),
       testWorker: vi.fn(),
       deleteWorker: vi.fn(),
@@ -78,7 +79,7 @@ describe("WorkersScreen", () => {
     pullwiseApi.system.updateWorker.mockResolvedValue({ worker: workers[0] });
     pullwiseApi.system.testWorker.mockResolvedValue({ result: { ok: true } });
     pullwiseApi.system.rotateWorkerToken.mockResolvedValue({ worker_token: "pwk_rotated" });
-    pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
+    pullwiseApi.system.commandWorker.mockResolvedValue({ ok: true, command: { id: "cmd_1", status: "pending" } });
 
     render(<WorkersScreen />);
 
@@ -90,14 +91,17 @@ describe("WorkersScreen", () => {
     await user.click(screen.getByRole("button", { name: /save/i }));
     await user.click(screen.getByRole("button", { name: /health check/i }));
     await user.click(screen.getByRole("button", { name: /rotate token/i }));
-    await user.click(screen.getByRole("button", { name: /^delete$/i }));
+    await user.click(screen.getByRole("button", { name: /^stop service$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm stop/i }));
+    await user.click(screen.getByRole("button", { name: /^delete service$/i }));
     await user.click(screen.getByRole("button", { name: /confirm delete/i }));
 
     await waitFor(() => expect(pullwiseApi.system.disableWorker).toHaveBeenCalledWith("wk_1"));
     expect(pullwiseApi.system.updateWorker).toHaveBeenCalledWith("wk_1", expect.objectContaining({ region: "eu-west" }));
     expect(pullwiseApi.system.testWorker).toHaveBeenCalledWith("wk_1");
     expect(pullwiseApi.system.rotateWorkerToken).toHaveBeenCalledWith("wk_1");
-    expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1");
+    expect(pullwiseApi.system.commandWorker).toHaveBeenCalledWith("wk_1", "stop");
+    expect(pullwiseApi.system.commandWorker).toHaveBeenCalledWith("wk_1", "uninstall");
     expect(await screen.findByText("pwk_rotated")).toBeInTheDocument();
   });
 

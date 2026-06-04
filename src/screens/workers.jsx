@@ -31,6 +31,51 @@ function activeCommand(command) {
   return ["pending", "running"].includes(textValue(command?.status).toLowerCase());
 }
 
+function timestampValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function timestampDate(value) {
+  const seconds = timestampValue(value);
+  return seconds ? new Date(seconds * 1000) : null;
+}
+
+function formatTimestamp(value) {
+  const date = timestampDate(value);
+  if (!date) return "Never";
+  return date.toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function timestampDateTime(value) {
+  const date = timestampDate(value);
+  return date ? date.toISOString() : undefined;
+}
+
+function sameLocalDay(value, reference = new Date()) {
+  const date = timestampDate(value);
+  if (!date) return false;
+  return (
+    date.getFullYear() === reference.getFullYear() &&
+    date.getMonth() === reference.getMonth() &&
+    date.getDate() === reference.getDate()
+  );
+}
+
+function activityTime(record) {
+  return (
+    timestampValue(record?.completed_at) ||
+    timestampValue(record?.started_at) ||
+    timestampValue(record?.claimed_at) ||
+    timestampValue(record?.last_activity_at)
+  );
+}
+
 function installCommands(result) {
   const commands = [];
   const standard = result?.install_commands?.standard || result?.install_command || "";
@@ -47,6 +92,59 @@ function tokenFromResult(result) {
     result?.suggested_env?.PULLWISE_WORKER_TOKEN ||
     result?.token ||
     ""
+  );
+}
+
+function WorkerActivity({ activity }) {
+  const todayCount = useMemo(
+    () => activity.filter((record) => sameLocalDay(activityTime(record))).length,
+    [activity]
+  );
+
+  return (
+    <section className="worker-activity">
+      <div className="activity-head">
+        <h3>Task activity</h3>
+        <div className="activity-summary">
+          <strong>{todayCount}</strong>
+          <span>{todayCount === 1 ? "task today" : "tasks today"}</span>
+        </div>
+      </div>
+      {activity.length ? (
+        <ul className="activity-list">
+          {activity.map((record) => (
+            <li key={`${record.job_id}-${record.attempt || 0}`}>
+              <div className="activity-record-head">
+                <strong>{textValue(record.repo, record.scan_id || record.job_id)}</strong>
+                <span>{statusLabel(record.status)}</span>
+              </div>
+              <div className="activity-meta">
+                {textValue(record.branch, "main")} - attempt {record.attempt || 0}
+              </div>
+              <div className="activity-times">
+                {record.claimed_at && (
+                  <time dateTime={timestampDateTime(record.claimed_at)}>
+                    Claimed {formatTimestamp(record.claimed_at)}
+                  </time>
+                )}
+                {record.started_at && (
+                  <time dateTime={timestampDateTime(record.started_at)}>
+                    Started {formatTimestamp(record.started_at)}
+                  </time>
+                )}
+                {record.completed_at && (
+                  <time dateTime={timestampDateTime(record.completed_at)}>
+                    Completed {formatTimestamp(record.completed_at)}
+                  </time>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted">No task activity recorded.</p>
+      )}
+    </section>
   );
 }
 
@@ -201,16 +299,23 @@ function CreateWorkerModal({ onClose, onCreated }) {
 
 function WorkerDetail({ worker }) {
   const [auditEvents, setAuditEvents] = useState([]);
+  const [taskActivity, setTaskActivity] = useState([]);
 
   useEffect(() => {
     let disposed = false;
     pullwiseApi.system
       .getWorker(worker.worker_id)
       .then((payload) => {
-        if (!disposed) setAuditEvents(Array.isArray(payload?.auditEvents) ? payload.auditEvents : []);
+        if (!disposed) {
+          setAuditEvents(Array.isArray(payload?.auditEvents) ? payload.auditEvents : []);
+          setTaskActivity(itemsFrom(payload, "taskActivity", "activityEvents", "activity"));
+        }
       })
       .catch(() => {
-        if (!disposed) setAuditEvents([]);
+        if (!disposed) {
+          setAuditEvents([]);
+          setTaskActivity([]);
+        }
       });
     return () => {
       disposed = true;
@@ -256,6 +361,7 @@ function WorkerDetail({ worker }) {
           <p className="muted">No audit events.</p>
         )}
       </section>
+      <WorkerActivity activity={taskActivity} />
     </div>
   );
 }

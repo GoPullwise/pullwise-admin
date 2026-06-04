@@ -38,6 +38,7 @@ describe("WorkersScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     pullwiseApi.system.listWorkers.mockResolvedValue({ workers, items: workers });
+    pullwiseApi.system.getWorker.mockResolvedValue({ worker: workers[0], auditEvents: [], taskActivity: [] });
   });
 
   it("lists workers returned by the admin API", async () => {
@@ -114,6 +115,42 @@ describe("WorkersScreen", () => {
     expect(workerRow).toBeTruthy();
     expect(within(workerRow).getByText("US-East Worker")).toBeInTheDocument();
     expect(screen.queryByText(/install-worker\.sh/)).not.toBeInTheDocument();
+  });
+
+  it("shows recent task activity for the expanded worker", async () => {
+    const user = userEvent.setup();
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    pullwiseApi.system.getWorker.mockResolvedValue({
+      worker: workers[0],
+      auditEvents: [],
+      taskActivity: [
+        {
+          worker_id: "wk_1",
+          job_id: "job_1",
+          scan_id: "sc_1",
+          repo: "acme/api",
+          branch: "main",
+          status: "done",
+          attempt: 1,
+          claimed_at: nowSeconds - 3600,
+          started_at: nowSeconds - 3500,
+          completed_at: nowSeconds - 3200,
+          last_activity_at: nowSeconds - 3200,
+        },
+      ],
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    const activitySection = (await screen.findByText("Task activity")).closest(".worker-activity");
+    expect(within(activitySection).getByText("1")).toBeInTheDocument();
+    expect(within(activitySection).getByText("task today")).toBeInTheDocument();
+    expect(within(activitySection).getByText("acme/api")).toBeInTheDocument();
+    expect(within(activitySection).getByText(/Claimed/i)).toBeInTheDocument();
+    expect(within(activitySection).getByText(/Started/i)).toBeInTheDocument();
+    expect(within(activitySection).getByText(/Completed/i)).toBeInTheDocument();
   });
 
   it("removes a worker from the registry", async () => {

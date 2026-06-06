@@ -8,6 +8,7 @@ vi.mock("../api/pullwise.js", () => ({
   pullwiseApi: {
     system: {
       listWorkers: vi.fn(),
+      getWorkerDefaults: vi.fn(),
       createWorker: vi.fn(),
       getWorker: vi.fn(),
       updateWorker: vi.fn(),
@@ -38,6 +39,11 @@ describe("WorkersScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     pullwiseApi.system.listWorkers.mockResolvedValue({ workers, items: workers });
+    pullwiseApi.system.getWorkerDefaults.mockResolvedValue({
+      workerVersion: "0.1.8",
+      workerPackage:
+        "https://github.com/GoPullwise/pullwise-worker/releases/download/v0.1.8/pullwise_worker-0.1.8-py3-none-any.whl",
+    });
     pullwiseApi.system.getWorker.mockResolvedValue({ worker: workers[0], auditEvents: [], taskActivity: [] });
   });
 
@@ -72,6 +78,35 @@ describe("WorkersScreen", () => {
     );
     expect(await screen.findByText("pwk_once")).toBeInTheDocument();
     expect(screen.getByText(/install-worker\.sh/)).toBeInTheDocument();
+  });
+
+  it("defaults the create worker version to the latest release while keeping it editable", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.getWorkerDefaults.mockResolvedValue({
+      workerVersion: "0.2.3",
+      workerPackage:
+        "https://github.com/GoPullwise/pullwise-worker/releases/download/v0.2.3/pullwise_worker-0.2.3-py3-none-any.whl",
+    });
+    pullwiseApi.system.createWorker.mockResolvedValue({
+      worker: { worker_id: "wk_new", name: "Latest Worker" },
+      worker_token: "pwk_once",
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click(await screen.findByRole("button", { name: /register worker/i }));
+    const versionInput = await screen.findByLabelText(/^version/i);
+    await waitFor(() => expect(versionInput).toHaveValue("0.2.3"));
+
+    await user.clear(versionInput);
+    await user.type(versionInput, "0.2.4");
+    await user.click(screen.getByRole("button", { name: /^create worker$/i }));
+
+    await waitFor(() =>
+      expect(pullwiseApi.system.createWorker).toHaveBeenCalledWith(
+        expect.objectContaining({ version: "0.2.4" })
+      )
+    );
   });
 
   it("calls worker action endpoints", async () => {

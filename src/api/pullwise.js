@@ -23,6 +23,7 @@ export const pullwiseApi = {
   },
   system: {
     listWorkers: () => request("/admin/workers"),
+    getWorkerDefaults: () => request("/admin/workers/defaults"),
     createWorker: (payload = {}) => request("/admin/workers", { method: "POST", body: payload }),
     getWorker: (workerId) => request(`/admin/workers/${pathSegment(workerId)}`),
     updateWorker: (workerId, payload = {}) =>

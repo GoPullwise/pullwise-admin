@@ -221,6 +221,24 @@ function CreateWorkerModal({ onClose, onCreated }) {
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
 
+  useEffect(() => {
+    let disposed = false;
+    pullwiseApi.system
+      .getWorkerDefaults()
+      .then((payload) => {
+        const defaultVersion = textValue(
+          payload?.workerVersion || payload?.version || payload?.defaults?.version
+        );
+        if (!disposed && defaultVersion) {
+          setVersion((current) => current || defaultVersion);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
   const createWorker = async (event) => {
     event.preventDefault();
     if (busy) return;

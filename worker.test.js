@@ -49,6 +49,29 @@ describe("admin Cloudflare worker proxy", () => {
     expect(response.headers.has("connection")).toBe(false);
   });
 
+  it("keeps OAuth callback Set-Cookie headers on proxied responses", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(null, {
+        status: 302,
+        headers: {
+          location: "https://admin.example.com/workers",
+          "set-cookie": "pw_session=ses_1; Path=/; HttpOnly; SameSite=Lax; Secure",
+        },
+      })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await proxyApiRequest(
+      new Request("https://admin.example.com/api/auth/github/callback?state=st&code=code"),
+      { PULLWISE_API_ORIGIN: "https://api.example.com" },
+      new URL("https://admin.example.com/api/auth/github/callback?state=st&code=code")
+    );
+
+    expect(response.status).toBe(302);
+    expect(response.headers.get("location")).toBe("https://admin.example.com/workers");
+    expect(response.headers.get("set-cookie")).toContain("pw_session=ses_1");
+  });
+
   it("rejects plaintext worker upstreams before forwarding credentials", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);

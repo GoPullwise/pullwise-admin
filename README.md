@@ -33,36 +33,41 @@ For the current `workers.dev` admin URL:
 ```bash
 # .env.production
 VITE_APP_URL=https://pullwise-admin.danuberiverferryman.workers.dev
-VITE_API_BASE_URL=https://api.pull-wise.com
+VITE_API_BASE_URL=/api
 ```
 
-This keeps GitHub OAuth on the existing API callback URL:
+Configure the Worker runtime upstream separately in `wrangler.jsonc` or as a
+Cloudflare Worker variable:
+
+```bash
+PULLWISE_API_ORIGIN=https://api.pull-wise.com
+```
+
+For this proxy mode, configure `pullwise-server` to trust the admin Worker's
+forwarded headers and include the admin origin:
+
+```bash
+PULLWISE_ALLOWED_ORIGINS=https://pull-wise.com,https://pullwise-admin.danuberiverferryman.workers.dev
+PULLWISE_TRUST_PROXY_HEADERS=true
+PULLWISE_COOKIE_SECURE=true
+PULLWISE_COOKIE_SAME_SITE=Lax
+```
+
+Do not set a fixed `PULLWISE_API_BASE_URL` for this admin proxy mode. The
+server should derive the OAuth callback from `X-Forwarded-*` headers:
 
 ```text
-https://api.pull-wise.com/auth/github/callback
+https://pullwise-admin.danuberiverferryman.workers.dev/api/auth/github/callback
 ```
 
-Because `workers.dev` and `pull-wise.com` are different sites, the server must
-allow credentialed cross-site requests:
+If the admin frontend calls `https://api.pull-wise.com` directly instead of the
+same-origin `/api` proxy, browser session cookies become cross-site. In that
+case the server must allow credentialed cross-site requests:
 
 ```bash
 PULLWISE_ALLOWED_ORIGINS=https://pull-wise.com,https://pullwise-admin.danuberiverferryman.workers.dev
 PULLWISE_COOKIE_SAME_SITE=None
 PULLWISE_COOKIE_SECURE=true
-```
-
-The `/api` proxy remains available for deployments that want same-origin API
-proxying:
-
-```bash
-VITE_API_BASE_URL=/api
-```
-
-When using that proxy, configure the Worker runtime origin separately in
-`wrangler.jsonc` or as a Cloudflare Worker variable:
-
-```bash
-PULLWISE_API_ORIGIN=https://api.pull-wise.com
 ```
 
 `PULLWISE_API_ORIGIN` is read by `worker.js` or `functions/api/[[path]].js` at
@@ -83,13 +88,3 @@ allowed origins:
 ```bash
 PULLWISE_ALLOWED_ORIGINS=https://pull-wise.com,https://pullwise-admin.danuberiverferryman.workers.dev
 ```
-
-If the server derives OAuth callback URLs from trusted proxy headers for the
-proxy mode, make sure GitHub OAuth allows the admin callback URL:
-
-```text
-https://pullwise-admin.danuberiverferryman.workers.dev/api/auth/github/callback
-```
-
-If the server is configured with a fixed `PULLWISE_API_BASE_URL`, GitHub only
-needs the callback for that fixed URL.

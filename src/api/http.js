@@ -15,19 +15,20 @@ export const http = axios.create({
   baseURL: env.VITE_API_BASE_URL || "",
   withCredentials: true,
   timeout: 12000,
-  headers: {
-    "Content-Type": "application/json",
-  },
 });
 
 export async function request(path, options = {}) {
   try {
+    const headers = { ...(options.headers || {}) };
+    if (options.body !== undefined && !Object.keys(headers).some((name) => name.toLowerCase() === "content-type")) {
+      headers["Content-Type"] = "application/json";
+    }
     const response = await http.request({
       url: path,
       method: options.method || "GET",
       data: options.body,
       params: options.params,
-      headers: options.headers,
+      headers,
       signal: options.signal,
     });
     return response.data;

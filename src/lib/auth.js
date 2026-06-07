@@ -1,9 +1,22 @@
 import { pullwiseApi } from "../api/pullwise.js";
+import { env } from "../config/env.js";
 
 export const ADMIN_MANAGEMENT_PATH = "/workers";
+const AUTHORIZE_PATH = "/auth/github/authorize";
 
 export function adminManagementRedirectUrl() {
   return new URL(ADMIN_MANAGEMENT_PATH, window.location.href).toString();
+}
+
+export function crossOriginGitHubAuthorizeUrl(redirectTo, apiBaseUrl = env.VITE_API_BASE_URL || "") {
+  if (!apiBaseUrl) return "";
+  const base = new URL(apiBaseUrl, window.location.origin);
+  if (!["http:", "https:"].includes(base.protocol) || base.origin === window.location.origin) return "";
+  const prefix = base.pathname.replace(/\/$/, "");
+  const url = new URL(`${prefix}${AUTHORIZE_PATH}`, base.origin);
+  url.searchParams.set("redirectTo", redirectTo);
+  url.searchParams.set("response", "redirect");
+  return url.toString();
 }
 
 function safeHttpUrl(value, label) {
@@ -36,8 +49,14 @@ function safeGitHubAuthorizeUrl(value) {
 
 export async function startGitHubLogin({ redirectTo, signal } = {}) {
   if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
+  const target = redirectTo || adminManagementRedirectUrl();
+  const directAuthorizeUrl = crossOriginGitHubAuthorizeUrl(target);
+  if (directAuthorizeUrl) {
+    window.location.assign(directAuthorizeUrl);
+    return;
+  }
   const result = await pullwiseApi.auth.getGitHubAuthorizeUrl(
-    { redirectTo: redirectTo || adminManagementRedirectUrl() },
+    { redirectTo: target },
     signal ? { signal } : {}
   );
   if (signal?.aborted) return;

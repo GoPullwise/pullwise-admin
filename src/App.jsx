@@ -26,7 +26,7 @@ function LoginScreen() {
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="brand auth-brand">
-          <div className="brand-mark">PW</div>
+          <img className="brand-mark" src="/favicon.ico" alt="" aria-hidden="true" width="28" height="28" />
           <strong>Pullwise Admin</strong>
         </div>
         <h1>Admin sign in</h1>
@@ -50,7 +50,7 @@ function AccessDenied({ session }) {
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="brand auth-brand">
-          <div className="brand-mark">PW</div>
+          <img className="brand-mark" src="/favicon.ico" alt="" aria-hidden="true" width="28" height="28" />
           <strong>Pullwise Admin</strong>
         </div>
         <h1>Admin access required</h1>
@@ -71,7 +71,7 @@ function LoadingScreen() {
     <div className="auth-wrap">
       <div className="auth-card">
         <div className="brand auth-brand">
-          <div className="brand-mark">PW</div>
+          <img className="brand-mark" src="/favicon.ico" alt="" aria-hidden="true" width="28" height="28" />
           <strong>Pullwise Admin</strong>
         </div>
         <p className="loading-row">

@@ -5,7 +5,7 @@ export function Topbar({ user }) {
   return (
     <header className="topbar">
       <div className="brand" aria-label="Pullwise Admin">
-        <div className="brand-mark">PW</div>
+        <img className="brand-mark" src="/favicon.ico" alt="" aria-hidden="true" width="28" height="28" />
         <div>
           <strong>Pullwise Admin</strong>
           <span>Workers</span>

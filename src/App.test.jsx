@@ -29,9 +29,13 @@ describe("Admin App", () => {
   });
 
   it("shows GitHub login for unauthenticated users", async () => {
-    render(<App />);
+    const { container } = render(<App />);
 
     expect(await screen.findByRole("button", { name: /continue with github/i })).toBeInTheDocument();
+    const brandMark = container.querySelector(".brand-mark");
+    expect(brandMark?.tagName).toBe("IMG");
+    expect(brandMark).toHaveAttribute("src", "/favicon.ico");
+    expect(brandMark).not.toHaveTextContent("PW");
   });
 
   it("starts GitHub login from the login screen", async () => {

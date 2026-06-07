@@ -49,6 +49,57 @@ describe("admin Cloudflare worker proxy", () => {
     expect(response.headers.has("connection")).toBe(false);
   });
 
+  it("replaces client-supplied forwarded headers before proxying", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await proxyApiRequest(
+      new Request("https://admin.pull-wise.com/api/auth/github/authorize", {
+        headers: {
+          forwarded: "proto=http;host=evil.example",
+          "x-forwarded-host": "evil.example",
+          "x-forwarded-prefix": "/bad",
+          "x-forwarded-proto": "http",
+          "x-real-ip": "203.0.113.1",
+        },
+      }),
+      { PULLWISE_API_ORIGIN: "https://api.pull-wise.com" },
+      new URL("https://admin.pull-wise.com/api/auth/github/authorize")
+    );
+
+    const headers = fetchMock.mock.calls[0][1].headers;
+    expect(headers.get("Forwarded")).toBeNull();
+    expect(headers.get("X-Real-IP")).toBeNull();
+    expect(headers.get("X-Forwarded-Proto")).toBe("https");
+    expect(headers.get("X-Forwarded-Host")).toBe("admin.pull-wise.com");
+    expect(headers.get("X-Forwarded-Prefix")).toBe("/api");
+  });
+
+  it("replaces client-supplied forwarded headers in the Pages function proxy", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await pagesApiOnRequest({
+      request: new Request("https://admin.pull-wise.com/api/auth/github/authorize", {
+        headers: {
+          forwarded: "proto=http;host=evil.example",
+          "x-forwarded-host": "evil.example",
+          "x-forwarded-prefix": "/bad",
+          "x-forwarded-proto": "http",
+          "x-real-ip": "203.0.113.1",
+        },
+      }),
+      env: { PULLWISE_API_ORIGIN: "https://api.pull-wise.com" },
+    });
+
+    const headers = fetchMock.mock.calls[0][1].headers;
+    expect(headers.get("Forwarded")).toBeNull();
+    expect(headers.get("X-Real-IP")).toBeNull();
+    expect(headers.get("X-Forwarded-Proto")).toBe("https");
+    expect(headers.get("X-Forwarded-Host")).toBe("admin.pull-wise.com");
+    expect(headers.get("X-Forwarded-Prefix")).toBe("/api");
+  });
+
   it("keeps OAuth callback Set-Cookie headers on proxied responses", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(null, {

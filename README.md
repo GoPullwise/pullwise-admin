@@ -28,40 +28,40 @@ VITE_API_BASE_URL=http://localhost:8080
 
 ## Cloudflare Workers Deployment
 
-For the current custom admin URL with a separate API origin:
+For the current custom admin URL, use same-origin API proxying through the
+admin Worker:
 
 ```bash
 # .env.production
 VITE_APP_URL=https://admin.pull-wise.com
-VITE_API_BASE_URL=https://api.pull-wise.com
+VITE_API_BASE_URL=/api
 ```
 
-For this direct API mode, configure `pullwise-server` for exact credentialed
-CORS and same-site subdomain cookies:
+Configure the Worker runtime upstream separately in `wrangler.jsonc` or as a
+Cloudflare Worker variable:
+
+```bash
+PULLWISE_API_ORIGIN=https://api.pull-wise.com
+```
+
+For this proxy mode, configure `pullwise-server` to trust the admin Worker's
+forwarded headers and include the admin origin:
 
 ```bash
 PULLWISE_ALLOWED_ORIGINS=https://pull-wise.com,https://admin.pull-wise.com
+PULLWISE_TRUST_PROXY_HEADERS=true
 PULLWISE_COOKIE_SECURE=true
-PULLWISE_API_BASE_URL=https://api.pull-wise.com
+PULLWISE_COOKIE_SAME_SITE=Lax
 ```
 
-The GitHub OAuth app callback should stay on the API origin:
+The server should derive the OAuth callback from `X-Forwarded-*` headers:
 
 ```text
-https://api.pull-wise.com/auth/github/callback
-```
-
-If you instead want same-origin API proxying through the admin Worker, set:
-
-```bash
-VITE_API_BASE_URL=/api
-PULLWISE_API_ORIGIN=https://api.pull-wise.com
-PULLWISE_TRUST_PROXY_HEADERS=true
+https://admin.pull-wise.com/api/auth/github/callback
 ```
 
 `PULLWISE_API_ORIGIN` is read by `worker.js` or `functions/api/[[path]].js` at
-runtime. It is not browser-exposed Vite config, and is only needed for the
-same-origin `/api` proxy mode.
+runtime. It is not browser-exposed Vite config.
 
 ## Server Configuration
 

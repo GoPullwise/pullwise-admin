@@ -24,8 +24,7 @@ export async function proxyApiRequest(request, env, incomingUrl = new URL(reques
   }
 
   const targetUrl = new URL(backendPath(incomingUrl.pathname) + incomingUrl.search, upstreamOrigin);
-  const headers = withoutHopByHopHeaders(request.headers);
-  headers.delete("host");
+  const headers = withoutClientProxyHeaders(request.headers);
   headers.set("X-Forwarded-Proto", incomingUrl.protocol.replace(":", ""));
   headers.set("X-Forwarded-Host", incomingUrl.host);
   headers.set("X-Forwarded-Prefix", API_PREFIX);
@@ -83,6 +82,20 @@ const HOP_BY_HOP_HEADERS = new Set([
   "upgrade",
 ]);
 
+const CLIENT_PROXY_HEADERS = new Set([
+  "cf-connecting-ip",
+  "cf-connecting-ipv6",
+  "client-ip",
+  "fastly-client-ip",
+  "forwarded",
+  "real-ip",
+  "true-client-ip",
+  "x-client-ip",
+  "x-cluster-client-ip",
+  "x-original-forwarded-for",
+  "x-real-ip",
+]);
+
 function withoutHopByHopHeaders(sourceHeaders) {
   const headers = new Headers(sourceHeaders);
   const connectionTokens = headers
@@ -96,6 +109,18 @@ function withoutHopByHopHeaders(sourceHeaders) {
   }
   for (const name of connectionTokens || []) {
     headers.delete(name);
+  }
+  return headers;
+}
+
+function withoutClientProxyHeaders(sourceHeaders) {
+  const headers = withoutHopByHopHeaders(sourceHeaders);
+  headers.delete("host");
+  for (const name of [...headers.keys()]) {
+    const lowerName = name.toLowerCase();
+    if (lowerName.startsWith("x-forwarded-") || CLIENT_PROXY_HEADERS.has(lowerName)) {
+      headers.delete(name);
+    }
   }
   return headers;
 }

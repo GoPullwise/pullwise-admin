@@ -134,6 +134,10 @@ describe("WorkersScreen", () => {
     await user.click(screen.getByRole("button", { name: /save/i }));
     await user.click(screen.getByRole("button", { name: /health check/i }));
     await user.click(screen.getByRole("button", { name: /rotate token/i }));
+    const rotatedToken = await screen.findByText("pwk_rotated");
+    const workerRow = rotatedToken.closest(".worker-row");
+    expect(workerRow).toBeTruthy();
+    expect(within(workerRow).getByText("US-East Worker")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^stop service$/i }));
     await user.click(screen.getByRole("button", { name: /confirm stop/i }));
     await user.click(screen.getByRole("button", { name: /^uninstall service$/i }));
@@ -145,11 +149,23 @@ describe("WorkersScreen", () => {
     expect(pullwiseApi.system.rotateWorkerToken).toHaveBeenCalledWith("wk_1");
     expect(pullwiseApi.system.commandWorker).toHaveBeenCalledWith("wk_1", "stop");
     expect(pullwiseApi.system.commandWorker).toHaveBeenCalledWith("wk_1", "uninstall");
-    const rotatedToken = await screen.findByText("pwk_rotated");
-    const workerRow = rotatedToken.closest(".worker-row");
-    expect(workerRow).toBeTruthy();
-    expect(within(workerRow).getByText("US-East Worker")).toBeInTheDocument();
     expect(screen.queryByText(/install-worker\.sh/)).not.toBeInTheDocument();
+  });
+
+  it("clears a rotated worker token after refreshing workers", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.rotateWorkerToken.mockResolvedValue({ worker_token: "pwk_rotated" });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await user.click(screen.getByRole("button", { name: /rotate token/i }));
+
+    expect(await screen.findByText("pwk_rotated")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+
+    await waitFor(() => expect(screen.queryByText("pwk_rotated")).not.toBeInTheDocument());
   });
 
   it("shows recent task activity for the expanded worker", async () => {

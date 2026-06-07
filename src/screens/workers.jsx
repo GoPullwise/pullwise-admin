@@ -541,7 +541,8 @@ export function WorkersScreen() {
   const [actionMessage, setActionMessage] = useState("");
   const [rotatedTokens, setRotatedTokens] = useState({});
 
-  const loadWorkers = useCallback(async () => {
+  const loadWorkers = useCallback(async (options = {}) => {
+    const preserveRotatedTokens = options?.preserveRotatedTokens === true;
     try {
       const payload = await pullwiseApi.system.listWorkers();
       setWorkers(itemsFrom(payload, "workers", "items"));
@@ -550,6 +551,9 @@ export function WorkersScreen() {
       setWorkers([]);
       setError(err?.message || "Unable to load workers.");
     } finally {
+      if (!preserveRotatedTokens) {
+        setRotatedTokens({});
+      }
       setLoading(false);
     }
   }, []);
@@ -612,7 +616,7 @@ export function WorkersScreen() {
         setActionMessage("Worker removed from registry.");
         return result;
       }
-      await loadWorkers();
+      await loadWorkers({ preserveRotatedTokens: action === "rotate" });
       return result;
     } catch (err) {
       setActionMessage(err?.message || "Action failed.");

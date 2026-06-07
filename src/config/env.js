@@ -1,10 +1,26 @@
 import { z } from "zod";
 
+function isLoopbackHostname(hostname) {
+  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  if (normalized === "localhost" || normalized === "::1") return true;
+  const parts = normalized.split(".");
+  return (
+    parts.length === 4 &&
+    parts[0] === "127" &&
+    parts.every((part) => {
+      if (!/^\d+$/.test(part)) return false;
+      const value = Number(part);
+      return value >= 0 && value <= 255;
+    })
+  );
+}
+
 const absoluteUrlOrRootRelativePath = z.string().refine((value) => {
   if (value.startsWith("/") && !value.startsWith("//")) return true;
   try {
     const parsed = new URL(value);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
+    if (parsed.protocol === "https:") return true;
+    return parsed.protocol === "http:" && isLoopbackHostname(parsed.hostname);
   } catch {
     return false;
   }

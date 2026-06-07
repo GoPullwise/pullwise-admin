@@ -26,6 +26,10 @@ VITE_APP_URL=http://localhost:5174
 VITE_API_BASE_URL=http://localhost:8080
 ```
 
+Plaintext `http://` API origins are accepted only for localhost or loopback
+development addresses. Use `/api` or an `https://` API origin for deployed
+admin builds.
+
 ## Cloudflare Workers Deployment
 
 For the current custom admin URL, use same-origin API proxying through the

@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
 import {
   adminManagementRedirectUrl,
-  crossOriginGitHubAuthorizeUrl,
   signOut,
   startGitHubLogin,
 } from "./auth.js";
@@ -25,21 +24,6 @@ describe("admin auth helpers", () => {
     window.history.replaceState({}, "", "/login?next=dashboard");
 
     expect(adminManagementRedirectUrl()).toBe("http://localhost:3000/workers");
-  });
-
-  it("builds a redirecting authorize URL for a cross-origin API", () => {
-    expect(
-      crossOriginGitHubAuthorizeUrl(
-        "https://admin.example.com/workers",
-        "https://api.pull-wise.com"
-      )
-    ).toBe(
-      "https://api.pull-wise.com/auth/github/authorize?redirectTo=https%3A%2F%2Fadmin.example.com%2Fworkers&response=redirect"
-    );
-  });
-
-  it("keeps same-origin API proxy login on the JSON authorize flow", () => {
-    expect(crossOriginGitHubAuthorizeUrl("http://localhost:3000/workers", "/api")).toBe("");
   });
 
   it("starts GitHub login from the login screen with the management redirect URL", async () => {

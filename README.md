@@ -51,10 +51,6 @@ The GitHub OAuth app callback should stay on the API origin:
 https://api.pull-wise.com/auth/github/callback
 ```
 
-In direct API mode, the admin login button starts OAuth with a browser
-navigation to `/auth/github/authorize?response=redirect`, so deploy a
-`pullwise-server` version that supports that redirect response mode.
-
 If you instead want same-origin API proxying through the admin Worker, set:
 
 ```bash

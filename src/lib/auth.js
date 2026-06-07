@@ -1,9 +1,9 @@
 import { pullwiseApi } from "../api/pullwise.js";
 
-function currentRedirectUrl() {
-  const url = new URL(window.location.href);
-  url.hash = "";
-  return url.toString();
+export const ADMIN_MANAGEMENT_PATH = "/workers";
+
+export function adminManagementRedirectUrl() {
+  return new URL(ADMIN_MANAGEMENT_PATH, window.location.href).toString();
 }
 
 function safeHttpUrl(value, label) {
@@ -37,7 +37,7 @@ function safeGitHubAuthorizeUrl(value) {
 export async function startGitHubLogin({ redirectTo, signal } = {}) {
   if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
   const result = await pullwiseApi.auth.getGitHubAuthorizeUrl(
-    { redirectTo: redirectTo || currentRedirectUrl() },
+    { redirectTo: redirectTo || adminManagementRedirectUrl() },
     signal ? { signal } : {}
   );
   if (signal?.aborted) return;

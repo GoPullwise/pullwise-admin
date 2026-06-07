@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
 import {
   adminManagementRedirectUrl,
+  githubAuthorizeRedirectUrl,
   signOut,
   startGitHubLogin,
 } from "./auth.js";
@@ -26,55 +27,35 @@ describe("admin auth helpers", () => {
     expect(adminManagementRedirectUrl()).toBe("http://localhost:3000/workers");
   });
 
+  it("builds the same-origin GitHub authorize redirect URL", () => {
+    expect(githubAuthorizeRedirectUrl("https://admin.pull-wise.com/workers", "/api")).toBe(
+      "http://localhost:3000/api/auth/github/authorize?redirectTo=https%3A%2F%2Fadmin.pull-wise.com%2Fworkers&response=redirect"
+    );
+  });
+
   it("starts GitHub login from the login screen with the management redirect URL", async () => {
     const assign = vi.fn();
     window.history.replaceState({}, "", "/login");
     vi.stubGlobal("location", { ...window.location, assign });
-    pullwiseApi.auth.getGitHubAuthorizeUrl.mockResolvedValue({
-      url: "https://github.com/login/oauth/authorize?client_id=pw",
-    });
 
-    await startGitHubLogin();
+    await startGitHubLogin({ apiBaseUrl: "/api" });
 
-    expect(pullwiseApi.auth.getGitHubAuthorizeUrl).toHaveBeenCalledWith(
-      { redirectTo: "http://localhost:3000/workers" },
-      {}
+    expect(pullwiseApi.auth.getGitHubAuthorizeUrl).not.toHaveBeenCalled();
+    expect(assign).toHaveBeenCalledWith(
+      "http://localhost:3000/api/auth/github/authorize?redirectTo=http%3A%2F%2Flocalhost%3A3000%2Fworkers&response=redirect"
     );
-    expect(assign).toHaveBeenCalledWith("https://github.com/login/oauth/authorize?client_id=pw");
   });
 
   it("starts GitHub login with an explicit redirect URL", async () => {
     const assign = vi.fn();
     vi.stubGlobal("location", { ...window.location, assign });
-    pullwiseApi.auth.getGitHubAuthorizeUrl.mockResolvedValue({
-      url: "https://github.com/login/oauth/authorize?client_id=pw",
-    });
 
-    await startGitHubLogin({ redirectTo: "https://admin.example.com/custom" });
+    await startGitHubLogin({ redirectTo: "https://admin.example.com/custom", apiBaseUrl: "/api" });
 
-    expect(pullwiseApi.auth.getGitHubAuthorizeUrl).toHaveBeenCalledWith(
-      { redirectTo: "https://admin.example.com/custom" },
-      {}
+    expect(pullwiseApi.auth.getGitHubAuthorizeUrl).not.toHaveBeenCalled();
+    expect(assign).toHaveBeenCalledWith(
+      "http://localhost:3000/api/auth/github/authorize?redirectTo=https%3A%2F%2Fadmin.example.com%2Fcustom&response=redirect"
     );
-    expect(assign).toHaveBeenCalledWith("https://github.com/login/oauth/authorize?client_id=pw");
-  });
-
-  it("throws when the backend does not return an authorize URL", async () => {
-    pullwiseApi.auth.getGitHubAuthorizeUrl.mockResolvedValue({});
-
-    await expect(startGitHubLogin()).rejects.toThrow(/authorize url is missing/i);
-  });
-
-  it("rejects non-GitHub authorize URLs without navigating", async () => {
-    const assign = vi.fn();
-    vi.stubGlobal("location", { ...window.location, assign });
-    pullwiseApi.auth.getGitHubAuthorizeUrl.mockResolvedValue({
-      url: "https://evil.example/phish",
-    });
-
-    await expect(startGitHubLogin()).rejects.toThrow(/trusted GitHub authorize URL/i);
-
-    expect(assign).not.toHaveBeenCalled();
   });
 
   it("signs out and returns to the login screen", async () => {

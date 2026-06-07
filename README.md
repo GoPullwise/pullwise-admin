@@ -60,6 +60,10 @@ The server should derive the OAuth callback from `X-Forwarded-*` headers:
 https://admin.pull-wise.com/api/auth/github/callback
 ```
 
+The login button starts OAuth with a browser navigation to the same-origin
+`/api/auth/github/authorize?response=redirect` endpoint. This avoids XHR-only
+Cloudflare challenge failures on the OAuth start request.
+
 `PULLWISE_API_ORIGIN` is read by `worker.js` or `functions/api/[[path]].js` at
 runtime. It is not browser-exposed Vite config.
 

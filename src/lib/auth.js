@@ -1,51 +1,26 @@
 import { pullwiseApi } from "../api/pullwise.js";
+import { env } from "../config/env.js";
 
 export const ADMIN_MANAGEMENT_PATH = "/workers";
+const GITHUB_AUTHORIZE_PATH = "/auth/github/authorize";
 
 export function adminManagementRedirectUrl() {
   return new URL(ADMIN_MANAGEMENT_PATH, window.location.href).toString();
 }
 
-function safeHttpUrl(value, label) {
-  if (typeof value !== "string") throw new Error(`A safe ${label} is required.`);
-  const url = value.trim();
-  if ([...url].some((char) => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) {
-    throw new Error(`A safe ${label} is required.`);
-  }
-  try {
-    const parsed = new URL(url);
-    if (["http:", "https:"].includes(parsed.protocol) && parsed.hostname) return url;
-  } catch {
-    // handled below
-  }
-  throw new Error(`A safe ${label} is required.`);
+export function githubAuthorizeRedirectUrl(redirectTo, apiBaseUrl = env.VITE_API_BASE_URL || "") {
+  const base = new URL(apiBaseUrl || "/", window.location.origin);
+  const prefix = base.pathname.replace(/\/$/, "");
+  const url = new URL(`${prefix}${GITHUB_AUTHORIZE_PATH}`, base.origin);
+  url.searchParams.set("redirectTo", redirectTo);
+  url.searchParams.set("response", "redirect");
+  return url.toString();
 }
 
-function safeGitHubAuthorizeUrl(value) {
-  const url = safeHttpUrl(value, "GitHub authorize URL");
-  const parsed = new URL(url);
-  if (
-    parsed.protocol === "https:" &&
-    parsed.hostname.toLowerCase() === "github.com" &&
-    parsed.pathname === "/login/oauth/authorize"
-  ) {
-    return url;
-  }
-  throw new Error("A trusted GitHub authorize URL is required.");
-}
-
-export async function startGitHubLogin({ redirectTo, signal } = {}) {
+export async function startGitHubLogin({ redirectTo, signal, apiBaseUrl } = {}) {
   if (signal?.aborted) throw signal.reason ?? new DOMException("Aborted", "AbortError");
   const target = redirectTo || adminManagementRedirectUrl();
-  const result = await pullwiseApi.auth.getGitHubAuthorizeUrl(
-    { redirectTo: target },
-    signal ? { signal } : {}
-  );
-  if (signal?.aborted) return;
-  if (!result?.url) {
-    throw new Error("GitHub authorize URL is missing from the auth response.");
-  }
-  window.location.assign(safeGitHubAuthorizeUrl(result.url));
+  window.location.assign(githubAuthorizeRedirectUrl(target, apiBaseUrl));
 }
 
 export async function signOut() {

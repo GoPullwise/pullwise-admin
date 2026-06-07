@@ -154,7 +154,10 @@ describe("WorkersScreen", () => {
 
   it("shows recent task activity for the expanded worker", async () => {
     const user = userEvent.setup();
-    const nowSeconds = Math.floor(Date.now() / 1000);
+    const today = new Date();
+    const todayNoonSeconds = Math.floor(
+      new Date(today.getFullYear(), today.getMonth(), today.getDate(), 12, 0, 0).getTime() / 1000
+    );
     pullwiseApi.system.getWorker.mockResolvedValue({
       worker: workers[0],
       auditEvents: [],
@@ -167,10 +170,10 @@ describe("WorkersScreen", () => {
           branch: "main",
           status: "done",
           attempt: 1,
-          claimed_at: nowSeconds - 3600,
-          started_at: nowSeconds - 3500,
-          completed_at: nowSeconds - 3200,
-          last_activity_at: nowSeconds - 3200,
+          claimed_at: todayNoonSeconds - 3600,
+          started_at: todayNoonSeconds - 3500,
+          completed_at: todayNoonSeconds - 3200,
+          last_activity_at: todayNoonSeconds - 3200,
         },
       ],
     });

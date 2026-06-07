@@ -18,8 +18,12 @@ export async function proxyApiRequest(request, env, incomingUrl = new URL(reques
   if (!origin) {
     return json({ message: "PULLWISE_API_ORIGIN is not configured." }, 500);
   }
+  const upstreamOrigin = apiOrigin(origin);
+  if (!upstreamOrigin) {
+    return json({ message: "PULLWISE_API_ORIGIN must use HTTPS." }, 500);
+  }
 
-  const targetUrl = new URL(backendPath(incomingUrl.pathname) + incomingUrl.search, origin);
+  const targetUrl = new URL(backendPath(incomingUrl.pathname) + incomingUrl.search, upstreamOrigin);
   const headers = withoutHopByHopHeaders(request.headers);
   headers.delete("host");
   headers.set("X-Forwarded-Proto", incomingUrl.protocol.replace(":", ""));
@@ -53,6 +57,15 @@ export function backendPath(pathname) {
   const stripped = pathname.replace(/^\/api/, "");
   if (!stripped || stripped === "/") return "/";
   return `/${stripped.replace(/^\/+/, "")}`;
+}
+
+function apiOrigin(origin) {
+  try {
+    const parsed = new URL(origin);
+    return parsed.protocol === "https:" ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 function hasBody(method) {

@@ -39,10 +39,33 @@ describe("admin auth helpers", () => {
     await expect(startGitHubLogin()).rejects.toThrow(/authorize url is missing/i);
   });
 
+  it("rejects non-GitHub authorize URLs without navigating", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    pullwiseApi.auth.getGitHubAuthorizeUrl.mockResolvedValue({
+      url: "https://evil.example/phish",
+    });
+
+    await expect(startGitHubLogin()).rejects.toThrow(/trusted GitHub authorize URL/i);
+
+    expect(assign).not.toHaveBeenCalled();
+  });
+
   it("signs out and returns to the login screen", async () => {
     const assign = vi.fn();
     vi.stubGlobal("location", { ...window.location, assign });
     pullwiseApi.auth.signOut.mockResolvedValue({});
+
+    await signOut();
+
+    expect(pullwiseApi.auth.signOut).toHaveBeenCalledTimes(1);
+    expect(assign).toHaveBeenCalledWith("/login");
+  });
+
+  it("returns to the login screen even when sign-out API fails", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    pullwiseApi.auth.signOut.mockRejectedValue(new Error("offline"));
 
     await signOut();
 

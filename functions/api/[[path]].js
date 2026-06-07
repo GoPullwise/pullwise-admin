@@ -3,9 +3,13 @@ export async function onRequest(context) {
   if (!origin) {
     return json({ message: "PULLWISE_API_ORIGIN is not configured." }, 500);
   }
+  const upstreamOrigin = apiOrigin(origin);
+  if (!upstreamOrigin) {
+    return json({ message: "PULLWISE_API_ORIGIN must use HTTPS." }, 500);
+  }
 
   const incomingUrl = new URL(context.request.url);
-  const targetUrl = new URL(backendPath(incomingUrl) + incomingUrl.search, origin);
+  const targetUrl = new URL(backendPath(incomingUrl) + incomingUrl.search, upstreamOrigin);
   const headers = withoutHopByHopHeaders(context.request.headers);
   headers.delete("host");
   headers.set("X-Forwarded-Proto", incomingUrl.protocol.replace(":", ""));
@@ -32,6 +36,15 @@ function backendPath(incomingUrl) {
   const stripped = incomingUrl.pathname.replace(/^\/api/, "");
   if (!stripped || stripped === "/") return "/";
   return `/${stripped.replace(/^\/+/, "")}`;
+}
+
+function apiOrigin(origin) {
+  try {
+    const parsed = new URL(origin);
+    return parsed.protocol === "https:" ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 function hasBody(method) {

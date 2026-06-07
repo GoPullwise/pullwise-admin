@@ -28,21 +28,20 @@ VITE_API_BASE_URL=http://localhost:8080
 
 ## Cloudflare Workers Deployment
 
-For the current `workers.dev` admin URL with a separate API origin:
+For the current custom admin URL with a separate API origin:
 
 ```bash
 # .env.production
-VITE_APP_URL=https://pullwise-admin.danuberiverferryman.workers.dev
+VITE_APP_URL=https://admin.pull-wise.com
 VITE_API_BASE_URL=https://api.pull-wise.com
 ```
 
 For this direct API mode, configure `pullwise-server` for exact credentialed
-CORS and cross-site cookies:
+CORS and same-site subdomain cookies:
 
 ```bash
-PULLWISE_ALLOWED_ORIGINS=https://pull-wise.com,https://pullwise-admin.danuberiverferryman.workers.dev
+PULLWISE_ALLOWED_ORIGINS=https://pull-wise.com,https://admin.pull-wise.com
 PULLWISE_COOKIE_SECURE=true
-PULLWISE_COOKIE_SAME_SITE=None
 PULLWISE_API_BASE_URL=https://api.pull-wise.com
 ```
 
@@ -81,5 +80,5 @@ When deploying this admin domain, add the exact admin origin to the server's
 allowed origins:
 
 ```bash
-PULLWISE_ALLOWED_ORIGINS=https://pull-wise.com,https://pullwise-admin.danuberiverferryman.workers.dev
+PULLWISE_ALLOWED_ORIGINS=https://pull-wise.com,https://admin.pull-wise.com
 ```

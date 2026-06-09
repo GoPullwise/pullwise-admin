@@ -321,7 +321,7 @@ function CreateWorkerModal({ onClose, onCreated }) {
   );
 }
 
-function WorkerDetail({ worker }) {
+function WorkerDetail({ worker, onWorkerChange }) {
   const [detailWorker, setDetailWorker] = useState(null);
   const [auditEvents, setAuditEvents] = useState([]);
   const [taskActivity, setTaskActivity] = useState([]);
@@ -332,7 +332,9 @@ function WorkerDetail({ worker }) {
       .getWorker(worker.worker_id)
       .then((payload) => {
         if (!disposed) {
-          setDetailWorker(payload?.worker || null);
+          const nextWorker = payload?.worker || null;
+          setDetailWorker(nextWorker);
+          onWorkerChange?.(nextWorker);
           setAuditEvents(Array.isArray(payload?.auditEvents) ? payload.auditEvents : []);
           setTaskActivity(itemsFrom(payload, "taskActivity", "activityEvents", "activity"));
         }
@@ -340,6 +342,7 @@ function WorkerDetail({ worker }) {
       .catch(() => {
         if (!disposed) {
           setDetailWorker(null);
+          onWorkerChange?.(null);
           setAuditEvents([]);
           setTaskActivity([]);
         }
@@ -347,7 +350,7 @@ function WorkerDetail({ worker }) {
     return () => {
       disposed = true;
     };
-  }, [worker.worker_id]);
+  }, [onWorkerChange, worker.worker_id]);
 
   const displayedWorker = detailWorker ? { ...worker, ...detailWorker } : worker;
 
@@ -397,6 +400,7 @@ function WorkerDetail({ worker }) {
 
 function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const [expanded, setExpanded] = useState(false);
+  const [detailWorker, setDetailWorker] = useState(null);
   const [editing, setEditing] = useState(false);
   const [editRegion, setEditRegion] = useState(worker.region || "");
   const [editVersion, setEditVersion] = useState(worker.version || "");
@@ -404,21 +408,26 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const [confirmStop, setConfirmStop] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmRemove, setConfirmRemove] = useState(false);
+  const displayedWorker = detailWorker ? { ...worker, ...detailWorker } : worker;
+
+  useEffect(() => {
+    setDetailWorker(null);
+  }, [worker.worker_id]);
 
   useEffect(() => {
     if (!editing) {
-      setEditRegion(worker.region || "");
-      setEditVersion(worker.version || "");
-      setEditCapacity(String(worker.max_concurrent_jobs || 1));
+      setEditRegion(displayedWorker.region || "");
+      setEditVersion(displayedWorker.version || "");
+      setEditCapacity(String(displayedWorker.max_concurrent_jobs || 1));
     }
-  }, [editing, worker.max_concurrent_jobs, worker.region, worker.version]);
+  }, [displayedWorker.max_concurrent_jobs, displayedWorker.region, displayedWorker.version, editing]);
 
-  const workerId = worker.worker_id;
-  const isDisabled = worker.enabled === false;
+  const workerId = displayedWorker.worker_id;
+  const isDisabled = displayedWorker.enabled === false;
   const busy = Boolean(pendingAction);
-  const running = worker.running_jobs ?? 0;
-  const capacity = worker.max_concurrent_jobs ?? 1;
-  const hasActiveCommand = activeCommand(worker.latest_command);
+  const running = displayedWorker.running_jobs ?? 0;
+  const capacity = displayedWorker.max_concurrent_jobs ?? 1;
+  const hasActiveCommand = activeCommand(displayedWorker.latest_command);
 
   const save = () => {
     onAction("save", workerId, {
@@ -432,11 +441,11 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   return (
     <article className={"worker-row" + (isDisabled ? " is-disabled" : "")}>
       <button className="worker-row-main" type="button" onClick={() => setExpanded((open) => !open)}>
-        <span className={`status-dot status-${worker.status || "unknown"}`} />
+        <span className={`status-dot status-${displayedWorker.status || "unknown"}`} />
         <span className="worker-title">
-          <strong>{textValue(worker.name, worker.worker_id)}</strong>
+          <strong>{textValue(displayedWorker.name, displayedWorker.worker_id)}</strong>
           <small>
-            {statusLabel(worker.status)} · {running}/{capacity} jobs · {worker.region || "No region"}
+            {statusLabel(displayedWorker.status)} · {running}/{capacity} jobs · {displayedWorker.region || "No region"}
           </small>
         </span>
         <I.ChevD size={16} className={expanded ? "rotate" : ""} />
@@ -537,7 +546,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
               </label>
             </div>
           </div>
-          <WorkerDetail worker={worker} />
+          <WorkerDetail worker={displayedWorker} onWorkerChange={setDetailWorker} />
         </div>
       )}
     </article>

@@ -266,6 +266,28 @@ describe("WorkersScreen", () => {
     expect(pullwiseApi.system.deleteWorker).not.toHaveBeenCalled();
   });
 
+  it("disables registry removal when the detail endpoint reports an active command", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.listWorkers.mockResolvedValue({
+      workers: [{ ...workers[0], latest_command: undefined }],
+    });
+    pullwiseApi.system.getWorker.mockResolvedValue({
+      worker: {
+        ...workers[0],
+        latest_command: { command: "uninstall", status: "pending" },
+      },
+      auditEvents: [],
+      taskActivity: [],
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /^remove worker$/i })).toBeDisabled());
+    expect(pullwiseApi.system.deleteWorker).not.toHaveBeenCalled();
+  });
+
   it("removes a worker from the registry", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });

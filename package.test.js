@@ -16,8 +16,8 @@ describe("admin deployment tooling", () => {
     expect(packageJson.scripts["deploy:workers"]).toBe("npm run build && wrangler deploy");
   });
 
-  it("does not default local Worker preview configuration to the production API", () => {
-    expect(wrangler.vars?.PULLWISE_API_ORIGIN).not.toBe("https://api.pull-wise.com");
+  it("configures the deployed Worker proxy upstream while local preview overrides it", () => {
+    expect(wrangler.vars?.PULLWISE_API_ORIGIN).toBe("https://api.pull-wise.com");
     expect(packageJson.scripts["preview:workers"]).not.toContain("https://api.pull-wise.com");
   });
 

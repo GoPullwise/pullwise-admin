@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 const packageJson = JSON.parse(readFileSync(join(process.cwd(), "package.json"), "utf-8"));
 const packageLock = JSON.parse(readFileSync(join(process.cwd(), "package-lock.json"), "utf-8"));
+const wrangler = JSON.parse(readFileSync(join(process.cwd(), "wrangler.jsonc"), "utf-8"));
 
 describe("admin deployment tooling", () => {
   it("pins wrangler in the project dependency graph and uses the local binary", () => {
@@ -12,5 +13,15 @@ describe("admin deployment tooling", () => {
     expect(packageLock.packages["node_modules/wrangler"]).toBeTruthy();
     expect(packageJson.scripts["preview:workers"]).toBe("npm run build && wrangler dev");
     expect(packageJson.scripts["deploy:workers"]).toBe("npm run build && wrangler deploy");
+  });
+
+  it("binds Workers static assets for the admin SPA", () => {
+    expect(wrangler.assets).toEqual(
+      expect.objectContaining({
+        directory: "./dist",
+        binding: "ASSETS",
+        not_found_handling: "single-page-application",
+      })
+    );
   });
 });

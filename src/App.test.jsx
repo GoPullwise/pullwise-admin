@@ -12,6 +12,7 @@ vi.mock("./api/pullwise.js", () => ({
     },
     system: {
       listWorkers: vi.fn(),
+      listUsers: vi.fn(),
     },
   },
 }));
@@ -26,6 +27,8 @@ describe("Admin App", () => {
     vi.clearAllMocks();
     pullwiseApi.auth.getSession.mockResolvedValue({ authenticated: false });
     pullwiseApi.system.listWorkers.mockResolvedValue({ workers: [] });
+    pullwiseApi.system.listUsers.mockResolvedValue({ users: [] });
+    window.history.pushState({}, "", "/workers");
   });
 
   it("shows GitHub login for unauthenticated users", async () => {
@@ -84,5 +87,22 @@ describe("Admin App", () => {
 
     expect(await screen.findByText("Worker Registry")).toBeInTheDocument();
     expect(await screen.findByText("Admin Worker")).toBeInTheDocument();
+  });
+
+  it("renders user management for authenticated admins on the users route", async () => {
+    window.history.pushState({}, "", "/users");
+    pullwiseApi.auth.getSession.mockResolvedValueOnce({
+      authenticated: true,
+      admin: true,
+      user: { email: "admin@example.com" },
+    });
+    pullwiseApi.system.listUsers.mockResolvedValueOnce({
+      users: [{ id: "usr_1", name: "Authorized User", email: "user@example.com", scanCount: 2 }],
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("User Management")).toBeInTheDocument();
+    expect(await screen.findByText("Authorized User")).toBeInTheDocument();
   });
 });

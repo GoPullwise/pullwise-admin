@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { pullwiseApi } from "./api/pullwise.js";
 import { I } from "./icons.jsx";
 import { startGitHubLogin, signOut } from "./lib/auth.js";
+import { UsersScreen } from "./screens/users.jsx";
 import { WorkersScreen } from "./screens/workers.jsx";
 import { Topbar } from "./shell.jsx";
 import "./app.css";
@@ -105,6 +106,7 @@ function SessionErrorScreen({ message, onRetry }) {
 export function App() {
   const [auth, setAuth] = useState({ status: "checking", session: null, error: "" });
   const abortRef = useRef(null);
+  const screen = window.location.pathname.replace(/\/+$/, "") === "/users" ? "users" : "workers";
 
   const checkSession = useCallback(async () => {
     if (abortRef.current) abortRef.current.abort();
@@ -138,8 +140,8 @@ export function App() {
 
   return (
     <div className="app">
-      <Topbar user={session.user} />
-      <WorkersScreen />
+      <Topbar user={session.user} screen={screen} />
+      {screen === "users" ? <UsersScreen /> : <WorkersScreen />}
     </div>
   );
 }

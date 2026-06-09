@@ -47,6 +47,29 @@
   gap: 10px;
 }
 
+.topbar-nav {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 32px;
+  padding: 0 10px;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.nav-link:hover,
+.nav-link.active {
+  background: var(--panel);
+  color: var(--text);
+}
+
 .main {
   width: min(1180px, calc(100vw - 32px));
   margin: 0 auto;
@@ -161,6 +184,87 @@
 .worker-list {
   display: grid;
   gap: 8px;
+}
+
+.user-list {
+  display: grid;
+  gap: 8px;
+}
+
+.user-row {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(220px, auto) auto;
+  align-items: center;
+  gap: 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  padding: 12px 14px;
+}
+
+.user-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 10px;
+}
+
+.user-avatar {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: var(--soft);
+}
+
+.user-avatar.fallback {
+  display: inline-grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.user-title {
+  min-width: 0;
+}
+
+.user-title strong,
+.user-title small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.user-title small,
+.user-meta {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.user-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px 12px;
+}
+
+.user-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  border: 1px solid var(--border);
+  background: var(--soft);
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .worker-row {
@@ -464,7 +568,17 @@
   }
 
   .topbar-actions,
+  .topbar-nav,
   .page-actions {
+    justify-content: flex-start;
+  }
+
+  .user-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .user-meta,
+  .user-actions {
     justify-content: flex-start;
   }
 

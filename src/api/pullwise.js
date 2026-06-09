@@ -40,5 +40,8 @@ export const pullwiseApi = {
       request(`/admin/workers/${pathSegment(workerId)}/test`, { method: "POST" }),
     deleteWorker: (workerId) =>
       request(`/admin/workers/${pathSegment(workerId)}`, { method: "DELETE" }),
+    listUsers: () => request("/admin/users"),
+    deleteUser: (userId) =>
+      request(`/admin/users/${pathSegment(userId)}`, { method: "DELETE" }),
   },
 };

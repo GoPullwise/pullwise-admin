@@ -15,6 +15,7 @@ import {
   Shield,
   Terminal,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 
@@ -35,5 +36,6 @@ export const I = {
   Shield,
   Terminal,
   Trash: Trash2,
+  Users,
   X,
 };

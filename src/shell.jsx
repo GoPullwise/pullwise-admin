@@ -1,16 +1,28 @@
 import { I } from "./icons.jsx";
 import { signOut } from "./lib/auth.js";
 
-export function Topbar({ user }) {
+function navClass(active) {
+  return "nav-link" + (active ? " active" : "");
+}
+
+export function Topbar({ user, screen }) {
   return (
     <header className="topbar">
       <div className="brand" aria-label="Pullwise Admin">
         <img className="brand-mark" src="/favicon.ico" alt="" aria-hidden="true" width="28" height="28" />
         <div>
           <strong>Pullwise Admin</strong>
-          <span>Workers</span>
+          <span>{screen === "users" ? "Users" : "Workers"}</span>
         </div>
       </div>
+      <nav className="topbar-nav" aria-label="Admin navigation">
+        <a className={navClass(screen === "workers")} href="/workers">
+          <I.Server size={14} /> Workers
+        </a>
+        <a className={navClass(screen === "users")} href="/users">
+          <I.Users size={14} /> Users
+        </a>
+      </nav>
       <div className="topbar-actions">
         {user?.email && <span className="muted">{user.email}</span>}
         <button className="btn ghost sm" type="button" onClick={signOut}>

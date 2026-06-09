@@ -30,4 +30,9 @@ describe("admin deployment tooling", () => {
       })
     );
   });
+
+  it("routes API requests through the Worker before the SPA assets fallback", () => {
+    expect(Array.isArray(wrangler.assets?.run_worker_first)).toBe(true);
+    expect(wrangler.assets?.run_worker_first).toContain("/api/*");
+  });
 });

@@ -20,7 +20,7 @@ export async function proxyApiRequest(request, env, incomingUrl = new URL(reques
   }
   const upstreamOrigin = apiOrigin(origin);
   if (!upstreamOrigin) {
-    return json({ message: "PULLWISE_API_ORIGIN must use HTTPS." }, 500);
+    return json({ message: "PULLWISE_API_ORIGIN must use HTTPS or loopback HTTP." }, 500);
   }
 
   const targetUrl = new URL(backendPath(incomingUrl.pathname) + incomingUrl.search, upstreamOrigin);
@@ -40,7 +40,12 @@ export async function proxyApiRequest(request, env, incomingUrl = new URL(reques
     init.duplex = "half";
   }
 
-  const response = await fetch(targetUrl, init);
+  let response;
+  try {
+    response = await fetch(targetUrl, init);
+  } catch {
+    return json({ message: "Unable to reach Pullwise API upstream." }, 502);
+  }
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -61,10 +66,16 @@ export function backendPath(pathname) {
 function apiOrigin(origin) {
   try {
     const parsed = new URL(origin);
-    return parsed.protocol === "https:" ? parsed : null;
+    if (parsed.protocol === "https:") return parsed;
+    if (parsed.protocol === "http:" && isLoopbackHost(parsed.hostname)) return parsed;
+    return null;
   } catch {
     return null;
   }
+}
+
+function isLoopbackHost(hostname) {
+  return ["localhost", "127.0.0.1", "::1"].includes(hostname);
 }
 
 function hasBody(method) {

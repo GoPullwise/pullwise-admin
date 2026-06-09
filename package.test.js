@@ -11,8 +11,14 @@ describe("admin deployment tooling", () => {
     expect(packageJson.devDependencies.wrangler).toBeTruthy();
     expect(packageLock.packages[""].devDependencies.wrangler).toBe(packageJson.devDependencies.wrangler);
     expect(packageLock.packages["node_modules/wrangler"]).toBeTruthy();
-    expect(packageJson.scripts["preview:workers"]).toBe("npm run build && wrangler dev");
+    expect(packageJson.scripts["preview:workers"]).toContain("wrangler dev");
+    expect(packageJson.scripts["preview:workers"]).toContain("PULLWISE_API_ORIGIN:http://localhost:8080");
     expect(packageJson.scripts["deploy:workers"]).toBe("npm run build && wrangler deploy");
+  });
+
+  it("does not default local Worker preview configuration to the production API", () => {
+    expect(wrangler.vars?.PULLWISE_API_ORIGIN).not.toBe("https://api.pull-wise.com");
+    expect(packageJson.scripts["preview:workers"]).not.toContain("https://api.pull-wise.com");
   });
 
   it("binds Workers static assets for the admin SPA", () => {

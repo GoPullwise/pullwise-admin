@@ -49,6 +49,51 @@ describe("admin Cloudflare worker proxy", () => {
     expect(response.headers.has("connection")).toBe(false);
   });
 
+  it("returns a controlled 502 when the Worker upstream fetch rejects", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("TLS failed"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await proxyApiRequest(
+      new Request("https://admin.example.com/api/auth/session"),
+      { PULLWISE_API_ORIGIN: "https://api.example.com" },
+      new URL("https://admin.example.com/api/auth/session")
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      message: "Unable to reach Pullwise API upstream.",
+    });
+  });
+
+  it("returns a controlled 502 when the Pages upstream fetch rejects", async () => {
+    const fetchMock = vi.fn().mockRejectedValue(new Error("connection failed"));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await pagesApiOnRequest({
+      request: new Request("https://admin.example.com/api/auth/session"),
+      env: { PULLWISE_API_ORIGIN: "https://api.example.com" },
+    });
+
+    expect(response.status).toBe(502);
+    await expect(response.json()).resolves.toEqual({
+      message: "Unable to reach Pullwise API upstream.",
+    });
+  });
+
+  it("allows loopback HTTP upstreams for local Worker preview", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await proxyApiRequest(
+      new Request("https://admin.example.com/api/admin/workers"),
+      { PULLWISE_API_ORIGIN: "http://localhost:8080" },
+      new URL("https://admin.example.com/api/admin/workers")
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(new URL("http://localhost:8080/admin/workers"), expect.any(Object));
+  });
+
   it("replaces client-supplied forwarded headers before proxying", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
     vi.stubGlobal("fetch", fetchMock);
@@ -140,7 +185,7 @@ describe("admin Cloudflare worker proxy", () => {
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
-      message: "PULLWISE_API_ORIGIN must use HTTPS.",
+      message: "PULLWISE_API_ORIGIN must use HTTPS or loopback HTTP.",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -161,7 +206,7 @@ describe("admin Cloudflare worker proxy", () => {
 
     expect(response.status).toBe(500);
     await expect(response.json()).resolves.toEqual({
-      message: "PULLWISE_API_ORIGIN must use HTTPS.",
+      message: "PULLWISE_API_ORIGIN must use HTTPS or loopback HTTP.",
     });
     expect(fetchMock).not.toHaveBeenCalled();
   });

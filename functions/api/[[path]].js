@@ -5,7 +5,7 @@ export async function onRequest(context) {
   }
   const upstreamOrigin = apiOrigin(origin);
   if (!upstreamOrigin) {
-    return json({ message: "PULLWISE_API_ORIGIN must use HTTPS." }, 500);
+    return json({ message: "PULLWISE_API_ORIGIN must use HTTPS or loopback HTTP." }, 500);
   }
 
   const incomingUrl = new URL(context.request.url);
@@ -16,13 +16,18 @@ export async function onRequest(context) {
   headers.set("X-Forwarded-Prefix", "/api");
   const methodHasBody = hasBody(context.request.method);
 
-  const response = await fetch(targetUrl, {
-    method: context.request.method,
-    headers,
-    body: methodHasBody ? context.request.body : undefined,
-    duplex: methodHasBody ? "half" : undefined,
-    redirect: "manual",
-  });
+  let response;
+  try {
+    response = await fetch(targetUrl, {
+      method: context.request.method,
+      headers,
+      body: methodHasBody ? context.request.body : undefined,
+      duplex: methodHasBody ? "half" : undefined,
+      redirect: "manual",
+    });
+  } catch {
+    return json({ message: "Unable to reach Pullwise API upstream." }, 502);
+  }
 
   return new Response(response.body, {
     status: response.status,
@@ -40,10 +45,16 @@ function backendPath(incomingUrl) {
 function apiOrigin(origin) {
   try {
     const parsed = new URL(origin);
-    return parsed.protocol === "https:" ? parsed : null;
+    if (parsed.protocol === "https:") return parsed;
+    if (parsed.protocol === "http:" && isLoopbackHost(parsed.hostname)) return parsed;
+    return null;
   } catch {
     return null;
   }
+}
+
+function isLoopbackHost(hostname) {
+  return ["localhost", "127.0.0.1", "::1"].includes(hostname);
 }
 
 function hasBody(method) {

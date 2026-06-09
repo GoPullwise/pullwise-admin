@@ -207,6 +207,65 @@ describe("WorkersScreen", () => {
     expect(within(activitySection).getByText(/Completed/i)).toBeInTheDocument();
   });
 
+  it("renders fresher health fields from the worker detail endpoint", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.getWorker.mockResolvedValue({
+      worker: {
+        ...workers[0],
+        hostname: "detail-host",
+        last_heartbeat_at: "2026-06-09T10:00:00Z",
+      },
+      auditEvents: [],
+      taskActivity: [],
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    expect(await screen.findByText("detail-host")).toBeInTheDocument();
+    expect(screen.getByText("2026-06-09T10:00:00Z")).toBeInTheDocument();
+  });
+
+  it("normalizes edited worker capacity before saving", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.updateWorker.mockResolvedValue({ worker: workers[0] });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+    await user.clear(screen.getByLabelText(/max concurrent jobs/i));
+    await user.type(screen.getByLabelText(/max concurrent jobs/i), "-5");
+    await user.click(screen.getByRole("button", { name: /save/i }));
+
+    await waitFor(() =>
+      expect(pullwiseApi.system.updateWorker).toHaveBeenCalledWith(
+        "wk_1",
+        expect.objectContaining({ max_concurrent_jobs: 1 })
+      )
+    );
+  });
+
+  it("disables registry removal while an operational command is active", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.listWorkers.mockResolvedValue({
+      workers: [
+        {
+          ...workers[0],
+          latest_command: { command: "uninstall", status: "pending" },
+        },
+      ],
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    expect(screen.getByRole("button", { name: /^remove worker$/i })).toBeDisabled();
+    expect(pullwiseApi.system.deleteWorker).not.toHaveBeenCalled();
+  });
+
   it("removes a worker from the registry", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });

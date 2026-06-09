@@ -48,6 +48,15 @@ describe("Admin App", () => {
     await waitFor(() => expect(startGitHubLogin).toHaveBeenCalledTimes(1));
   });
 
+  it("shows a session error instead of the login screen when session check fails", async () => {
+    pullwiseApi.auth.getSession.mockRejectedValueOnce(new Error("server down"));
+
+    render(<App />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("server down");
+    expect(screen.queryByRole("button", { name: /continue with github/i })).not.toBeInTheDocument();
+  });
+
   it("blocks authenticated users who are not admins", async () => {
     pullwiseApi.auth.getSession.mockResolvedValueOnce({
       authenticated: true,

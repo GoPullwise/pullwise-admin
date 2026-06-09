@@ -36,6 +36,11 @@ function timestampValue(value) {
   return Number.isFinite(number) && number > 0 ? number : 0;
 }
 
+function normalizeWorkerCapacity(value) {
+  const number = Math.floor(Number(value));
+  return Number.isFinite(number) && number > 0 ? number : 1;
+}
+
 function timestampDate(value) {
   const seconds = timestampValue(value);
   return seconds ? new Date(seconds * 1000) : null;
@@ -251,7 +256,7 @@ function CreateWorkerModal({ onClose, onCreated }) {
         provider: "codex",
         region: region.trim(),
         version: version.trim(),
-        max_concurrent_jobs: Number(capacity) || 1,
+        max_concurrent_jobs: normalizeWorkerCapacity(capacity),
       });
       setResult(payload);
       onCreated?.();
@@ -290,6 +295,7 @@ function CreateWorkerModal({ onClose, onCreated }) {
               <input
                 type="number"
                 min="1"
+                step="1"
                 value={capacity}
                 onChange={(event) => setCapacity(event.target.value)}
               />
@@ -316,6 +322,7 @@ function CreateWorkerModal({ onClose, onCreated }) {
 }
 
 function WorkerDetail({ worker }) {
+  const [detailWorker, setDetailWorker] = useState(null);
   const [auditEvents, setAuditEvents] = useState([]);
   const [taskActivity, setTaskActivity] = useState([]);
 
@@ -325,12 +332,14 @@ function WorkerDetail({ worker }) {
       .getWorker(worker.worker_id)
       .then((payload) => {
         if (!disposed) {
+          setDetailWorker(payload?.worker || null);
           setAuditEvents(Array.isArray(payload?.auditEvents) ? payload.auditEvents : []);
           setTaskActivity(itemsFrom(payload, "taskActivity", "activityEvents", "activity"));
         }
       })
       .catch(() => {
         if (!disposed) {
+          setDetailWorker(null);
           setAuditEvents([]);
           setTaskActivity([]);
         }
@@ -340,6 +349,8 @@ function WorkerDetail({ worker }) {
     };
   }, [worker.worker_id]);
 
+  const displayedWorker = detailWorker ? { ...worker, ...detailWorker } : worker;
+
   return (
     <div className="worker-detail">
       <section>
@@ -347,21 +358,21 @@ function WorkerDetail({ worker }) {
         <dl>
           <div>
             <dt>Provider</dt>
-            <dd>{worker.provider || "codex"}</dd>
+            <dd>{displayedWorker.provider || "codex"}</dd>
           </div>
           <div>
             <dt>Last heartbeat</dt>
-            <dd>{worker.last_heartbeat_at || "Never"}</dd>
+            <dd>{displayedWorker.last_heartbeat_at || "Never"}</dd>
           </div>
           <div>
             <dt>Hostname</dt>
-            <dd>{worker.hostname || "-"}</dd>
+            <dd>{displayedWorker.hostname || "-"}</dd>
           </div>
-          {worker.latest_command && (
+          {displayedWorker.latest_command && (
             <div>
               <dt>Command</dt>
               <dd>
-                {commandLabel(worker.latest_command.command)} · {statusLabel(worker.latest_command.status)}
+                {commandLabel(displayedWorker.latest_command.command)} · {statusLabel(displayedWorker.latest_command.status)}
               </dd>
             </div>
           )}
@@ -413,7 +424,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
     onAction("save", workerId, {
       region: editRegion,
       version: editVersion,
-      max_concurrent_jobs: Number(editCapacity) || 1,
+      max_concurrent_jobs: normalizeWorkerCapacity(editCapacity),
     });
     setEditing(false);
   };
@@ -472,7 +483,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
             }}>
               <I.Trash size={13} /> {confirmDelete ? "Confirm uninstall" : "Uninstall service"}
             </button>
-            <button className="btn sm danger" type="button" disabled={busy} onClick={() => {
+            <button className="btn sm danger" type="button" disabled={busy || hasActiveCommand} onClick={() => {
               if (confirmRemove) {
                 setConfirmRemove(false);
                 onAction("delete", workerId);
@@ -518,6 +529,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
                 <input
                   type="number"
                   min="1"
+                  step="1"
                   value={editCapacity}
                   onChange={(event) => setEditCapacity(event.target.value)}
                   disabled={!editing}

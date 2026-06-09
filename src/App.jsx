@@ -82,22 +82,46 @@ function LoadingScreen() {
   );
 }
 
+function SessionErrorScreen({ message, onRetry }) {
+  return (
+    <div className="auth-wrap">
+      <div className="auth-card">
+        <div className="brand auth-brand">
+          <img className="brand-mark" src="/favicon.ico" alt="" aria-hidden="true" width="28" height="28" />
+          <strong>Pullwise Admin</strong>
+        </div>
+        <h1>Unable to check session</h1>
+        <div className="auth-error" role="alert">
+          <I.X size={14} /> {message}
+        </div>
+        <button className="btn primary lg" type="button" onClick={onRetry}>
+          <I.Refresh size={16} /> Retry
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export function App() {
-  const [auth, setAuth] = useState({ status: "checking", session: null });
+  const [auth, setAuth] = useState({ status: "checking", session: null, error: "" });
   const abortRef = useRef(null);
 
   const checkSession = useCallback(async () => {
     if (abortRef.current) abortRef.current.abort();
     const controller = new AbortController();
     abortRef.current = controller;
-    setAuth((current) => ({ ...current, status: "checking" }));
+    setAuth((current) => ({ ...current, status: "checking", error: "" }));
     try {
       const session = await pullwiseApi.auth.getSession({ signal: controller.signal });
       if (controller.signal.aborted) return;
-      setAuth({ status: "ready", session: session || null });
-    } catch {
+      setAuth({ status: "ready", session: session || null, error: "" });
+    } catch (err) {
       if (controller.signal.aborted) return;
-      setAuth({ status: "ready", session: { authenticated: false } });
+      setAuth({
+        status: "error",
+        session: null,
+        error: err?.message || "Unable to check the admin session.",
+      });
     }
   }, []);
 
@@ -108,6 +132,7 @@ export function App() {
 
   const session = auth.session;
   if (auth.status === "checking") return <LoadingScreen />;
+  if (auth.status === "error") return <SessionErrorScreen message={auth.error} onRetry={checkSession} />;
   if (!session?.authenticated) return <LoginScreen />;
   if (!session?.admin) return <AccessDenied session={session} />;
 

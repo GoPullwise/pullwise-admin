@@ -8,9 +8,6 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
-  "vars": {
-    "PULLWISE_API_ORIGIN": "https://api.pull-wise.com"
-  },
   "observability": {
     "enabled": false,
     "logs": {

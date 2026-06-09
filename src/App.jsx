@@ -1,27 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { pullwiseApi } from "./api/pullwise.js";
 import { I } from "./icons.jsx";
-import { startGitHubLogin, signOut } from "./lib/auth.js";
+import { adminManagementRedirectUrl, githubAuthorizeRedirectUrl, signOut } from "./lib/auth.js";
 import { UsersScreen } from "./screens/users.jsx";
 import { WorkersScreen } from "./screens/workers.jsx";
 import { Topbar } from "./shell.jsx";
 import "./app.css";
 
-function LoginScreen() {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+function githubCallbackError() {
+  const value = new URLSearchParams(window.location.search).get("github_error");
+  return value ? `GitHub sign-in failed: ${value}` : "";
+}
 
-  const login = async () => {
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      await startGitHubLogin();
-    } catch (err) {
-      setError(err?.message || "Unable to start GitHub login.");
-      setBusy(false);
-    }
-  };
+function LoginScreen({ initialError = "" }) {
+  const [error, setError] = useState(initialError);
+  const loginUrl = githubAuthorizeRedirectUrl(adminManagementRedirectUrl());
 
   return (
     <div className="auth-wrap">
@@ -32,10 +25,10 @@ function LoginScreen() {
         </div>
         <h1>Admin sign in</h1>
         <p>Use GitHub to sign in. The server decides admin access from configured emails or user IDs.</p>
-        <button className="btn primary lg auth-gh" type="button" disabled={busy} onClick={login}>
-          {busy ? <I.Refresh size={16} className="spin" /> : <I.Github size={16} />}
+        <a className="btn primary lg auth-gh" href={loginUrl} onClick={() => setError("")}>
+          <I.Github size={16} />
           Continue with GitHub
-        </button>
+        </a>
         {error && (
           <div className="auth-error" role="alert">
             <I.X size={14} /> {error}
@@ -135,7 +128,7 @@ export function App() {
   const session = auth.session;
   if (auth.status === "checking") return <LoadingScreen />;
   if (auth.status === "error") return <SessionErrorScreen message={auth.error} onRetry={checkSession} />;
-  if (!session?.authenticated) return <LoginScreen />;
+  if (!session?.authenticated) return <LoginScreen initialError={githubCallbackError()} />;
   if (!session?.admin) return <AccessDenied session={session} />;
 
   return (

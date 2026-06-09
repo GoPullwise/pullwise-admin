@@ -8,7 +8,7 @@ export function adminManagementRedirectUrl() {
   return new URL(ADMIN_MANAGEMENT_PATH, window.location.href).toString();
 }
 
-export function githubAuthorizeRedirectUrl(redirectTo, apiBaseUrl = env.VITE_API_BASE_URL || "") {
+export function githubAuthorizeRedirectUrl(redirectTo, apiBaseUrl = env.VITE_API_BASE_URL || "/api") {
   const base = new URL(apiBaseUrl || "/", window.location.origin);
   const prefix = base.pathname.replace(/\/$/, "");
   const url = new URL(`${prefix}${GITHUB_AUTHORIZE_PATH}`, base.origin);

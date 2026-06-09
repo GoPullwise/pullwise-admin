@@ -1,9 +1,7 @@
-import { render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "./api/pullwise.js";
 import { App } from "./App.jsx";
-import { startGitHubLogin } from "./lib/auth.js";
 
 vi.mock("./api/pullwise.js", () => ({
   pullwiseApi: {
@@ -15,11 +13,6 @@ vi.mock("./api/pullwise.js", () => ({
       listUsers: vi.fn(),
     },
   },
-}));
-
-vi.mock("./lib/auth.js", () => ({
-  startGitHubLogin: vi.fn(),
-  signOut: vi.fn(),
 }));
 
 describe("Admin App", () => {
@@ -34,21 +27,28 @@ describe("Admin App", () => {
   it("shows GitHub login for unauthenticated users", async () => {
     const { container } = render(<App />);
 
-    expect(await screen.findByRole("button", { name: /continue with github/i })).toBeInTheDocument();
+    expect(await screen.findByRole("link", { name: /continue with github/i })).toBeInTheDocument();
     const brandMark = container.querySelector(".brand-mark");
     expect(brandMark?.tagName).toBe("IMG");
     expect(brandMark).toHaveAttribute("src", "/favicon.ico");
     expect(brandMark).not.toHaveTextContent("PW");
   });
 
-  it("starts GitHub login from the login screen", async () => {
-    const user = userEvent.setup();
-    startGitHubLogin.mockResolvedValueOnce(undefined);
+  it("shows GitHub callback errors on the login screen", async () => {
+    window.history.pushState({}, "", "/workers?github_error=redirect_uri_mismatch");
+
     render(<App />);
 
-    await user.click(await screen.findByRole("button", { name: /continue with github/i }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("redirect_uri_mismatch");
+  });
 
-    await waitFor(() => expect(startGitHubLogin).toHaveBeenCalledTimes(1));
+  it("exposes a native GitHub authorize link from the login screen", async () => {
+    render(<App />);
+
+    expect(await screen.findByRole("link", { name: /continue with github/i })).toHaveAttribute(
+      "href",
+      "http://localhost:3000/api/auth/github/authorize?redirectTo=http%3A%2F%2Flocalhost%3A3000%2Fworkers&response=redirect"
+    );
   });
 
   it("shows a session error instead of the login screen when session check fails", async () => {
@@ -57,7 +57,7 @@ describe("Admin App", () => {
     render(<App />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("server down");
-    expect(screen.queryByRole("button", { name: /continue with github/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /continue with github/i })).not.toBeInTheDocument();
   });
 
   it("blocks authenticated users who are not admins", async () => {

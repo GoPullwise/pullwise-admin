@@ -117,7 +117,7 @@ describe("admin Cloudflare worker proxy", () => {
     expect(headers.get("X-Real-IP")).toBeNull();
     expect(headers.get("X-Forwarded-Proto")).toBe("https");
     expect(headers.get("X-Forwarded-Host")).toBe("admin.pull-wise.com");
-    expect(headers.get("X-Forwarded-Prefix")).toBe("/api");
+    expect(headers.get("X-Forwarded-Prefix")).toBeNull();
   });
 
   it("replaces client-supplied forwarded headers in the Pages function proxy", async () => {
@@ -142,7 +142,7 @@ describe("admin Cloudflare worker proxy", () => {
     expect(headers.get("X-Real-IP")).toBeNull();
     expect(headers.get("X-Forwarded-Proto")).toBe("https");
     expect(headers.get("X-Forwarded-Host")).toBe("admin.pull-wise.com");
-    expect(headers.get("X-Forwarded-Prefix")).toBe("/api");
+    expect(headers.get("X-Forwarded-Prefix")).toBeNull();
   });
 
   it("keeps OAuth callback Set-Cookie headers on proxied responses", async () => {

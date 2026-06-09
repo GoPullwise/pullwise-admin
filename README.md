@@ -48,25 +48,29 @@ Cloudflare Worker variable:
 PULLWISE_API_ORIGIN=https://api.pull-wise.com
 ```
 
-For this proxy mode, configure `pullwise-server` to trust the admin Worker's
-forwarded headers and include the admin origin:
+For this proxy mode, keep `/api` as a browser-facing admin Worker prefix only.
+Configure `pullwise-server` with the public API origin, not the admin proxy
+path:
 
 ```bash
+PULLWISE_API_BASE_URL=https://api.pull-wise.com
 PULLWISE_ALLOWED_ORIGINS=https://pull-wise.com,https://admin.pull-wise.com
-PULLWISE_TRUST_PROXY_HEADERS=true
 PULLWISE_COOKIE_SECURE=true
 PULLWISE_COOKIE_SAME_SITE=Lax
 ```
 
-The server should derive the OAuth callback from `X-Forwarded-*` headers:
+The OAuth callback must stay on the public API origin without an extra `/api`
+prefix:
 
 ```text
-https://admin.pull-wise.com/api/auth/github/callback
+https://api.pull-wise.com/auth/github/callback
 ```
 
 The login button starts OAuth with a browser navigation to the same-origin
 `/api/auth/github/authorize?response=redirect` endpoint. This avoids XHR-only
-Cloudflare challenge failures on the OAuth start request.
+Cloudflare challenge failures on the OAuth start request. The admin Worker
+strips the browser `/api` prefix before forwarding to `PULLWISE_API_ORIGIN` and
+does not forward `X-Forwarded-Prefix`.
 
 `PULLWISE_API_ORIGIN` is read by `worker.js` or `functions/api/[[path]].js` at
 runtime. It is not browser-exposed Vite config.

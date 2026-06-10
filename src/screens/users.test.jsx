@@ -27,6 +27,14 @@ describe("UsersScreen", () => {
           repositoryCount: 1,
           scanCount: 3,
           issueCount: 2,
+          subscription: {
+            provider: "creem",
+            status: "active",
+            plan: "pro",
+            effectivePlan: "pro",
+            interval: "year",
+            currentPeriodEnd: 4102444800,
+          },
         },
         {
           id: "usr_user",
@@ -47,6 +55,8 @@ describe("UsersScreen", () => {
 
     expect(await screen.findByText("Admin User")).toBeInTheDocument();
     expect(await screen.findByText("Authorized User")).toBeInTheDocument();
+    expect(screen.getByText("Pro Active")).toBeInTheDocument();
+    expect(screen.getByText(/Yearly/)).toBeInTheDocument();
     expect(screen.getByText("2 repos")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /delete user/i })[0]).toBeDisabled();
   });

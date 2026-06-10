@@ -267,6 +267,36 @@
   font-weight: 600;
 }
 
+.subscription-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  border: 1px solid var(--border);
+  background: var(--soft);
+  padding: 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.subscription-pill.active {
+  border-color: color-mix(in srgb, var(--ok) 35%, var(--border));
+  background: color-mix(in srgb, var(--ok) 8%, var(--panel));
+  color: var(--ok);
+}
+
+.subscription-pill.warning {
+  border-color: color-mix(in srgb, var(--warn) 35%, var(--border));
+  background: color-mix(in srgb, var(--warn) 8%, var(--panel));
+  color: var(--warn);
+}
+
+.subscription-pill.inactive {
+  border-color: color-mix(in srgb, var(--danger) 24%, var(--border));
+  background: color-mix(in srgb, var(--danger) 6%, var(--panel));
+  color: color-mix(in srgb, var(--danger) 80%, var(--muted));
+}
+
 .worker-row {
   background: var(--panel);
   border: 1px solid var(--border);

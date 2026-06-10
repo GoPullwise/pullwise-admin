@@ -25,12 +25,67 @@ function formatTimestamp(value) {
   });
 }
 
+function lowerText(value, fallback = "") {
+  return textValue(value, fallback).toLowerCase();
+}
+
+function statusLabel(value) {
+  const text = textValue(value);
+  if (!text || text === "none") return "";
+  return text
+    .replaceAll("_", " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function formatBillingDate(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number) || number <= 0) return "";
+  return new Date(number * 1000).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function subscriptionView(subscription) {
+  const plan = lowerText(subscription?.plan, "free");
+  const effectivePlan = lowerText(subscription?.effectivePlan, plan);
+  const status = lowerText(subscription?.status, "none");
+  const paidPlan = plan === "pro" || effectivePlan === "pro";
+  const label = paidPlan ? ["Pro", statusLabel(status)].filter(Boolean).join(" ") : "Free";
+  const periodEnd = Number(subscription?.currentPeriodEnd);
+  const expired = Number.isFinite(periodEnd) && periodEnd > 0 && periodEnd <= Date.now() / 1000;
+  const warning = ["canceling", "past_due", "unpaid", "paused"].includes(status);
+  const active = paidPlan && ["active", "trialing"].includes(status) && !expired;
+  const tone = active ? "active" : warning ? "warning" : paidPlan || status === "canceled" ? "inactive" : "free";
+  const detail = [];
+  const interval = lowerText(subscription?.interval);
+  const date = formatBillingDate(subscription?.currentPeriodEnd);
+
+  if (paidPlan) detail.push(interval === "year" ? "Yearly" : "Monthly");
+  if (date) {
+    const periodLabel =
+      expired || status === "canceled"
+        ? "Ended"
+        : subscription?.cancelAtPeriodEnd === true || status === "canceling"
+          ? "Ends"
+          : "Renews";
+    detail.push(`${periodLabel} ${date}`);
+  }
+  if (subscription?.provider) detail.push(statusLabel(subscription.provider));
+
+  return { label, detail: detail.join(" - "), tone };
+}
+
 function UserRow({ user, pending, onDelete }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const userId = textValue(user.id);
   const name = textValue(user.name, user.githubLogin || user.email || userId);
   const email = textValue(user.email);
   const githubLogin = textValue(user.githubLogin);
+  const subscription = subscriptionView(user.subscription);
   const busy = pending === userId;
 
   return (
@@ -52,6 +107,8 @@ function UserRow({ user, pending, onDelete }) {
         </span>
       </div>
       <div className="user-meta">
+        <span className={`subscription-pill ${subscription.tone}`}>{subscription.label}</span>
+        {subscription.detail && <span>{subscription.detail}</span>}
         <span>{user.repositoryCount || 0} repos</span>
         <span>{user.scanCount || 0} scans</span>
         <span>{user.issueCount || 0} issues</span>

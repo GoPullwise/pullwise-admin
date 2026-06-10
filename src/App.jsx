@@ -99,7 +99,9 @@ function SessionErrorScreen({ message, onRetry }) {
 export function App() {
   const [auth, setAuth] = useState({ status: "checking", session: null, error: "" });
   const abortRef = useRef(null);
-  const screen = window.location.pathname.replace(/\/+$/, "") === "/users" ? "users" : "workers";
+  const currentPath = window.location.pathname.replace(/\/+$/, "") || "/";
+  const isLoginRoute = currentPath === "/login";
+  const screen = currentPath === "/users" ? "users" : "workers";
 
   const checkSession = useCallback(async () => {
     if (abortRef.current) abortRef.current.abort();
@@ -128,6 +130,7 @@ export function App() {
   const session = auth.session;
   if (auth.status === "checking") return <LoadingScreen />;
   if (auth.status === "error") return <SessionErrorScreen message={auth.error} onRetry={checkSession} />;
+  if (isLoginRoute) return <LoginScreen initialError={githubCallbackError()} />;
   if (!session?.authenticated) return <LoginScreen initialError={githubCallbackError()} />;
   if (!session?.admin) return <AccessDenied session={session} />;
 

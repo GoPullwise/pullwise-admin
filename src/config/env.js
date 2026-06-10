@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export const DEFAULT_API_BASE_URL = "/api";
+
 function isLoopbackHostname(hostname) {
   const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (normalized === "localhost" || normalized === "::1") return true;

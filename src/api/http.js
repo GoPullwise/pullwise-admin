@@ -1,5 +1,5 @@
 import axios from "axios";
-import { env } from "../config/env.js";
+import { DEFAULT_API_BASE_URL, env } from "../config/env.js";
 
 export class ApiError extends Error {
   constructor(message, { status, payload } = {}) {
@@ -12,7 +12,7 @@ export class ApiError extends Error {
 }
 
 export const http = axios.create({
-  baseURL: env.VITE_API_BASE_URL || "",
+  baseURL: env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL,
   withCredentials: true,
   timeout: 12000,
 });

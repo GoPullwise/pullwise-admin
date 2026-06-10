@@ -73,6 +73,21 @@ describe("Admin App", () => {
     expect(screen.queryByText(/worker registry/i)).not.toBeInTheDocument();
   });
 
+  it("keeps the login route on the login screen even when the old admin session is still valid", async () => {
+    window.history.pushState({}, "", "/login");
+    pullwiseApi.auth.getSession.mockResolvedValueOnce({
+      authenticated: true,
+      admin: true,
+      user: { email: "admin@example.com" },
+    });
+
+    render(<App />);
+
+    expect(await screen.findByRole("link", { name: /continue with github/i })).toBeInTheDocument();
+    expect(screen.queryByText(/worker registry/i)).not.toBeInTheDocument();
+    expect(pullwiseApi.system.listWorkers).not.toHaveBeenCalled();
+  });
+
   it("renders workers dashboard for authenticated admins", async () => {
     pullwiseApi.auth.getSession.mockResolvedValueOnce({
       authenticated: true,

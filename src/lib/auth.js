@@ -1,5 +1,5 @@
 import { pullwiseApi } from "../api/pullwise.js";
-import { env } from "../config/env.js";
+import { DEFAULT_API_BASE_URL, env } from "../config/env.js";
 
 export const ADMIN_MANAGEMENT_PATH = "/workers";
 const GITHUB_AUTHORIZE_PATH = "/auth/github/authorize";
@@ -8,7 +8,7 @@ export function adminManagementRedirectUrl() {
   return new URL(ADMIN_MANAGEMENT_PATH, window.location.href).toString();
 }
 
-export function githubAuthorizeRedirectUrl(redirectTo, apiBaseUrl = env.VITE_API_BASE_URL || "/api") {
+export function githubAuthorizeRedirectUrl(redirectTo, apiBaseUrl = env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL) {
   const base = new URL(apiBaseUrl || "/", window.location.origin);
   const prefix = base.pathname.replace(/\/$/, "");
   const url = new URL(`${prefix}${GITHUB_AUTHORIZE_PATH}`, base.origin);

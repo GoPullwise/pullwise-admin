@@ -40,9 +40,9 @@ describe("WorkersScreen", () => {
     vi.clearAllMocks();
     pullwiseApi.system.listWorkers.mockResolvedValue({ workers, items: workers });
     pullwiseApi.system.getWorkerDefaults.mockResolvedValue({
-      workerVersion: "0.1.8",
+      workerVersion: "0.4.2",
       workerPackage:
-        "https://github.com/GoPullwise/pullwise-worker/releases/download/v0.1.8/pullwise_worker-0.1.8-py3-none-any.whl",
+        "https://github.com/GoPullwise/pullwise-worker/releases/download/v0.4.2/pullwise_worker-0.4.2-py3-none-any.whl",
     });
     pullwiseApi.system.getWorker.mockResolvedValue({ worker: workers[0], auditEvents: [], taskActivity: [] });
   });

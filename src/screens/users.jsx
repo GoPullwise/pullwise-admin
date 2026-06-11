@@ -53,8 +53,13 @@ function subscriptionView(subscription) {
   const plan = lowerText(subscription?.plan, "free");
   const effectivePlan = lowerText(subscription?.effectivePlan, plan);
   const status = lowerText(subscription?.status, "none");
-  const paidPlan = plan === "pro" || effectivePlan === "pro";
-  const label = paidPlan ? ["Pro", statusLabel(status)].filter(Boolean).join(" ") : "Free";
+  const paidPlan = ["pro", "max"].includes(effectivePlan)
+    ? effectivePlan
+    : ["pro", "max"].includes(plan)
+      ? plan
+      : "";
+  const planLabel = paidPlan === "max" ? "Max" : paidPlan === "pro" ? "Pro" : "";
+  const label = paidPlan ? [planLabel, statusLabel(status)].filter(Boolean).join(" ") : "Free";
   const periodEnd = Number(subscription?.currentPeriodEnd);
   const expired = Number.isFinite(periodEnd) && periodEnd > 0 && periodEnd <= Date.now() / 1000;
   const warning = ["canceling", "past_due", "unpaid", "paused"].includes(status);

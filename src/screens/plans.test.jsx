@@ -93,6 +93,16 @@ describe("PlansScreen", () => {
     expect(within(card).getByDisplayValue("gpt-5.5")).toBeInTheDocument();
   });
 
+  it("does not expose worker-local CLI or executable command fields in plan settings", async () => {
+    render(<PlansScreen />);
+
+    expect(await screen.findByText("Pro")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Pro Codex CLI")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Pro Codex command")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Pro OpenCode CLI")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Pro OpenCode command")).not.toBeInTheDocument();
+  });
+
   it("saves edited provider and model settings for a plan", async () => {
     const user = userEvent.setup();
     const updatedPlan = {

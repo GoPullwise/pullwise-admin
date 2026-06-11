@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
@@ -68,6 +69,7 @@ export function SettingField({ field, value, defaults, onChange }) {
   const id = `setting-${field.path.replace(/[^A-Za-z0-9_-]/g, "-")}`;
   const update = (nextValue) => onChange(field.path, parseFieldValue(field, nextValue));
   const suggestion = textValue(value) === "" ? recommendedValueForField(field, defaults) : "";
+  const enabled = value === true;
   return (
     <label className="setting-field" htmlFor={id}>
       <span className="setting-label">{field.label || field.path}</span>
@@ -76,10 +78,10 @@ export function SettingField({ field, value, defaults, onChange }) {
           <input
             id={id}
             type="checkbox"
-            checked={Boolean(value)}
+            checked={enabled}
             onChange={(event) => update(event.target.checked)}
           />
-          <span>{Boolean(value) ? "Enabled" : "Disabled"}</span>
+          <span>{enabled ? "Enabled" : "Disabled"}</span>
         </span>
       ) : field.type === "select" ? (
         <select id={id} value={textValue(value)} onChange={(event) => update(event.target.value)}>

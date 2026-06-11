@@ -488,6 +488,13 @@
   line-height: 1.45;
 }
 
+.setting-suggestion {
+  display: block;
+  margin-top: 4px;
+  color: var(--accent);
+  font-weight: 700;
+}
+
 .setting-toggle {
   display: inline-flex;
   align-items: center;
@@ -497,6 +504,38 @@
 }
 
 .plan-config-list {
+  display: grid;
+  gap: 12px;
+}
+
+.plan-settings-panel,
+.plan-agents-panel {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--panel) 88%, var(--bg));
+  padding: 14px;
+}
+
+.plan-settings-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.plan-settings-head h2 {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.plan-settings-head p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.plan-settings-sections {
   display: grid;
   gap: 12px;
 }

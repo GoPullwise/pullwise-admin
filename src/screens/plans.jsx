@@ -55,8 +55,10 @@ function formFromPlan(plan) {
     name: planName(plan),
     reviewLimit: plan?.reviewLimit ?? plan?.review_limit ?? "",
     providerChain: chainValue(agentConfig),
+    codexCli: textValue(codex.cli, "codex"),
     codexModel: textValue(codex.model, "gpt-5.5"),
     codexReasoningEffort: textValue(codex.reasoningEffort, "medium"),
+    opencodeCli: textValue(opencode.cli, "opencode"),
     opencodeModel: textValue(opencode.model, "opencode/big-pickle"),
     opencodeVariant: textValue(opencode.variant, "medium"),
   };
@@ -66,10 +68,12 @@ function payloadFromForm(form) {
   return {
     providerChain: form.providerChain.split(",").map((item) => item.trim()).filter(Boolean),
     codex: {
+      cli: form.codexCli,
       model: form.codexModel,
       reasoningEffort: form.codexReasoningEffort,
     },
     opencode: {
+      cli: form.opencodeCli,
       model: form.opencodeModel,
       variant: form.opencodeVariant,
     },
@@ -175,6 +179,13 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
           <h3>Codex</h3>
           <div className="form-grid">
             <TextField
+              label="CLI"
+              ariaLabel={`${form.name} Codex CLI`}
+              value={form.codexCli}
+              onChange={(value) => onChange(form.id, "codexCli", value)}
+              description="Plan-facing Codex CLI label. The executable path stays in worker environment variables."
+            />
+            <TextField
               label="Model"
               ariaLabel={`${form.name} Codex model`}
               value={form.codexModel}
@@ -186,6 +197,13 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
         <section>
           <h3>OpenCode</h3>
           <div className="form-grid">
+            <TextField
+              label="CLI"
+              ariaLabel={`${form.name} OpenCode CLI`}
+              value={form.opencodeCli}
+              onChange={(value) => onChange(form.id, "opencodeCli", value)}
+              description="Plan-facing OpenCode CLI label. The executable path stays in worker environment variables."
+            />
             <TextField
               label="Model"
               ariaLabel={`${form.name} OpenCode model`}

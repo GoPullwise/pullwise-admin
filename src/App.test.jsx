@@ -13,6 +13,8 @@ vi.mock("./api/pullwise.js", () => ({
       listUsers: vi.fn(),
       listPlanAgentConfigs: vi.fn(),
       updatePlanAgentConfig: vi.fn(),
+      getSystemConfig: vi.fn(),
+      updateSystemConfig: vi.fn(),
     },
   },
 }));
@@ -24,6 +26,7 @@ describe("Admin App", () => {
     pullwiseApi.system.listWorkers.mockResolvedValue({ workers: [] });
     pullwiseApi.system.listUsers.mockResolvedValue({ users: [] });
     pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({ plans: [] });
+    pullwiseApi.system.getSystemConfig.mockResolvedValue({ settings: {}, groups: [] });
     window.history.pushState({}, "", "/workers");
   });
 

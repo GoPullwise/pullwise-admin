@@ -93,13 +93,13 @@ describe("PlansScreen", () => {
     expect(within(card).getByDisplayValue("gpt-5.5")).toBeInTheDocument();
   });
 
-  it("does not expose worker-local CLI or executable command fields in plan settings", async () => {
+  it("keeps executable command fields out of plan settings", async () => {
     render(<PlansScreen />);
 
     expect(await screen.findByText("Pro")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Pro Codex CLI")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Pro Codex CLI")).toHaveValue("codex");
+    expect(screen.getByLabelText("Pro OpenCode CLI")).toHaveValue("opencode");
     expect(screen.queryByLabelText("Pro Codex command")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Pro OpenCode CLI")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Pro OpenCode command")).not.toBeInTheDocument();
   });
 
@@ -137,8 +137,8 @@ describe("PlansScreen", () => {
         "pro",
         expect.objectContaining({
           providerChain: ["opencode", "codex"],
-          codex: expect.objectContaining({ model: "gpt-pro", reasoningEffort: "high" }),
-          opencode: expect.objectContaining({ model: "opencode/pro", variant: "high" }),
+          codex: expect.objectContaining({ cli: "codex", model: "gpt-pro", reasoningEffort: "high" }),
+          opencode: expect.objectContaining({ cli: "opencode", model: "opencode/pro", variant: "high" }),
         })
       )
     );

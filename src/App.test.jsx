@@ -11,6 +11,8 @@ vi.mock("./api/pullwise.js", () => ({
     system: {
       listWorkers: vi.fn(),
       listUsers: vi.fn(),
+      listPlanAgentConfigs: vi.fn(),
+      updatePlanAgentConfig: vi.fn(),
     },
   },
 }));
@@ -21,6 +23,7 @@ describe("Admin App", () => {
     pullwiseApi.auth.getSession.mockResolvedValue({ authenticated: false });
     pullwiseApi.system.listWorkers.mockResolvedValue({ workers: [] });
     pullwiseApi.system.listUsers.mockResolvedValue({ users: [] });
+    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({ plans: [] });
     window.history.pushState({}, "", "/workers");
   });
 
@@ -119,5 +122,35 @@ describe("Admin App", () => {
 
     expect(await screen.findByText("User Management")).toBeInTheDocument();
     expect(await screen.findByText("Authorized User")).toBeInTheDocument();
+  });
+
+  it("renders plan agent config management for authenticated admins on the plans route", async () => {
+    window.history.pushState({}, "", "/plans");
+    pullwiseApi.auth.getSession.mockResolvedValueOnce({
+      authenticated: true,
+      admin: true,
+      user: { email: "admin@example.com" },
+    });
+    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValueOnce({
+      plans: [
+        {
+          id: "pro",
+          name: "Pro",
+          reviewLimit: 60,
+          agentConfig: {
+            plan: "pro",
+            providerChain: ["codex"],
+            agent: { cli: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
+            codex: { cli: "codex", command: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
+            opencode: { cli: "opencode", command: "opencode", model: "opencode/big-pickle", variant: "medium" },
+          },
+        },
+      ],
+    });
+
+    render(<App />);
+
+    expect(await screen.findByText("Plan Agent Configs")).toBeInTheDocument();
+    expect(await screen.findByText("Pro")).toBeInTheDocument();
   });
 });

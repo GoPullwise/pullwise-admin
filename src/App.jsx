@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { pullwiseApi } from "./api/pullwise.js";
 import { I } from "./icons.jsx";
 import { adminManagementRedirectUrl, githubAuthorizeRedirectUrl, signOut } from "./lib/auth.js";
+import { PlansScreen } from "./screens/plans.jsx";
+import { SettingsScreen } from "./screens/settings.jsx";
 import { UsersScreen } from "./screens/users.jsx";
 import { WorkersScreen } from "./screens/workers.jsx";
 import { Topbar } from "./shell.jsx";
@@ -101,7 +103,14 @@ export function App() {
   const abortRef = useRef(null);
   const currentPath = window.location.pathname.replace(/\/+$/, "") || "/";
   const isLoginRoute = currentPath === "/login";
-  const screen = currentPath === "/users" ? "users" : "workers";
+  const screen =
+    currentPath === "/users"
+      ? "users"
+      : currentPath === "/plans"
+        ? "plans"
+        : currentPath === "/settings"
+          ? "settings"
+          : "workers";
 
   const checkSession = useCallback(async () => {
     if (abortRef.current) abortRef.current.abort();
@@ -137,7 +146,15 @@ export function App() {
   return (
     <div className="app">
       <Topbar user={session.user} screen={screen} />
-      {screen === "users" ? <UsersScreen /> : <WorkersScreen />}
+      {screen === "users" ? (
+        <UsersScreen />
+      ) : screen === "plans" ? (
+        <PlansScreen />
+      ) : screen === "settings" ? (
+        <SettingsScreen />
+      ) : (
+        <WorkersScreen />
+      )}
     </div>
   );
 }

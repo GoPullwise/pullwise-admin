@@ -1,5 +1,6 @@
 import {
   Activity,
+  Bot,
   Check,
   ChevronDown,
   Clipboard,
@@ -11,7 +12,9 @@ import {
   Power,
   Plus,
   RefreshCw,
+  Save,
   Server,
+  Settings2,
   Shield,
   Terminal,
   Trash2,
@@ -21,6 +24,7 @@ import {
 
 export const I = {
   Activity,
+  Bot,
   Check,
   ChevD: ChevronDown,
   Clipboard,
@@ -32,7 +36,9 @@ export const I = {
   Power,
   Plus,
   Refresh: RefreshCw,
+  Save,
   Server,
+  Settings: Settings2,
   Shield,
   Terminal,
   Trash: Trash2,

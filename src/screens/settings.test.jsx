@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
-import { SettingsScreen } from "./settings.jsx";
+import { parseFieldValue, SettingsScreen } from "./settings.jsx";
 
 vi.mock("../api/pullwise.js", () => ({
   pullwiseApi: {
@@ -135,5 +135,10 @@ describe("SettingsScreen", () => {
 
     expect(pullwiseApi.system.restartServer).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("Pullwise server restart started.")).toBeInTheDocument();
+  });
+
+  it("normalizes invalid numeric system setting edits to an empty value", () => {
+    expect(parseFieldValue({ type: "integer" }, "abc")).toBe("");
+    expect(parseFieldValue({ type: "number" }, "abc")).toBe("");
   });
 });

@@ -736,13 +736,13 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const capacity = displayedWorker.max_concurrent_jobs ?? 1;
   const hasActiveCommand = activeCommand(displayedWorker.latest_command);
 
-  const save = () => {
-    onAction("save", workerId, {
+  const save = async () => {
+    const result = await onAction("save", workerId, {
       region: editRegion,
       version: editVersion,
       max_concurrent_jobs: normalizeWorkerCapacity(editCapacity),
     });
-    setEditing(false);
+    if (result) setEditing(false);
   };
 
   return (

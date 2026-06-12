@@ -302,8 +302,16 @@ export function recommendedValueForField(field, defaults) {
 
 export function parseFieldValue(field, value) {
   if (field.type === "boolean") return Boolean(value);
-  if (field.type === "integer") return value === "" ? "" : Number.parseInt(value, 10);
-  if (field.type === "number") return value === "" ? "" : Number.parseFloat(value);
+  if (field.type === "integer") {
+    if (value === "") return "";
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : "";
+  }
+  if (field.type === "number") {
+    if (value === "") return "";
+    const parsed = Number.parseFloat(value);
+    return Number.isFinite(parsed) ? parsed : "";
+  }
   if (field.type === "stringList") {
     return String(value || "")
       .split(",")

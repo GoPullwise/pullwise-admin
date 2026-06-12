@@ -389,6 +389,25 @@ describe("WorkersScreen", () => {
     );
   });
 
+  it("keeps worker edits open when saving fails", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.updateWorker.mockRejectedValueOnce(new Error("patch failed"));
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await user.click(screen.getByRole("button", { name: /edit/i }));
+    const region = screen.getByLabelText(/region/i);
+    await user.clear(region);
+    await user.type(region, "eu-west");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(await screen.findByText("patch failed")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^save$/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/region/i)).toBeEnabled();
+    expect(screen.getByLabelText(/region/i)).toHaveValue("eu-west");
+  });
+
   it("allows registry removal while an operational command is active", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });

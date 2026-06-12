@@ -66,6 +66,16 @@ describe("Admin App", () => {
     expect(screen.queryByRole("link", { name: /continue with github/i })).not.toBeInTheDocument();
   });
 
+  it("keeps the GitHub sign-in entry available on the login route when session check fails", async () => {
+    window.history.pushState({}, "", "/login");
+    pullwiseApi.auth.getSession.mockRejectedValueOnce(new Error("server down"));
+
+    render(<App />);
+
+    expect(await screen.findByRole("link", { name: /continue with github/i })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("server down");
+  });
+
   it("blocks authenticated users who are not admins", async () => {
     pullwiseApi.auth.getSession.mockResolvedValueOnce({
       authenticated: true,

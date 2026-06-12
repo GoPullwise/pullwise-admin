@@ -138,6 +138,7 @@ export function App() {
 
   const session = auth.session;
   if (auth.status === "checking") return <LoadingScreen />;
+  if (auth.status === "error" && isLoginRoute) return <LoginScreen initialError={auth.error || githubCallbackError()} />;
   if (auth.status === "error") return <SessionErrorScreen message={auth.error} onRetry={checkSession} />;
   if (isLoginRoute) return <LoginScreen initialError={githubCallbackError()} />;
   if (!session?.authenticated) return <LoginScreen initialError={githubCallbackError()} />;

@@ -901,11 +901,12 @@ export function WorkersScreen() {
           payload?.version ||
           payload?.defaults?.version
       );
+      const releaseError = textValue(payload?.release?.error || payload?.releaseError);
       const previousLatest = latestReleaseRef.current;
       const previousSuggestion = nextPatchVersion(previousLatest);
       const nextSuggestion = nextPatchVersion(latestVersion);
       latestReleaseRef.current = latestVersion;
-      setReleaseInfo({ latestVersion, loading: false });
+      setReleaseInfo({ latestVersion, error: releaseError, loading: false });
       setReleaseVersion((current) => {
         const normalizedCurrent = textValue(current).replace(/^v/i, "");
         if (!normalizedCurrent || normalizedCurrent === previousSuggestion || normalizedCurrent === previousLatest) {
@@ -914,7 +915,7 @@ export function WorkersScreen() {
         return current;
       });
     } catch {
-      setReleaseInfo({ latestVersion: "", loading: false });
+      setReleaseInfo({ latestVersion: "", error: "Unable to load worker release.", loading: false });
     }
   }, []);
 

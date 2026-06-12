@@ -3,6 +3,10 @@ import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
 
 const REFRESH_MS = 15000;
+const WORKER_PROVIDER_OPTIONS = [
+  { value: "codex", label: "Codex CLI" },
+  { value: "opencode", label: "OpenCode CLI" },
+];
 
 function itemsFrom(payload, ...keys) {
   for (const key of keys) {
@@ -449,6 +453,7 @@ function CreateWorkerModal({ onClose, onCreated }) {
   const [region, setRegion] = useState("");
   const [version, setVersion] = useState("");
   const [capacity, setCapacity] = useState("1");
+  const [providerChain, setProviderChain] = useState(["codex", "opencode"]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
@@ -471,16 +476,36 @@ function CreateWorkerModal({ onClose, onCreated }) {
     };
   }, []);
 
+  const toggleProvider = (provider) => {
+    setProviderChain((current) => {
+      if (current.includes(provider)) {
+        return current.filter((item) => item !== provider);
+      }
+      return WORKER_PROVIDER_OPTIONS
+        .map((option) => option.value)
+        .filter((item) => item === provider || current.includes(item));
+    });
+  };
+
   const createWorker = async (event) => {
     event.preventDefault();
     if (busy) return;
+    if (!providerChain.length) {
+      setError("Select at least one agent CLI provider.");
+      return;
+    }
     setBusy(true);
     setError("");
     setResult(null);
     try {
+      const selectedProviders = WORKER_PROVIDER_OPTIONS
+        .map((option) => option.value)
+        .filter((provider) => providerChain.includes(provider));
       const payload = await pullwiseApi.system.createWorker({
         name: name.trim() || "Worker",
-        provider: "codex",
+        provider: selectedProviders[0],
+        providerChain: selectedProviders,
+        provider_chain: selectedProviders,
         region: region.trim(),
         version: version.trim(),
         max_concurrent_jobs: normalizeWorkerCapacity(capacity),
@@ -527,6 +552,21 @@ function CreateWorkerModal({ onClose, onCreated }) {
                 onChange={(event) => setCapacity(event.target.value)}
               />
             </label>
+            <fieldset className="field provider-chain-field">
+              <legend>Agent CLI providers</legend>
+              <div className="provider-toggle-list">
+                {WORKER_PROVIDER_OPTIONS.map((option) => (
+                  <label className="setting-toggle provider-toggle" key={option.value}>
+                    <input
+                      type="checkbox"
+                      checked={providerChain.includes(option.value)}
+                      onChange={() => toggleProvider(option.value)}
+                    />
+                    <span>{option.label}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
           </div>
           {error && (
             <div className="auth-error" role="alert">

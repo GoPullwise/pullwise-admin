@@ -411,6 +411,28 @@
   font-size: 12px;
 }
 
+.provider-chain-field {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.provider-chain-field legend {
+  padding: 0;
+  color: var(--muted);
+}
+
+.provider-toggle-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.provider-toggle {
+  color: var(--text);
+}
+
 .field-help {
   color: var(--muted);
   line-height: 1.45;

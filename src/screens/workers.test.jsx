@@ -73,11 +73,42 @@ describe("WorkersScreen", () => {
 
     await waitFor(() =>
       expect(pullwiseApi.system.createWorker).toHaveBeenCalledWith(
-        expect.objectContaining({ name: "New Worker", region: "eu-west" })
+        expect.objectContaining({
+          name: "New Worker",
+          provider: "codex",
+          providerChain: ["codex", "opencode"],
+          provider_chain: ["codex", "opencode"],
+          region: "eu-west",
+        })
       )
     );
     expect(await screen.findByText("pwk_once")).toBeInTheDocument();
     expect(screen.getByText(/install-worker\.sh/)).toBeInTheDocument();
+  });
+
+  it("creates a worker with the selected agent CLI providers", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.createWorker.mockResolvedValue({
+      worker: { worker_id: "wk_open", name: "OpenCode Worker" },
+      worker_token: "pwk_open",
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click(await screen.findByRole("button", { name: /register worker/i }));
+    await user.type(screen.getByLabelText(/^name/i), "OpenCode Worker");
+    await user.click(screen.getByLabelText(/codex cli/i));
+    await user.click(screen.getByRole("button", { name: /^create worker$/i }));
+
+    await waitFor(() =>
+      expect(pullwiseApi.system.createWorker).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: "opencode",
+          providerChain: ["opencode"],
+          provider_chain: ["opencode"],
+        })
+      )
+    );
   });
 
   it("defaults the create worker version to the latest release while keeping it editable", async () => {

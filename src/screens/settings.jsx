@@ -362,6 +362,8 @@ export function SettingsScreen() {
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [restarting, setRestarting] = useState(false);
+  const [restartConfirm, setRestartConfirm] = useState(false);
   const [error, setError] = useState("");
   const [metricsError, setMetricsError] = useState("");
   const [message, setMessage] = useState("");
@@ -426,6 +428,27 @@ export function SettingsScreen() {
     }
   };
 
+  const restartServer = async () => {
+    if (!restartConfirm) {
+      setRestartConfirm(true);
+      setError("");
+      setMessage("");
+      return;
+    }
+    setRestarting(true);
+    setError("");
+    setMessage("");
+    try {
+      const result = await pullwiseApi.system.restartServer();
+      setMessage(result?.message || "Pullwise server restart started.");
+      setRestartConfirm(false);
+    } catch (err) {
+      setError(err?.message || "Unable to restart Pullwise server.");
+    } finally {
+      setRestarting(false);
+    }
+  };
+
   return (
     <main className="main">
       <div className="page-head">
@@ -434,10 +457,14 @@ export function SettingsScreen() {
           <p>Database-backed server settings for scan scheduling, worker claims, rate limits, and calibration.</p>
         </div>
         <div className="page-actions">
-          <button className="btn" type="button" onClick={loadSettings} disabled={loading || saving}>
+          <button className="btn" type="button" onClick={loadSettings} disabled={loading || saving || restarting}>
             <I.Refresh size={14} className={loading ? "spin" : ""} /> Refresh
           </button>
-          <button className="btn primary" type="button" onClick={saveSettings} disabled={loading || saving}>
+          <button className="btn danger" type="button" onClick={restartServer} disabled={loading || saving || restarting}>
+            {restarting ? <I.Refresh size={14} className="spin" /> : <I.Power size={14} />}
+            {restartConfirm ? "Confirm restart" : "Restart server"}
+          </button>
+          <button className="btn primary" type="button" onClick={saveSettings} disabled={loading || saving || restarting}>
             {saving ? <I.Refresh size={14} className="spin" /> : <I.Save size={14} />}
             Save
           </button>

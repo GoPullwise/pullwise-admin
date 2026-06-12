@@ -41,6 +41,7 @@ export const pullwiseApi = {
     deleteWorker: (workerId) =>
       request(`/admin/workers/${pathSegment(workerId)}`, { method: "DELETE" }),
     getServerMetrics: () => request("/admin/server-metrics"),
+    restartServer: () => request("/admin/server/restart", { method: "POST" }),
     getSystemConfig: () => request("/admin/system-config"),
     updateSystemConfig: (payload = {}) =>
       request("/admin/system-config", { method: "PATCH", body: payload }),

@@ -2,9 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import worker, { backendPath, proxyApiRequest } from "./worker.js";
 import { onRequest as pagesApiOnRequest } from "./functions/api/[[path]].js";
 
+const originalFetch = globalThis.fetch;
+
 describe("admin Cloudflare worker proxy", () => {
   afterEach(() => {
-    vi.unstubAllGlobals();
+    globalThis.fetch = originalFetch;
   });
 
   it("maps /api/admin/workers to the backend admin workers path", () => {
@@ -27,7 +29,7 @@ describe("admin Cloudflare worker proxy", () => {
         headers: { connection: "close", "content-type": "application/json" },
       })
     );
-    vi.stubGlobal("fetch", fetchMock);
+    globalThis.fetch = fetchMock;
 
     const response = await proxyApiRequest(
       new Request("https://admin.example.com/api/admin/workers", {
@@ -55,7 +57,7 @@ describe("admin Cloudflare worker proxy", () => {
 
   it("returns a controlled 502 when the Worker upstream fetch rejects", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("TLS failed"));
-    vi.stubGlobal("fetch", fetchMock);
+    globalThis.fetch = fetchMock;
 
     const response = await proxyApiRequest(
       new Request("https://admin.example.com/api/auth/session"),
@@ -71,7 +73,7 @@ describe("admin Cloudflare worker proxy", () => {
 
   it("returns a controlled 502 when the Pages upstream fetch rejects", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("connection failed"));
-    vi.stubGlobal("fetch", fetchMock);
+    globalThis.fetch = fetchMock;
 
     const response = await pagesApiOnRequest({
       request: new Request("https://admin.example.com/api/auth/session"),
@@ -86,7 +88,7 @@ describe("admin Cloudflare worker proxy", () => {
 
   it("allows loopback HTTP upstreams for local Worker preview", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
-    vi.stubGlobal("fetch", fetchMock);
+    globalThis.fetch = fetchMock;
 
     const response = await proxyApiRequest(
       new Request("https://admin.example.com/api/admin/workers"),
@@ -100,7 +102,7 @@ describe("admin Cloudflare worker proxy", () => {
 
   it("allows bracketed IPv6 loopback HTTP upstreams for local Worker preview", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
-    vi.stubGlobal("fetch", fetchMock);
+    globalThis.fetch = fetchMock;
 
     const response = await proxyApiRequest(
       new Request("https://admin.example.com/api/admin/workers"),
@@ -114,7 +116,7 @@ describe("admin Cloudflare worker proxy", () => {
 
   it("allows bracketed IPv6 loopback HTTP upstreams for Pages function proxy", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
-    vi.stubGlobal("fetch", fetchMock);
+    globalThis.fetch = fetchMock;
 
     const response = await pagesApiOnRequest({
       request: new Request("https://admin.example.com/api/admin/workers"),
@@ -127,7 +129,7 @@ describe("admin Cloudflare worker proxy", () => {
 
   it("replaces client-supplied forwarded headers before proxying", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
-    vi.stubGlobal("fetch", fetchMock);
+    globalThis.fetch = fetchMock;
 
     await proxyApiRequest(
       new Request("https://admin.pull-wise.com/api/auth/github/authorize", {
@@ -153,7 +155,7 @@ describe("admin Cloudflare worker proxy", () => {
 
   it("replaces client-supplied forwarded headers in the Pages function proxy", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
-    vi.stubGlobal("fetch", fetchMock);
+    globalThis.fetch = fetchMock;
 
     await pagesApiOnRequest({
       request: new Request("https://admin.pull-wise.com/api/auth/github/authorize", {
@@ -186,7 +188,7 @@ describe("admin Cloudflare worker proxy", () => {
         },
       })
     );
-    vi.stubGlobal("fetch", fetchMock);
+    globalThis.fetch = fetchMock;
 
     const response = await proxyApiRequest(
       new Request("https://admin.example.com/api/auth/github/callback?state=st&code=code"),
@@ -201,7 +203,7 @@ describe("admin Cloudflare worker proxy", () => {
 
   it("rejects plaintext worker upstreams before forwarding credentials", async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    globalThis.fetch = fetchMock;
 
     const response = await proxyApiRequest(
       new Request("https://admin.example.com/api/admin/workers", {
@@ -223,7 +225,7 @@ describe("admin Cloudflare worker proxy", () => {
 
   it("rejects plaintext Pages function upstreams before forwarding credentials", async () => {
     const fetchMock = vi.fn();
-    vi.stubGlobal("fetch", fetchMock);
+    globalThis.fetch = fetchMock;
 
     const response = await pagesApiOnRequest({
       request: new Request("https://admin.example.com/api/admin/workers", {

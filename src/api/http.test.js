@@ -2,14 +2,23 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { githubAuthorizeRedirectUrl } from "../lib/auth.js";
 import { http, request } from "./http.js";
 
+const originalWindow = globalThis.window;
+
 describe("request", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    if (originalWindow === undefined) {
+      delete globalThis.window;
+    } else {
+      globalThis.window = originalWindow;
+    }
   });
 
   it("uses the same default API base path for XHR and GitHub authorize redirects", () => {
+    globalThis.window = { location: { origin: "http://localhost:3000" } };
+
     expect(http.defaults.baseURL).toBe("/api");
-    expect(githubAuthorizeRedirectUrl("http://localhost:3000/workers")).toMatch(
+    expect(githubAuthorizeRedirectUrl("http://localhost:3000/workers", "http://localhost:3000/api")).toMatch(
       /^http:\/\/localhost:3000\/api\/auth\/github\/authorize\?/
     );
   });

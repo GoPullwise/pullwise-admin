@@ -235,6 +235,45 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText(String(heartbeatSeconds))).not.toBeInTheDocument();
   });
 
+  it("renders worker machine metrics as charts", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.getWorker.mockResolvedValue({
+      worker: {
+        ...workers[0],
+        machineMetrics: {
+          collectedAt: 1781200060,
+          worker: { platform: "Linux-6.8", machine: "x86_64", pythonVersion: "3.10.12" },
+          memory: { totalBytes: 8589934592, usedBytes: 5368709120, usedPercent: 62.5 },
+          storage: { totalBytes: 107374182400, usedBytes: 42949672960, usedPercent: 40.0 },
+          history: [
+            {
+              collectedAt: 1781200000,
+              memory: { usedPercent: 58.2 },
+              storage: { usedPercent: 39.7 },
+            },
+            {
+              collectedAt: 1781200060,
+              memory: { usedPercent: 62.5 },
+              storage: { usedPercent: 40.0 },
+            },
+          ],
+        },
+      },
+      auditEvents: [],
+      taskActivity: [],
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    expect(await screen.findByText("Machine metrics")).toBeInTheDocument();
+    expect(screen.getByText("62.5%")).toBeInTheDocument();
+    expect(screen.getByText("40%")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /worker ram usage over time/i })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /worker storage usage over time/i })).toBeInTheDocument();
+  });
+
   it("renders Never when the worker detail has no heartbeat", async () => {
     const user = userEvent.setup();
 

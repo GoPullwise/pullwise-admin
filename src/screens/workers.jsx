@@ -45,6 +45,18 @@ function normalizeWorkerCapacity(value) {
   return Number.isFinite(number) && number > 0 ? number : 1;
 }
 
+function nextPatchVersion(value) {
+  const version = textValue(value).replace(/^v/i, "");
+  const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return "";
+  return `${Number(match[1])}.${Number(match[2])}.${Number(match[3]) + 1}`;
+}
+
+function releaseTag(value) {
+  const version = textValue(value).replace(/^v/i, "");
+  return version ? `v${version}` : "";
+}
+
 function timestampDate(value) {
   const seconds = timestampValue(value);
   return seconds ? new Date(seconds * 1000) : null;
@@ -448,6 +460,33 @@ function WorkerTokenBlock({ token }) {
   );
 }
 
+function WorkerReleasePanel({ releaseInfo, releaseVersion, releaseBusy, onReleaseVersionChange, onSubmit }) {
+  const latestVersion = textValue(releaseInfo?.latestVersion);
+  const suggestedVersion = nextPatchVersion(latestVersion);
+
+  return (
+    <section className="worker-release-panel" aria-label="Worker release">
+      <div className="worker-release-latest">
+        <span>Latest worker release</span>
+        <strong>{releaseInfo?.loading ? "Loading..." : latestVersion || "Unavailable"}</strong>
+      </div>
+      <form className="worker-release-form" onSubmit={onSubmit}>
+        <label className="field worker-release-version">
+          <span>New release version</span>
+          <input
+            value={releaseVersion}
+            onChange={(event) => onReleaseVersionChange(event.target.value)}
+            placeholder={suggestedVersion || "0.4.3"}
+          />
+        </label>
+        <button className="btn primary" type="submit" disabled={releaseBusy}>
+          <I.GitBranch size={14} /> Release worker
+        </button>
+      </form>
+    </section>
+  );
+}
+
 function CreateWorkerModal({ onClose, onCreated }) {
   const [name, setName] = useState("");
   const [region, setRegion] = useState("");
@@ -829,6 +868,9 @@ export function WorkersScreen() {
   const [pendingAction, setPendingAction] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const [rotatedTokens, setRotatedTokens] = useState({});
+  const [releaseInfo, setReleaseInfo] = useState({ latestVersion: "", loading: true });
+  const [releaseVersion, setReleaseVersion] = useState("");
+  const [releaseBusy, setReleaseBusy] = useState(false);
 
   const loadWorkers = useCallback(async (options = {}) => {
     const preserveRotatedTokens = options?.preserveRotatedTokens === true;
@@ -847,11 +889,31 @@ export function WorkersScreen() {
     }
   }, []);
 
+  const loadWorkerDefaults = useCallback(async () => {
+    setReleaseInfo((current) => ({ ...current, loading: true }));
+    try {
+      const payload = await pullwiseApi.system.getWorkerDefaults();
+      const latestVersion = textValue(
+        payload?.workerVersion || payload?.version || payload?.defaults?.version
+      );
+      setReleaseInfo({ latestVersion, loading: false });
+      setReleaseVersion((current) => current || nextPatchVersion(latestVersion));
+    } catch {
+      setReleaseInfo({ latestVersion: "", loading: false });
+    }
+  }, []);
+
+  const refreshWorkers = useCallback(() => {
+    loadWorkers();
+    loadWorkerDefaults();
+  }, [loadWorkerDefaults, loadWorkers]);
+
   useEffect(() => {
     loadWorkers();
+    loadWorkerDefaults();
     const id = setInterval(loadWorkers, REFRESH_MS);
     return () => clearInterval(id);
-  }, [loadWorkers]);
+  }, [loadWorkerDefaults, loadWorkers]);
 
   const summary = useMemo(() => {
     const active = workers.filter((worker) => worker.enabled !== false && ["idle", "busy"].includes(worker.status)).length;
@@ -862,6 +924,26 @@ export function WorkersScreen() {
       disabled: workers.filter((worker) => worker.enabled === false).length,
     };
   }, [workers]);
+
+  const handleReleaseWorker = async (event) => {
+    event.preventDefault();
+    if (releaseBusy) return;
+    const version = textValue(releaseVersion);
+    if (!version) {
+      setActionMessage("Enter a worker release version.");
+      return;
+    }
+    setReleaseBusy(true);
+    setActionMessage("");
+    try {
+      const result = await pullwiseApi.system.releaseWorker({ version });
+      setActionMessage(`Release workflow queued for ${textValue(result?.tag) || releaseTag(version)}.`);
+    } catch (err) {
+      setActionMessage(err?.message || "Worker release failed.");
+    } finally {
+      setReleaseBusy(false);
+    }
+  };
 
   const handleAction = async (action, workerId, payload = {}) => {
     const actionKey = `${action}:${workerId}`;
@@ -923,7 +1005,7 @@ export function WorkersScreen() {
           <p>Register, configure, and monitor Pullwise scan workers.</p>
         </div>
         <div className="page-actions">
-          <button className="btn" type="button" onClick={loadWorkers} disabled={loading}>
+          <button className="btn" type="button" onClick={refreshWorkers} disabled={loading}>
             <I.Refresh size={14} /> Refresh
           </button>
           <button className="btn primary" type="button" onClick={() => setShowCreate(true)}>
@@ -938,6 +1020,14 @@ export function WorkersScreen() {
         </div>
       )}
       {actionMessage && <div className="notice">{actionMessage}</div>}
+
+      <WorkerReleasePanel
+        releaseInfo={releaseInfo}
+        releaseVersion={releaseVersion}
+        releaseBusy={releaseBusy}
+        onReleaseVersionChange={setReleaseVersion}
+        onSubmit={handleReleaseWorker}
+      />
 
       <section className="kpis" aria-label="Worker summary">
         <div className="kpi">

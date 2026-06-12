@@ -9,6 +9,7 @@ vi.mock("../api/pullwise.js", () => ({
     system: {
       listWorkers: vi.fn(),
       getWorkerDefaults: vi.fn(),
+      releaseWorker: vi.fn(),
       createWorker: vi.fn(),
       getWorker: vi.fn(),
       updateWorker: vi.fn(),
@@ -52,6 +53,22 @@ describe("WorkersScreen", () => {
 
     expect(await screen.findByText("US-East Worker")).toBeInTheDocument();
     expect(screen.getByText(/us-east/)).toBeInTheDocument();
+  });
+
+  it("shows the latest worker release and dispatches a new version", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.releaseWorker.mockResolvedValue({ version: "0.4.3", tag: "v0.4.3" });
+
+    render(<WorkersScreen />);
+
+    expect(await screen.findByText("0.4.2")).toBeInTheDocument();
+    const versionInput = screen.getByLabelText(/new release version/i);
+    await waitFor(() => expect(versionInput).toHaveValue("0.4.3"));
+
+    await user.click(screen.getByRole("button", { name: /release worker/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.releaseWorker).toHaveBeenCalledWith({ version: "0.4.3" }));
+    expect(await screen.findByText(/release workflow queued for v0.4.3/i)).toBeInTheDocument();
   });
 
   it("creates a worker and shows the one-time token", async () => {

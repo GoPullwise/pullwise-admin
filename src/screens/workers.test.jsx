@@ -71,6 +71,27 @@ describe("WorkersScreen", () => {
     expect(await screen.findByText(/release workflow queued for v0.4.3/i)).toBeInTheDocument();
   });
 
+  it("refreshes the latest worker release without using the server cache", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.getWorkerDefaults
+      .mockResolvedValueOnce({
+        workerVersion: "0.5.4",
+        latestWorkerVersion: "0.5.4",
+      })
+      .mockResolvedValueOnce({
+        workerVersion: "0.5.4",
+        latestWorkerVersion: "0.5.5",
+      });
+
+    render(<WorkersScreen />);
+
+    expect(await screen.findByText("0.5.4")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.getWorkerDefaults).toHaveBeenLastCalledWith({ refresh: "1" }));
+    expect(await screen.findByText("0.5.5")).toBeInTheDocument();
+  });
+
   it("creates a worker and shows the one-time token", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.createWorker.mockResolvedValue({

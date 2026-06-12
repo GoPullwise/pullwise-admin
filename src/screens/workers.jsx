@@ -889,12 +889,16 @@ export function WorkersScreen() {
     }
   }, []);
 
-  const loadWorkerDefaults = useCallback(async () => {
+  const loadWorkerDefaults = useCallback(async (options = {}) => {
     setReleaseInfo((current) => ({ ...current, loading: true }));
     try {
-      const payload = await pullwiseApi.system.getWorkerDefaults();
+      const payload = await pullwiseApi.system.getWorkerDefaults(options?.refresh ? { refresh: "1" } : {});
       const latestVersion = textValue(
-        payload?.workerVersion || payload?.version || payload?.defaults?.version
+        payload?.latestWorkerVersion ||
+          payload?.release?.latestVersion ||
+          payload?.workerVersion ||
+          payload?.version ||
+          payload?.defaults?.version
       );
       setReleaseInfo({ latestVersion, loading: false });
       setReleaseVersion((current) => current || nextPatchVersion(latestVersion));
@@ -905,7 +909,7 @@ export function WorkersScreen() {
 
   const refreshWorkers = useCallback(() => {
     loadWorkers();
-    loadWorkerDefaults();
+    loadWorkerDefaults({ refresh: true });
   }, [loadWorkerDefaults, loadWorkers]);
 
   useEffect(() => {

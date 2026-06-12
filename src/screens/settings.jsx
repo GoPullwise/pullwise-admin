@@ -80,51 +80,170 @@ function formatTimestamp(value) {
   });
 }
 
-function loadAverageText(cpu) {
-  const load = cpu?.loadAverage;
-  const oneMinute = numberValue(load?.oneMinute);
-  if (oneMinute === null) return "";
-  return `load ${oneMinute.toFixed(2)}`;
+function formatChartTime(value) {
+  const number = numberValue(value);
+  if (!number || number <= 0) return "n/a";
+  return new Date(number * 1000).toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
-function cpuDetail(cpu) {
-  const parts = [];
-  const logicalCount = numberValue(cpu?.logicalCount);
-  if (logicalCount) parts.push(`${logicalCount} logical cores`);
-  const load = loadAverageText(cpu);
-  if (load) parts.push(load);
-  return parts.join(" - ");
+function metricHistory(metrics) {
+  const history = Array.isArray(metrics?.history) ? metrics.history : [];
+  if (history.length) return history.filter((point) => point && typeof point === "object");
+  if (!metrics) return [];
+  return [
+    {
+      collectedAt: metrics.collectedAt,
+      memory: metrics.memory,
+      storage: metrics.storage,
+    },
+  ];
 }
 
-function capacityDetail(totalBytes, usedPercent) {
-  const parts = [];
-  const total = formatBytes(totalBytes);
-  const used = formatPercent(usedPercent);
-  if (total !== "Unavailable") parts.push(`${total} total`);
-  if (used !== "Unavailable") parts.push(`${used} used`);
-  return parts.join(" - ");
+function metricSeriesValue(point, metric) {
+  if (metric === "memory") return numberValue(point?.memory?.usedPercent);
+  if (metric === "storage") return numberValue(point?.storage?.usedPercent);
+  return null;
 }
 
-function ServerMetric({ icon, label, value, detail }) {
+function percentAxisDomain(values) {
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const padding = Math.max(2, (maxValue - minValue) * 0.2);
+  let min = Math.max(0, minValue - padding);
+  let max = Math.min(100, maxValue + padding);
+  if (max - min < 1) {
+    min = Math.max(0, minValue - 0.5);
+    max = Math.min(100, maxValue + 0.5);
+  }
+  if (max <= min) max = min + 1;
+  return { min, max };
+}
+
+function ServerMetricChart({ points, metric, color, label }) {
+  const samples = points
+    .map((point, index) => ({
+      index,
+      timestamp: numberValue(point?.collectedAt),
+      value: metricSeriesValue(point, metric),
+    }))
+    .filter((sample) => sample.value !== null);
+
+  const width = 360;
+  const height = 150;
+  const left = 44;
+  const right = 10;
+  const top = 12;
+  const bottom = 30;
+  const plotWidth = width - left - right;
+  const plotHeight = height - top - bottom;
+
+  if (samples.length < 2) {
+    return <div className="server-machine-chart-empty">Waiting for more samples</div>;
+  }
+
+  const times = samples.map((sample) => sample.timestamp ?? sample.index);
+  const firstTime = Math.min(...times);
+  const lastTime = Math.max(...times);
+  const timeRange = lastTime - firstTime || samples.length - 1 || 1;
+  const { min, max } = percentAxisDomain(samples.map((sample) => sample.value));
+  const valueRange = max - min || 1;
+  const yTicks = [max, (max + min) / 2, min];
+  const firstSample = samples[0];
+  const lastSample = samples[samples.length - 1];
+
+  const xForSample = (sample) => {
+    if (lastTime === firstTime) return left + (sample.index / (samples.length - 1)) * plotWidth;
+    return left + (((sample.timestamp ?? sample.index) - firstTime) / timeRange) * plotWidth;
+  };
+  const yForValue = (value) => top + ((max - value) / valueRange) * plotHeight;
+  const path = samples
+    .map((sample, index) => `${index === 0 ? "M" : "L"}${xForSample(sample).toFixed(2)},${yForValue(sample.value).toFixed(2)}`)
+    .join(" ");
+  const areaPath = `${path} L${xForSample(lastSample).toFixed(2)},${height - bottom} L${xForSample(firstSample).toFixed(
+    2
+  )},${height - bottom} Z`;
+
   return (
-    <div className="server-metric">
-      <span className="server-metric-label">
-        {icon}
-        {label}
-      </span>
-      <strong>{value}</strong>
-      {detail ? <small>{detail}</small> : null}
+    <svg
+      className="server-machine-chart-svg"
+      role="img"
+      aria-label={`${label} over time`}
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="none"
+    >
+      {yTicks.map((tick) => {
+        const y = yForValue(tick);
+        return (
+          <g key={tick.toFixed(3)}>
+            <line className="server-machine-gridline" x1={left} x2={width - right} y1={y} y2={y} />
+            <text className="server-machine-axis-label" x={left - 8} y={y + 3} textAnchor="end">
+              {formatPercent(tick)}
+            </text>
+          </g>
+        );
+      })}
+      <line className="server-machine-axis" x1={left} x2={left} y1={top} y2={height - bottom} />
+      <line className="server-machine-axis" x1={left} x2={width - right} y1={height - bottom} y2={height - bottom} />
+      <path d={areaPath} fill={color} fillOpacity="0.1" />
+      <path
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeWidth="2"
+        vectorEffect="non-scaling-stroke"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      {samples.map((sample) => (
+        <circle key={`${sample.index}-${sample.timestamp ?? "sample"}`} cx={xForSample(sample)} cy={yForValue(sample.value)} r="2.5" fill={color} />
+      ))}
+      <text className="server-machine-axis-label" x={left} y={height - 8}>
+        {formatChartTime(firstSample.timestamp)}
+      </text>
+      <text className="server-machine-axis-label" x={width - right} y={height - 8} textAnchor="end">
+        {formatChartTime(lastSample.timestamp)}
+      </text>
+    </svg>
+  );
+}
+
+function ServerFact({ label, value }) {
+  return (
+    <div>
+      <span>{label}</span>
+      <b>{value || "Unavailable"}</b>
+    </div>
+  );
+}
+
+function ServerMachineMetric({ icon, title, value, detail, points, metric, color }) {
+  return (
+    <div className="server-machine-metric">
+      <div className="server-machine-metric-h">
+        <span className="server-machine-metric-icon">{icon}</span>
+        <span>{title}</span>
+      </div>
+      <div className="server-machine-metric-value">{value}</div>
+      <div className="server-machine-metric-detail">{detail}</div>
+      <div className="server-machine-chart">
+        <ServerMetricChart points={points} metric={metric} color={color} label={title} />
+      </div>
     </div>
   );
 }
 
 function ServerMetricsPanel({ metrics, loading, error }) {
-  const cpu = metrics?.cpu || {};
   const memory = metrics?.memory || {};
   const storage = metrics?.storage || {};
   const server = metrics?.server || {};
+  const points = metricHistory(metrics);
   const hostname = server.hostname || "Unknown host";
-  const platformText = [server.system, server.release, server.machine].filter(Boolean).join(" ");
+  const platform = server.platform || [server.system, server.release].filter(Boolean).join(" ") || "Unavailable";
+  const machine = server.machine || "Unavailable";
+  const platformText = [platform, machine === "Unavailable" ? "" : machine].filter(Boolean).join(" ");
 
   return (
     <section className="settings-section server-overview">
@@ -139,32 +258,36 @@ function ServerMetricsPanel({ metrics, loading, error }) {
       ) : null}
       {loading && !metrics ? (
         <div className="empty">Loading server metrics...</div>
+      ) : !metrics && error ? null : !metrics ? (
+        <div className="empty">No server metrics collected yet.</div>
       ) : (
-        <div className="server-metrics">
-          <ServerMetric
-            icon={<I.Activity size={14} />}
-            label="CPU usage"
-            value={formatPercent(cpu.usagePercent)}
-            detail={cpuDetail(cpu)}
-          />
-          <ServerMetric
-            icon={<I.Server size={14} />}
-            label="RAM available"
-            value={formatBytes(memory.availableBytes)}
-            detail={capacityDetail(memory.totalBytes, memory.usedPercent)}
-          />
-          <ServerMetric
-            icon={<I.Server size={14} />}
-            label="Storage available"
-            value={formatBytes(storage.freeBytes)}
-            detail={capacityDetail(storage.totalBytes, storage.usedPercent)}
-          />
-          <ServerMetric
-            icon={<I.Shield size={14} />}
-            label="Host"
-            value={hostname}
-            detail={`Collected ${formatTimestamp(metrics?.collectedAt)}`}
-          />
+        <div className="server-machine-monitor">
+          <div className="server-machine-facts">
+            <ServerFact label="Host" value={hostname} />
+            <ServerFact label="Platform" value={platform} />
+            <ServerFact label="Machine" value={machine} />
+            <ServerFact label="Collected" value={formatTimestamp(metrics?.collectedAt)} />
+          </div>
+          <div className="server-machine-grid">
+            <ServerMachineMetric
+              icon={<I.Activity size={14} />}
+              title="RAM Usage"
+              value={formatPercent(memory.usedPercent)}
+              detail={`${formatBytes(memory.usedBytes)} used / ${formatBytes(memory.totalBytes)} total`}
+              points={points}
+              metric="memory"
+              color="var(--accent)"
+            />
+            <ServerMachineMetric
+              icon={<I.Server size={14} />}
+              title="Storage Usage"
+              value={formatPercent(storage.usedPercent)}
+              detail={`${formatBytes(storage.usedBytes)} used / ${formatBytes(storage.totalBytes)} total`}
+              points={points}
+              metric="storage"
+              color="var(--warn)"
+            />
+          </div>
         </div>
       )}
     </section>

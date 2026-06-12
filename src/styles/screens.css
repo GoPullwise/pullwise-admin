@@ -436,42 +436,130 @@
   margin-bottom: 12px;
 }
 
-.server-metrics {
+.server-machine-monitor {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.server-machine-facts,
+.server-machine-grid {
+  display: grid;
   gap: 12px;
 }
 
-.server-metric {
-  min-width: 0;
-  display: grid;
-  gap: 5px;
+.server-machine-facts {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
-.server-metric-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.server-machine-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.server-machine-facts > div,
+.server-machine-metric {
+  min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  padding: 12px;
+}
+
+.server-machine-facts > div {
+  display: grid;
+  gap: 4px;
+}
+
+.server-machine-facts span,
+.server-machine-metric-h,
+.server-machine-metric-detail,
+.server-machine-axis-label,
+.server-machine-chart-empty {
   color: var(--muted);
+}
+
+.server-machine-facts b,
+.server-machine-metric-value {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text);
+}
+
+.server-machine-facts span,
+.server-machine-metric-h {
   font-size: 12px;
   font-weight: 700;
 }
 
-.server-metric strong {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 20px;
-  line-height: 1.2;
+.server-machine-metric {
+  display: grid;
+  gap: 8px;
 }
 
-.server-metric small {
+.server-machine-metric-h {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.server-machine-metric-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.server-machine-metric-value {
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.server-machine-metric-detail {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--muted);
+  font-size: 12px;
+}
+
+.server-machine-chart,
+.server-machine-chart-svg,
+.server-machine-chart-empty {
+  min-width: 0;
+  width: 100%;
+  height: 150px;
+}
+
+.server-machine-chart-svg {
+  display: block;
+}
+
+.server-machine-gridline {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.server-machine-axis {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.server-machine-axis-label {
+  fill: var(--muted);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.server-machine-chart-empty {
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--border);
+  font-size: 12px;
 }
 
 .settings-section {
@@ -869,7 +957,8 @@
   .kpis,
   .form-grid,
   .form-grid.compact,
-  .server-metrics,
+  .server-machine-facts,
+  .server-machine-grid,
   .settings-grid,
   .plan-config-columns,
   .worker-detail {

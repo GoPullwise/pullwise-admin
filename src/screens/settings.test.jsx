@@ -60,7 +60,6 @@ describe("SettingsScreen", () => {
         machine: "x86_64",
       },
       cpu: {
-        usagePercent: 64.5,
         logicalCount: 8,
         loadAverage: { oneMinute: 1.23, fiveMinute: 1.5, fifteenMinute: 1.75 },
       },
@@ -76,6 +75,18 @@ describe("SettingsScreen", () => {
         usedBytes: 32 * 1024 ** 3,
         usedPercent: 25,
       },
+      history: [
+        {
+          collectedAt: Date.UTC(2026, 5, 9, 9, 50, 0) / 1000,
+          memory: { usedPercent: 18 },
+          storage: { usedPercent: 22 },
+        },
+        {
+          collectedAt: Date.UTC(2026, 5, 9, 10, 0, 0) / 1000,
+          memory: { usedPercent: 25 },
+          storage: { usedPercent: 25 },
+        },
+      ],
     });
   });
 
@@ -93,11 +104,15 @@ describe("SettingsScreen", () => {
     render(<SettingsScreen />);
 
     expect(await screen.findByText("Server Machine")).toBeInTheDocument();
-    expect(screen.getByText("64.5%")).toBeInTheDocument();
-    expect(screen.getByText("6 GB")).toBeInTheDocument();
-    expect(screen.getByText("96 GB")).toBeInTheDocument();
+    expect(screen.getByText("RAM Usage")).toBeInTheDocument();
+    expect(screen.getByText("Storage Usage")).toBeInTheDocument();
+    expect(screen.getAllByText("25%").length).toBeGreaterThan(0);
+    expect(screen.getByRole("img", { name: /ram usage over time/i })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /storage usage over time/i })).toBeInTheDocument();
+    expect(document.querySelectorAll(".server-machine-chart-svg")).toHaveLength(2);
     expect(screen.getByText("api-1")).toBeInTheDocument();
-    expect(screen.getByText(/8 logical cores/)).toBeInTheDocument();
+    expect(screen.queryByText(/CPU usage/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/logical cores/i)).not.toBeInTheDocument();
     expect(pullwiseApi.system.getServerMetrics).toHaveBeenCalled();
   });
 });

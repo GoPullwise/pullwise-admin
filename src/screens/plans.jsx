@@ -4,11 +4,9 @@ import { I } from "../icons.jsx";
 import { cloneSettings, isPlanSettingGroup, SettingField, setValueAt, valueAt } from "./settings.jsx";
 
 const PLAN_ORDER = ["free", "pro", "max"];
-const PROVIDER_CHAIN_OPTIONS = [
+const AGENT_CLI_OPTIONS = [
   { value: "codex", label: "Codex" },
   { value: "opencode", label: "OpenCode" },
-  { value: "codex,opencode", label: "Codex then OpenCode" },
-  { value: "opencode,codex", label: "OpenCode then Codex" },
 ];
 const EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
 
@@ -34,6 +32,11 @@ function textValue(value, fallback = "") {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
+function providerValue(value) {
+  const provider = textValue(value).toLowerCase();
+  return AGENT_CLI_OPTIONS.some((option) => option.value === provider) ? provider : "";
+}
+
 function planName(plan) {
   return textValue(plan?.name, titleCase(plan?.id));
 }
@@ -42,19 +45,39 @@ function chainValue(agentConfig) {
   const chain = Array.isArray(agentConfig?.providerChain)
     ? agentConfig.providerChain
     : [agentConfig?.provider || agentConfig?.agent?.cli || "codex"];
-  const normalized = chain.map((item) => textValue(item).toLowerCase()).filter(Boolean);
+  const normalized = chain.map((item) => providerValue(item)).filter(Boolean);
   return normalized.length ? normalized.join(",") : "codex";
+}
+
+function agentCliValue(source) {
+  const chain = textValue(source?.providerChain)
+    .split(",")
+    .map((item) => providerValue(item))
+    .filter(Boolean);
+  return (
+    providerValue(source?.agentCli) ||
+    chain[0] ||
+    providerValue(source?.agent?.cli) ||
+    providerValue(source?.provider) ||
+    "codex"
+  );
+}
+
+function agentCliLabel(value) {
+  return AGENT_CLI_OPTIONS.find((option) => option.value === value)?.label || titleCase(value);
 }
 
 function formFromPlan(plan) {
   const agentConfig = plan?.agentConfig || {};
   const codex = agentConfig.codex || {};
   const opencode = agentConfig.opencode || {};
+  const providerChain = chainValue(agentConfig);
   return {
     id: textValue(plan?.id || agentConfig.plan, "free").toLowerCase(),
     name: planName(plan),
     reviewLimit: plan?.reviewLimit ?? plan?.review_limit ?? "",
-    providerChain: chainValue(agentConfig),
+    providerChain,
+    agentCli: agentCliValue({ ...agentConfig, providerChain }),
     codexCli: textValue(codex.cli, "codex"),
     codexModel: textValue(codex.model, "gpt-5.5"),
     codexReasoningEffort: textValue(codex.reasoningEffort, "medium"),
@@ -65,8 +88,12 @@ function formFromPlan(plan) {
 }
 
 function payloadFromForm(form) {
+  const providerChain = textValue(form.providerChain)
+    .split(",")
+    .map((item) => providerValue(item))
+    .filter(Boolean);
   return {
-    providerChain: form.providerChain.split(",").map((item) => item.trim()).filter(Boolean),
+    providerChain: providerChain.length ? providerChain : [agentCliValue(form)],
     codex: {
       cli: form.codexCli,
       model: form.codexModel,
@@ -115,7 +142,8 @@ function TextField({ label, value, onChange, ariaLabel, description }) {
 }
 
 function PlanConfigCard({ form, saving, onChange, onSave }) {
-  const primary = form.providerChain.split(",")[0] || "codex";
+  const agentCli = agentCliValue(form);
+  const agentLabel = agentCliLabel(agentCli);
   return (
     <article className="plan-config-card">
       <div className="plan-config-head">
@@ -128,55 +156,32 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
         </div>
         <div className="plan-config-primary">
           <I.Bot size={15} />
-          <span>{primary}</span>
+          <span>{agentLabel}</span>
         </div>
       </div>
 
       <div className="form-grid compact">
         <SelectField
-          label="Provider chain"
-          ariaLabel={`${form.name} provider chain`}
-          value={form.providerChain}
-          onChange={(value) => onChange(form.id, "providerChain", value)}
-          description="Ordered review providers sent in each worker job. The worker tries the next provider if the first one fails."
+          label="Agent CLI"
+          ariaLabel={`${form.name} Agent CLI`}
+          value={agentCli}
+          onChange={(value) => onChange(form.id, "agentCli", value)}
+          description="The review agent CLI used for this plan's worker jobs."
         >
-          {PROVIDER_CHAIN_OPTIONS.map((option) => (
+          {AGENT_CLI_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
         </SelectField>
-        <SelectField
-          label="Codex effort"
-          ariaLabel={`${form.name} Codex effort`}
-          value={form.codexReasoningEffort}
-          onChange={(value) => onChange(form.id, "codexReasoningEffort", value)}
-          description="Codex reasoning effort used by worker CLI execution for this plan."
-        >
-          {EFFORT_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </SelectField>
-        <SelectField
-          label="OpenCode variant"
-          ariaLabel={`${form.name} OpenCode variant`}
-          value={form.opencodeVariant}
-          onChange={(value) => onChange(form.id, "opencodeVariant", value)}
-          description="OpenCode variant passed by the worker when OpenCode is selected."
-        >
-          {EFFORT_OPTIONS.map((option) => (
-            <option key={option} value={option}>
-              {option}
-            </option>
-          ))}
-        </SelectField>
       </div>
 
-      <div className="plan-config-columns">
-        <section>
-          <h3>Codex</h3>
+      <section className="plan-agent-config-section">
+        <div className="plan-agent-config-head">
+          <h3>{agentLabel}</h3>
+          <p>{agentCli === "codex" ? "Codex worker CLI settings for this plan." : "OpenCode worker CLI settings for this plan."}</p>
+        </div>
+        {agentCli === "codex" ? (
           <div className="form-grid">
             <TextField
               label="CLI"
@@ -192,10 +197,21 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
               onChange={(value) => onChange(form.id, "codexModel", value)}
               description="Codex model passed to the worker CLI for this plan."
             />
+            <SelectField
+              label="Reasoning effort"
+              ariaLabel={`${form.name} Codex effort`}
+              value={form.codexReasoningEffort}
+              onChange={(value) => onChange(form.id, "codexReasoningEffort", value)}
+              description="Codex reasoning effort used by worker CLI execution for this plan."
+            >
+              {EFFORT_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </SelectField>
           </div>
-        </section>
-        <section>
-          <h3>OpenCode</h3>
+        ) : (
           <div className="form-grid">
             <TextField
               label="CLI"
@@ -211,9 +227,22 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
               onChange={(value) => onChange(form.id, "opencodeModel", value)}
               description="OpenCode model passed to the worker CLI for this plan."
             />
+            <SelectField
+              label="Variant"
+              ariaLabel={`${form.name} OpenCode variant`}
+              value={form.opencodeVariant}
+              onChange={(value) => onChange(form.id, "opencodeVariant", value)}
+              description="OpenCode variant passed by the worker when OpenCode is selected."
+            >
+              {EFFORT_OPTIONS.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </SelectField>
           </div>
-        </section>
-      </div>
+        )}
+      </section>
 
       <div className="plan-config-actions">
         <button className="btn primary" type="button" onClick={() => onSave(form.id)} disabled={saving}>
@@ -271,7 +300,10 @@ export function PlansScreen() {
   const updateField = (planId, field, value) => {
     setForms((current) => ({
       ...current,
-      [planId]: { ...current[planId], [field]: value },
+      [planId]:
+        field === "agentCli"
+          ? { ...current[planId], agentCli: value, providerChain: value }
+          : { ...current[planId], [field]: value },
     }));
   };
 
@@ -385,7 +417,7 @@ export function PlansScreen() {
           <div className="plan-settings-head">
             <div>
               <h2>Plan Agent Configs</h2>
-              <p>Provider chain and model settings sent to workers for each plan.</p>
+              <p>Agent CLI and model settings sent to workers for each plan.</p>
             </div>
           </div>
           <div className="plan-config-list">

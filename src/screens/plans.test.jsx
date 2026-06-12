@@ -93,12 +93,26 @@ describe("PlansScreen", () => {
     expect(within(card).getByDisplayValue("gpt-5.5")).toBeInTheDocument();
   });
 
-  it("keeps executable command fields out of plan settings", async () => {
+  it("shows only the selected agent CLI config fields", async () => {
+    const user = userEvent.setup();
+
     render(<PlansScreen />);
 
     expect(await screen.findByText("Pro")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pro Agent CLI")).toHaveValue("codex");
     expect(screen.getByLabelText("Pro Codex CLI")).toHaveValue("codex");
+    expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
+    expect(screen.getByLabelText("Pro Codex effort")).toHaveValue("medium");
+    expect(screen.queryByLabelText("Pro OpenCode CLI")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Pro OpenCode model")).not.toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText("Pro Agent CLI"), "opencode");
+
     expect(screen.getByLabelText("Pro OpenCode CLI")).toHaveValue("opencode");
+    expect(screen.getByLabelText("Pro OpenCode model")).toHaveValue("opencode/big-pickle");
+    expect(screen.getByLabelText("Pro OpenCode variant")).toHaveValue("medium");
+    expect(screen.queryByLabelText("Pro Codex CLI")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Pro Codex model")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Pro Codex command")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Pro OpenCode command")).not.toBeInTheDocument();
   });
@@ -109,7 +123,7 @@ describe("PlansScreen", () => {
       ...proPlan,
       agentConfig: {
         ...proPlan.agentConfig,
-        providerChain: ["opencode", "codex"],
+        providerChain: ["opencode"],
         agent: { cli: "opencode", model: "opencode/pro", reasoningEffort: "high" },
         codex: { cli: "codex", command: "codex", model: "gpt-pro", reasoningEffort: "high" },
         opencode: { cli: "opencode", command: "opencode", model: "opencode/pro", variant: "high" },
@@ -123,11 +137,11 @@ describe("PlansScreen", () => {
     render(<PlansScreen />);
 
     await screen.findByText("Pro");
-    await user.selectOptions(screen.getByLabelText("Pro provider chain"), "opencode,codex");
     await user.selectOptions(screen.getByLabelText("Pro Codex effort"), "high");
-    await user.selectOptions(screen.getByLabelText("Pro OpenCode variant"), "high");
     await user.clear(screen.getByLabelText("Pro Codex model"));
     await user.type(screen.getByLabelText("Pro Codex model"), "gpt-pro");
+    await user.selectOptions(screen.getByLabelText("Pro Agent CLI"), "opencode");
+    await user.selectOptions(screen.getByLabelText("Pro OpenCode variant"), "high");
     await user.clear(screen.getByLabelText("Pro OpenCode model"));
     await user.type(screen.getByLabelText("Pro OpenCode model"), "opencode/pro");
     await user.click(screen.getByRole("button", { name: /save pro/i }));
@@ -136,7 +150,7 @@ describe("PlansScreen", () => {
       expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith(
         "pro",
         expect.objectContaining({
-          providerChain: ["opencode", "codex"],
+          providerChain: ["opencode"],
           codex: expect.objectContaining({ cli: "codex", model: "gpt-pro", reasoningEffort: "high" }),
           opencode: expect.objectContaining({ cli: "opencode", model: "opencode/pro", variant: "high" }),
         })

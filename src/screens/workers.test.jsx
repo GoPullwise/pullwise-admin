@@ -69,6 +69,7 @@ describe("WorkersScreen", () => {
 
     await waitFor(() => expect(pullwiseApi.system.releaseWorker).toHaveBeenCalledWith({ version: "0.4.3" }));
     expect(await screen.findByText(/release workflow queued for v0.4.3/i)).toBeInTheDocument();
+    expect(versionInput).toHaveValue("0.4.4");
   });
 
   it("refreshes the latest worker release without using the server cache", async () => {
@@ -90,6 +91,7 @@ describe("WorkersScreen", () => {
 
     await waitFor(() => expect(pullwiseApi.system.getWorkerDefaults).toHaveBeenLastCalledWith({ refresh: "1" }));
     expect(await screen.findByText("0.5.5")).toBeInTheDocument();
+    expect(screen.getByLabelText(/new release version/i)).toHaveValue("0.5.6");
   });
 
   it("creates a worker and shows the one-time token", async () => {

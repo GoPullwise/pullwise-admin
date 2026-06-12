@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
 
@@ -871,6 +871,7 @@ export function WorkersScreen() {
   const [releaseInfo, setReleaseInfo] = useState({ latestVersion: "", loading: true });
   const [releaseVersion, setReleaseVersion] = useState("");
   const [releaseBusy, setReleaseBusy] = useState(false);
+  const latestReleaseRef = useRef("");
 
   const loadWorkers = useCallback(async (options = {}) => {
     const preserveRotatedTokens = options?.preserveRotatedTokens === true;
@@ -900,8 +901,18 @@ export function WorkersScreen() {
           payload?.version ||
           payload?.defaults?.version
       );
+      const previousLatest = latestReleaseRef.current;
+      const previousSuggestion = nextPatchVersion(previousLatest);
+      const nextSuggestion = nextPatchVersion(latestVersion);
+      latestReleaseRef.current = latestVersion;
       setReleaseInfo({ latestVersion, loading: false });
-      setReleaseVersion((current) => current || nextPatchVersion(latestVersion));
+      setReleaseVersion((current) => {
+        const normalizedCurrent = textValue(current).replace(/^v/i, "");
+        if (!normalizedCurrent || normalizedCurrent === previousSuggestion || normalizedCurrent === previousLatest) {
+          return nextSuggestion || current;
+        }
+        return current;
+      });
     } catch {
       setReleaseInfo({ latestVersion: "", loading: false });
     }
@@ -941,6 +952,11 @@ export function WorkersScreen() {
     setActionMessage("");
     try {
       const result = await pullwiseApi.system.releaseWorker({ version });
+      const releasedVersion = textValue(result?.version || version).replace(/^v/i, "");
+      const nextVersion = nextPatchVersion(releasedVersion);
+      if (nextVersion) {
+        setReleaseVersion(nextVersion);
+      }
       setActionMessage(`Release workflow queued for ${textValue(result?.tag) || releaseTag(version)}.`);
     } catch (err) {
       setActionMessage(err?.message || "Worker release failed.");

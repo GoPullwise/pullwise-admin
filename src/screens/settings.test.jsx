@@ -7,6 +7,7 @@ vi.mock("../api/pullwise.js", () => ({
   pullwiseApi: {
     system: {
       getSystemConfig: vi.fn(),
+      getServerMetrics: vi.fn(),
       updateSystemConfig: vi.fn(),
     },
   },
@@ -49,6 +50,33 @@ describe("SettingsScreen", () => {
         },
       ],
     });
+    pullwiseApi.system.getServerMetrics.mockResolvedValue({
+      ok: true,
+      collectedAt: Date.UTC(2026, 5, 9, 10, 0, 0) / 1000,
+      server: {
+        hostname: "api-1",
+        system: "Linux",
+        release: "6.8.0",
+        machine: "x86_64",
+      },
+      cpu: {
+        usagePercent: 64.5,
+        logicalCount: 8,
+        loadAverage: { oneMinute: 1.23, fiveMinute: 1.5, fifteenMinute: 1.75 },
+      },
+      memory: {
+        totalBytes: 8 * 1024 ** 3,
+        availableBytes: 6 * 1024 ** 3,
+        usedBytes: 2 * 1024 ** 3,
+        usedPercent: 25,
+      },
+      storage: {
+        totalBytes: 128 * 1024 ** 3,
+        freeBytes: 96 * 1024 ** 3,
+        usedBytes: 32 * 1024 ** 3,
+        usedPercent: 25,
+      },
+    });
   });
 
   it("keeps plan-related configuration out of the general settings page", async () => {
@@ -59,5 +87,17 @@ describe("SettingsScreen", () => {
     expect(screen.queryByText("Billing catalog")).not.toBeInTheDocument();
     expect(screen.getByText("Scan scheduling")).toBeInTheDocument();
     expect(screen.getByText("Worker control plane")).toBeInTheDocument();
+  });
+
+  it("renders server machine metrics from the admin API", async () => {
+    render(<SettingsScreen />);
+
+    expect(await screen.findByText("Server Machine")).toBeInTheDocument();
+    expect(screen.getByText("64.5%")).toBeInTheDocument();
+    expect(screen.getByText("6 GB")).toBeInTheDocument();
+    expect(screen.getByText("96 GB")).toBeInTheDocument();
+    expect(screen.getByText("api-1")).toBeInTheDocument();
+    expect(screen.getByText(/8 logical cores/)).toBeInTheDocument();
+    expect(pullwiseApi.system.getServerMetrics).toHaveBeenCalled();
   });
 });

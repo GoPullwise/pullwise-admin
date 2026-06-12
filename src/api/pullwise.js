@@ -40,6 +40,7 @@ export const pullwiseApi = {
       request(`/admin/workers/${pathSegment(workerId)}/test`, { method: "POST" }),
     deleteWorker: (workerId) =>
       request(`/admin/workers/${pathSegment(workerId)}`, { method: "DELETE" }),
+    getServerMetrics: () => request("/admin/server-metrics"),
     getSystemConfig: () => request("/admin/system-config"),
     updateSystemConfig: (payload = {}) =>
       request("/admin/system-config", { method: "PATCH", body: payload }),

@@ -46,6 +46,131 @@ export function textValue(value) {
   return value ?? "";
 }
 
+function numberValue(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function formatPercent(value) {
+  const number = numberValue(value);
+  return number === null ? "Unavailable" : `${number.toFixed(number % 1 === 0 ? 0 : 1)}%`;
+}
+
+function formatBytes(value) {
+  let number = numberValue(value);
+  if (number === null || number < 0) return "Unavailable";
+  const units = ["B", "KB", "MB", "GB", "TB", "PB"];
+  let unit = 0;
+  while (number >= 1024 && unit < units.length - 1) {
+    number /= 1024;
+    unit += 1;
+  }
+  const digits = unit === 0 || number >= 10 || Number.isInteger(number) ? 0 : 1;
+  return `${number.toFixed(digits)} ${units[unit]}`;
+}
+
+function formatTimestamp(value) {
+  const number = numberValue(value);
+  if (!number || number <= 0) return "Unknown";
+  return new Date(number * 1000).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function loadAverageText(cpu) {
+  const load = cpu?.loadAverage;
+  const oneMinute = numberValue(load?.oneMinute);
+  if (oneMinute === null) return "";
+  return `load ${oneMinute.toFixed(2)}`;
+}
+
+function cpuDetail(cpu) {
+  const parts = [];
+  const logicalCount = numberValue(cpu?.logicalCount);
+  if (logicalCount) parts.push(`${logicalCount} logical cores`);
+  const load = loadAverageText(cpu);
+  if (load) parts.push(load);
+  return parts.join(" - ");
+}
+
+function capacityDetail(totalBytes, usedPercent) {
+  const parts = [];
+  const total = formatBytes(totalBytes);
+  const used = formatPercent(usedPercent);
+  if (total !== "Unavailable") parts.push(`${total} total`);
+  if (used !== "Unavailable") parts.push(`${used} used`);
+  return parts.join(" - ");
+}
+
+function ServerMetric({ icon, label, value, detail }) {
+  return (
+    <div className="server-metric">
+      <span className="server-metric-label">
+        {icon}
+        {label}
+      </span>
+      <strong>{value}</strong>
+      {detail ? <small>{detail}</small> : null}
+    </div>
+  );
+}
+
+function ServerMetricsPanel({ metrics, loading, error }) {
+  const cpu = metrics?.cpu || {};
+  const memory = metrics?.memory || {};
+  const storage = metrics?.storage || {};
+  const server = metrics?.server || {};
+  const hostname = server.hostname || "Unknown host";
+  const platformText = [server.system, server.release, server.machine].filter(Boolean).join(" ");
+
+  return (
+    <section className="settings-section server-overview">
+      <div className="settings-section-head">
+        <h2>Server Machine</h2>
+        <p>{platformText || "Runtime host metrics"}</p>
+      </div>
+      {error ? (
+        <div className="auth-error" role="alert">
+          <I.X size={14} /> {error}
+        </div>
+      ) : null}
+      {loading && !metrics ? (
+        <div className="empty">Loading server metrics...</div>
+      ) : (
+        <div className="server-metrics">
+          <ServerMetric
+            icon={<I.Activity size={14} />}
+            label="CPU usage"
+            value={formatPercent(cpu.usagePercent)}
+            detail={cpuDetail(cpu)}
+          />
+          <ServerMetric
+            icon={<I.Server size={14} />}
+            label="RAM available"
+            value={formatBytes(memory.availableBytes)}
+            detail={capacityDetail(memory.totalBytes, memory.usedPercent)}
+          />
+          <ServerMetric
+            icon={<I.Server size={14} />}
+            label="Storage available"
+            value={formatBytes(storage.freeBytes)}
+            detail={capacityDetail(storage.totalBytes, storage.usedPercent)}
+          />
+          <ServerMetric
+            icon={<I.Shield size={14} />}
+            label="Host"
+            value={hostname}
+            detail={`Collected ${formatTimestamp(metrics?.collectedAt)}`}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function recommendedValueForField(field, defaults) {
   const configured = valueAt(defaults, field.path);
   if (configured !== undefined && configured !== null && textValue(configured) !== "") return textValue(configured);
@@ -110,23 +235,40 @@ export function SettingField({ field, value, defaults, onChange }) {
 
 export function SettingsScreen() {
   const [payload, setPayload] = useState(null);
+  const [serverMetrics, setServerMetrics] = useState(null);
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [metricsError, setMetricsError] = useState("");
   const [message, setMessage] = useState("");
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
     setError("");
+    setMetricsError("");
     try {
-      const nextPayload = await pullwiseApi.system.getSystemConfig();
-      setPayload(nextPayload);
-      setSettings(cloneSettings(nextPayload?.settings));
-    } catch (err) {
-      setError(err?.message || "Unable to load system config.");
-      setPayload(null);
-      setSettings({});
+      const [configResult, metricsResult] = await Promise.allSettled([
+        pullwiseApi.system.getSystemConfig(),
+        pullwiseApi.system.getServerMetrics(),
+      ]);
+
+      if (configResult.status === "fulfilled") {
+        const nextPayload = configResult.value;
+        setPayload(nextPayload);
+        setSettings(cloneSettings(nextPayload?.settings));
+      } else {
+        setError(configResult.reason?.message || "Unable to load system config.");
+        setPayload(null);
+        setSettings({});
+      }
+
+      if (metricsResult.status === "fulfilled") {
+        setServerMetrics(metricsResult.value);
+      } else {
+        setServerMetrics(null);
+        setMetricsError(metricsResult.reason?.message || "Unable to load server metrics.");
+      }
     } finally {
       setLoading(false);
     }
@@ -189,6 +331,8 @@ export function SettingsScreen() {
           <I.Check size={14} /> {message}
         </div>
       )}
+
+      <ServerMetricsPanel metrics={serverMetrics} loading={loading} error={metricsError} />
 
       {loading && <div className="empty">Loading system config...</div>}
       {!loading && groups.length === 0 && <div className="empty">No system config metadata returned.</div>}

@@ -94,6 +94,33 @@ describe("admin Cloudflare worker proxy", () => {
     expect(fetchMock).toHaveBeenCalledWith(new URL("http://localhost:8080/admin/workers"), expect.any(Object));
   });
 
+  it("allows bracketed IPv6 loopback HTTP upstreams for local Worker preview", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await proxyApiRequest(
+      new Request("https://admin.example.com/api/admin/workers"),
+      { PULLWISE_API_ORIGIN: "http://[::1]:8080" },
+      new URL("https://admin.example.com/api/admin/workers")
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(new URL("http://[::1]:8080/admin/workers"), expect.any(Object));
+  });
+
+  it("allows bracketed IPv6 loopback HTTP upstreams for Pages function proxy", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const response = await pagesApiOnRequest({
+      request: new Request("https://admin.example.com/api/admin/workers"),
+      env: { PULLWISE_API_ORIGIN: "http://[::1]:8080" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(new URL("http://[::1]:8080/admin/workers"), expect.any(Object));
+  });
+
   it("replaces client-supplied forwarded headers before proxying", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
     vi.stubGlobal("fetch", fetchMock);

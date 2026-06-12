@@ -53,7 +53,8 @@ function apiOrigin(origin) {
 }
 
 function isLoopbackHost(hostname) {
-  return ["localhost", "127.0.0.1", "::1"].includes(hostname);
+  const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "");
+  return ["localhost", "127.0.0.1", "::1"].includes(normalized);
 }
 
 function hasBody(method) {

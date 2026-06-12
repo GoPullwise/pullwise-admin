@@ -365,7 +365,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
           </div>
           <div>
             <dt>Last heartbeat</dt>
-            <dd>{displayedWorker.last_heartbeat_at || "Never"}</dd>
+            <dd>{formatTimestamp(displayedWorker.last_heartbeat_at)}</dd>
           </div>
           <div>
             <dt>Hostname</dt>
@@ -492,7 +492,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
             }}>
               <I.Trash size={13} /> {confirmDelete ? "Confirm uninstall" : "Uninstall service"}
             </button>
-            <button className="btn sm danger" type="button" disabled={busy || hasActiveCommand} onClick={() => {
+            <button className="btn sm danger" type="button" disabled={busy} onClick={() => {
               if (confirmRemove) {
                 setConfirmRemove(false);
                 onAction("delete", workerId);
@@ -625,7 +625,7 @@ export function WorkersScreen() {
         setActionMessage("Stop command queued. Running jobs finish first.");
       } else if (action === "delete-service") {
         result = await pullwiseApi.system.commandWorker(workerId, "uninstall");
-        setActionMessage("Uninstall command queued. The worker cannot be restarted from admin.");
+        setActionMessage("Uninstall command queued. Worker removed from registry.");
       } else if (action === "delete") {
         result = await pullwiseApi.system.deleteWorker(workerId);
         setWorkers((current) => current.filter((worker) => worker.worker_id !== workerId));

@@ -209,11 +209,18 @@ describe("WorkersScreen", () => {
 
   it("renders fresher health fields from the worker detail endpoint", async () => {
     const user = userEvent.setup();
+    const heartbeatSeconds = Date.UTC(2026, 5, 9, 10, 0, 0) / 1000;
+    const formattedHeartbeat = new Date(heartbeatSeconds * 1000).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
     pullwiseApi.system.getWorker.mockResolvedValue({
       worker: {
         ...workers[0],
         hostname: "detail-host",
-        last_heartbeat_at: "2026-06-09T10:00:00Z",
+        last_heartbeat_at: heartbeatSeconds,
       },
       auditEvents: [],
       taskActivity: [],
@@ -224,7 +231,18 @@ describe("WorkersScreen", () => {
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
 
     expect(await screen.findByText("detail-host")).toBeInTheDocument();
-    expect(screen.getByText("2026-06-09T10:00:00Z")).toBeInTheDocument();
+    expect(screen.getByText(formattedHeartbeat)).toBeInTheDocument();
+    expect(screen.queryByText(String(heartbeatSeconds))).not.toBeInTheDocument();
+  });
+
+  it("renders Never when the worker detail has no heartbeat", async () => {
+    const user = userEvent.setup();
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    expect(await screen.findByText("Never")).toBeInTheDocument();
   });
 
   it("normalizes edited worker capacity before saving", async () => {
@@ -247,8 +265,9 @@ describe("WorkersScreen", () => {
     );
   });
 
-  it("disables registry removal while an operational command is active", async () => {
+  it("allows registry removal while an operational command is active", async () => {
     const user = userEvent.setup();
+    pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
     pullwiseApi.system.listWorkers.mockResolvedValue({
       workers: [
         {
@@ -261,13 +280,16 @@ describe("WorkersScreen", () => {
     render(<WorkersScreen />);
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await user.click(screen.getByRole("button", { name: /^remove worker$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm remove/i }));
 
-    expect(screen.getByRole("button", { name: /^remove worker$/i })).toBeDisabled();
-    expect(pullwiseApi.system.deleteWorker).not.toHaveBeenCalled();
+    await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
+    expect(screen.queryByText("US-East Worker")).not.toBeInTheDocument();
   });
 
-  it("disables registry removal when the detail endpoint reports an active command", async () => {
+  it("allows registry removal when the detail endpoint reports an active command", async () => {
     const user = userEvent.setup();
+    pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
     pullwiseApi.system.listWorkers.mockResolvedValue({
       workers: [{ ...workers[0], latest_command: undefined }],
     });
@@ -284,8 +306,11 @@ describe("WorkersScreen", () => {
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /^remove worker$/i })).toBeDisabled());
-    expect(pullwiseApi.system.deleteWorker).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole("button", { name: /^remove worker$/i })).not.toBeDisabled());
+    await user.click(screen.getByRole("button", { name: /^remove worker$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm remove/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
   });
 
   it("removes a worker from the registry", async () => {

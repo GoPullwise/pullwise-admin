@@ -432,6 +432,48 @@
   gap: 12px;
 }
 
+.server-overview {
+  margin-bottom: 12px;
+}
+
+.server-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.server-metric {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.server-metric-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.server-metric strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.server-metric small {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
 .settings-section {
   border: 1px solid var(--border);
   background: var(--panel);
@@ -803,6 +845,7 @@
   .kpis,
   .form-grid,
   .form-grid.compact,
+  .server-metrics,
   .settings-grid,
   .plan-config-columns,
   .worker-detail {

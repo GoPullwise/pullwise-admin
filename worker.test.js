@@ -1,8 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import worker, { backendPath, proxyApiRequest } from "./worker.js";
 import { onRequest as pagesApiOnRequest } from "./functions/api/[[path]].js";
 
 describe("admin Cloudflare worker proxy", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
   it("maps /api/admin/workers to the backend admin workers path", () => {
     expect(backendPath("/api/admin/workers")).toBe("/admin/workers");
   });

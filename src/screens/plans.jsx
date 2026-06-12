@@ -67,6 +67,21 @@ function agentCliLabel(value) {
   return AGENT_CLI_OPTIONS.find((option) => option.value === value)?.label || titleCase(value);
 }
 
+function providerChainItems(value) {
+  return textValue(value)
+    .split(",")
+    .map((item) => providerValue(item))
+    .filter(Boolean);
+}
+
+function providerChainWithPrimary(currentChain, primary) {
+  const selected = providerValue(primary) || "codex";
+  const current = providerChainItems(currentChain);
+  if (current.length <= 1 && current[0] !== selected) return selected;
+  const next = [selected, ...current.filter((item) => item !== selected)];
+  return next.join(",");
+}
+
 function formFromPlan(plan) {
   const agentConfig = plan?.agentConfig || {};
   const codex = agentConfig.codex || {};
@@ -302,7 +317,11 @@ export function PlansScreen() {
       ...current,
       [planId]:
         field === "agentCli"
-          ? { ...current[planId], agentCli: value, providerChain: value }
+          ? {
+              ...current[planId],
+              agentCli: value,
+              providerChain: providerChainWithPrimary(current[planId]?.providerChain, value),
+            }
           : { ...current[planId], [field]: value },
     }));
   };

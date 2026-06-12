@@ -28,6 +28,14 @@ const proPlan = {
   },
 };
 
+const multiProviderPlan = {
+  ...proPlan,
+  agentConfig: {
+    ...proPlan.agentConfig,
+    providerChain: ["codex", "opencode"],
+  },
+};
+
 const systemConfigPayload = {
   settings: {
     plans: {
@@ -163,6 +171,37 @@ describe("PlansScreen", () => {
       )
     );
     expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();
+  });
+
+  it("preserves fallback providers when changing a plan primary CLI", async () => {
+    const user = userEvent.setup();
+    const updatedPlan = {
+      ...multiProviderPlan,
+      agentConfig: {
+        ...multiProviderPlan.agentConfig,
+        providerChain: ["opencode", "codex"],
+      },
+    };
+    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({ plans: [multiProviderPlan] });
+    pullwiseApi.system.updatePlanAgentConfig.mockResolvedValue({
+      plan: updatedPlan,
+      agentConfig: updatedPlan.agentConfig,
+    });
+
+    render(<PlansScreen />);
+
+    await screen.findByText("Pro");
+    await user.selectOptions(screen.getByLabelText("Pro Agent CLI"), "opencode");
+    await user.click(screen.getByRole("button", { name: /save pro/i }));
+
+    await waitFor(() =>
+      expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith(
+        "pro",
+        expect.objectContaining({
+          providerChain: ["opencode", "codex"],
+        })
+      )
+    );
   });
 
   it("shows plan quotas and billing catalog from system config and saves them with agent settings", async () => {

@@ -106,10 +106,10 @@ function sameLocalDay(value, reference = new Date()) {
 
 function activityTime(record) {
   return (
+    timestampValue(record?.last_activity_at) ||
     timestampValue(record?.completed_at) ||
     timestampValue(record?.started_at) ||
-    timestampValue(record?.claimed_at) ||
-    timestampValue(record?.last_activity_at)
+    timestampValue(record?.claimed_at)
   );
 }
 

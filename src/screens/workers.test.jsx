@@ -207,6 +207,43 @@ describe("WorkersScreen", () => {
     expect(within(activitySection).getByText(/Completed/i)).toBeInTheDocument();
   });
 
+  it("counts running activity by last activity time instead of start time", async () => {
+    const user = userEvent.setup();
+    const today = new Date();
+    const todayStartSeconds = Math.floor(
+      new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0).getTime() / 1000
+    );
+    const todayNoonSeconds = todayStartSeconds + 12 * 60 * 60;
+    const yesterdaySeconds = todayStartSeconds - 60 * 60;
+    pullwiseApi.system.getWorker.mockResolvedValue({
+      worker: workers[0],
+      auditEvents: [],
+      taskActivity: [
+        {
+          worker_id: "wk_1",
+          job_id: "job_1",
+          scan_id: "sc_1",
+          repo: "acme/api",
+          branch: "main",
+          status: "running",
+          attempt: 1,
+          claimed_at: yesterdaySeconds,
+          started_at: yesterdaySeconds,
+          completed_at: null,
+          last_activity_at: todayNoonSeconds,
+        },
+      ],
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    const activitySection = (await screen.findByText("Task activity")).closest(".worker-activity");
+    expect(within(activitySection).getByText("1")).toBeInTheDocument();
+    expect(within(activitySection).getByText("task today")).toBeInTheDocument();
+  });
+
   it("renders fresher health fields from the worker detail endpoint", async () => {
     const user = userEvent.setup();
     const heartbeatSeconds = Date.UTC(2026, 5, 9, 10, 0, 0) / 1000;

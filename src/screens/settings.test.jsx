@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
 import { SettingsScreen } from "./settings.jsx";
@@ -9,6 +10,7 @@ vi.mock("../api/pullwise.js", () => ({
       getSystemConfig: vi.fn(),
       getServerMetrics: vi.fn(),
       updateSystemConfig: vi.fn(),
+      restartServer: vi.fn(),
     },
   },
 }));
@@ -88,6 +90,11 @@ describe("SettingsScreen", () => {
         },
       ],
     });
+    pullwiseApi.system.restartServer.mockResolvedValue({
+      ok: true,
+      message: "Pullwise server restart started.",
+      command: "bash launcher.sh restart",
+    });
   });
 
   it("keeps plan-related configuration out of the general settings page", async () => {
@@ -114,5 +121,19 @@ describe("SettingsScreen", () => {
     expect(screen.queryByText(/CPU usage/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/logical cores/i)).not.toBeInTheDocument();
     expect(pullwiseApi.system.getServerMetrics).toHaveBeenCalled();
+  });
+
+  it("requires confirmation before restarting the Pullwise server", async () => {
+    const user = userEvent.setup();
+    render(<SettingsScreen />);
+
+    const restart = await screen.findByRole("button", { name: /restart server/i });
+    await user.click(restart);
+
+    expect(pullwiseApi.system.restartServer).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: /confirm restart/i }));
+
+    expect(pullwiseApi.system.restartServer).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("Pullwise server restart started.")).toBeInTheDocument();
   });
 });

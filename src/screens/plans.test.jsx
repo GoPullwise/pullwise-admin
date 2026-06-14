@@ -27,6 +27,14 @@ const proPlan = {
   },
 };
 
+const multiProviderPlan = {
+  ...proPlan,
+  agentConfig: {
+    ...proPlan.agentConfig,
+    providerChain: ["codex", "opencode"],
+  },
+};
+
 const systemConfigPayload = {
   settings: {
     plans: {
@@ -166,12 +174,13 @@ describe("PlansScreen", () => {
   it("uses the selected plan CLI as the complete provider chain", async () => {
     const user = userEvent.setup();
     const updatedPlan = {
-      ...proPlan,
+      ...multiProviderPlan,
       agentConfig: {
-        ...proPlan.agentConfig,
+        ...multiProviderPlan.agentConfig,
         providerChain: ["opencode"],
       },
     };
+    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({ plans: [multiProviderPlan] });
     pullwiseApi.system.updatePlanAgentConfig.mockResolvedValue({
       plan: updatedPlan,
       agentConfig: updatedPlan.agentConfig,

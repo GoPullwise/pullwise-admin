@@ -116,7 +116,7 @@ describe("WorkersScreen", () => {
     expect(payload).toMatchObject({
       name: "New Worker",
       provider: "codex",
-      providerChain: ["codex", "opencode"],
+      providerChain: ["codex"],
       region: "eu-west",
     });
     expect(payload).not.toHaveProperty("provider_chain");
@@ -124,7 +124,7 @@ describe("WorkersScreen", () => {
     expect(screen.getByText(/install-worker\.sh/)).toBeInTheDocument();
   });
 
-  it("creates a worker with the selected agent CLI providers", async () => {
+  it("creates a worker with the selected agent CLI provider", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.createWorker.mockResolvedValue({
       worker: { worker_id: "wk_open", name: "OpenCode Worker" },

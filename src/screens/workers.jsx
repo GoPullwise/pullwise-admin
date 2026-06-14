@@ -544,7 +544,6 @@ function CreateWorkerModal({ onClose, onCreated }) {
         name: name.trim() || "Worker",
         provider: selectedProviders[0],
         providerChain: selectedProviders,
-        provider_chain: selectedProviders,
         region: region.trim(),
         version: version.trim(),
         max_concurrent_jobs: normalizeWorkerCapacity(capacity),

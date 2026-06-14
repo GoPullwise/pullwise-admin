@@ -22,7 +22,6 @@ const proPlan = {
   agentConfig: {
     plan: "pro",
     providerChain: ["codex"],
-    agent: { cli: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
     codex: { cli: "codex", command: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
     opencode: { cli: "opencode", command: "opencode", model: "opencode/big-pickle", variant: "medium" },
   },
@@ -138,7 +137,6 @@ describe("PlansScreen", () => {
       agentConfig: {
         ...proPlan.agentConfig,
         providerChain: ["opencode"],
-        agent: { cli: "opencode", model: "opencode/pro", reasoningEffort: "high" },
         codex: { cli: "codex", command: "codex", model: "gpt-pro", reasoningEffort: "high" },
         opencode: { cli: "opencode", command: "opencode", model: "opencode/pro", variant: "high" },
       },
@@ -173,13 +171,13 @@ describe("PlansScreen", () => {
     expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();
   });
 
-  it("preserves fallback providers when changing a plan primary CLI", async () => {
+  it("uses the selected plan CLI as the complete provider chain", async () => {
     const user = userEvent.setup();
     const updatedPlan = {
       ...multiProviderPlan,
       agentConfig: {
         ...multiProviderPlan.agentConfig,
-        providerChain: ["opencode", "codex"],
+        providerChain: ["opencode"],
       },
     };
     pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({ plans: [multiProviderPlan] });
@@ -198,7 +196,7 @@ describe("PlansScreen", () => {
       expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith(
         "pro",
         expect.objectContaining({
-          providerChain: ["opencode", "codex"],
+          providerChain: ["opencode"],
         })
       )
     );

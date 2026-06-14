@@ -153,7 +153,6 @@ describe("Admin App", () => {
           agentConfig: {
             plan: "pro",
             providerChain: ["codex"],
-            agent: { cli: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
             codex: { cli: "codex", command: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
             opencode: { cli: "opencode", command: "opencode", model: "opencode/big-pickle", variant: "medium" },
           },

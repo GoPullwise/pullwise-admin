@@ -16,10 +16,6 @@ function itemsFrom(payload) {
   if (plans && typeof plans === "object") {
     return Object.entries(plans).map(([id, plan]) => ({ id, ...(plan || {}) }));
   }
-  const configs = payload?.agentConfigs;
-  if (configs && typeof configs === "object") {
-    return Object.entries(configs).map(([id, agentConfig]) => ({ id, name: titleCase(id), agentConfig }));
-  }
   return [];
 }
 
@@ -42,9 +38,7 @@ function planName(plan) {
 }
 
 function chainValue(agentConfig) {
-  const chain = Array.isArray(agentConfig?.providerChain)
-    ? agentConfig.providerChain
-    : [agentConfig?.provider || agentConfig?.agent?.cli || "codex"];
+  const chain = Array.isArray(agentConfig?.providerChain) ? agentConfig.providerChain : [];
   const normalized = chain.map((item) => providerValue(item)).filter(Boolean);
   return normalized.length ? normalized.join(",") : "codex";
 }
@@ -57,29 +51,12 @@ function agentCliValue(source) {
   return (
     providerValue(source?.agentCli) ||
     chain[0] ||
-    providerValue(source?.agent?.cli) ||
-    providerValue(source?.provider) ||
     "codex"
   );
 }
 
 function agentCliLabel(value) {
   return AGENT_CLI_OPTIONS.find((option) => option.value === value)?.label || titleCase(value);
-}
-
-function providerChainItems(value) {
-  return textValue(value)
-    .split(",")
-    .map((item) => providerValue(item))
-    .filter(Boolean);
-}
-
-function providerChainWithPrimary(currentChain, primary) {
-  const selected = providerValue(primary) || "codex";
-  const current = providerChainItems(currentChain);
-  if (current.length <= 1 && current[0] !== selected) return selected;
-  const next = [selected, ...current.filter((item) => item !== selected)];
-  return next.join(",");
 }
 
 function formFromPlan(plan) {
@@ -90,7 +67,7 @@ function formFromPlan(plan) {
   return {
     id: textValue(plan?.id || agentConfig.plan, "free").toLowerCase(),
     name: planName(plan),
-    reviewLimit: plan?.reviewLimit ?? plan?.review_limit ?? "",
+    reviewLimit: plan?.reviewLimit ?? "",
     providerChain,
     agentCli: agentCliValue({ ...agentConfig, providerChain }),
     codexCli: textValue(codex.cli, "codex"),
@@ -320,7 +297,7 @@ export function PlansScreen() {
           ? {
               ...current[planId],
               agentCli: value,
-              providerChain: providerChainWithPrimary(current[planId]?.providerChain, value),
+              providerChain: providerValue(value) || "codex",
             }
           : { ...current[planId], [field]: value },
     }));

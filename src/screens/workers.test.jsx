@@ -111,17 +111,15 @@ describe("WorkersScreen", () => {
     await user.type(screen.getByLabelText(/^region/i), "eu-west");
     await user.click(screen.getByRole("button", { name: /^create worker$/i }));
 
-    await waitFor(() =>
-      expect(pullwiseApi.system.createWorker).toHaveBeenCalledWith(
-        expect.objectContaining({
-          name: "New Worker",
-          provider: "codex",
-          providerChain: ["codex", "opencode"],
-          provider_chain: ["codex", "opencode"],
-          region: "eu-west",
-        })
-      )
-    );
+    await waitFor(() => expect(pullwiseApi.system.createWorker).toHaveBeenCalled());
+    const payload = pullwiseApi.system.createWorker.mock.calls.at(-1)[0];
+    expect(payload).toMatchObject({
+      name: "New Worker",
+      provider: "codex",
+      providerChain: ["codex", "opencode"],
+      region: "eu-west",
+    });
+    expect(payload).not.toHaveProperty("provider_chain");
     expect(await screen.findByText("pwk_once")).toBeInTheDocument();
     expect(screen.getByText(/install-worker\.sh/)).toBeInTheDocument();
   });
@@ -140,15 +138,13 @@ describe("WorkersScreen", () => {
     await user.click(screen.getByLabelText(/codex cli/i));
     await user.click(screen.getByRole("button", { name: /^create worker$/i }));
 
-    await waitFor(() =>
-      expect(pullwiseApi.system.createWorker).toHaveBeenCalledWith(
-        expect.objectContaining({
-          provider: "opencode",
-          providerChain: ["opencode"],
-          provider_chain: ["opencode"],
-        })
-      )
-    );
+    await waitFor(() => expect(pullwiseApi.system.createWorker).toHaveBeenCalled());
+    const payload = pullwiseApi.system.createWorker.mock.calls.at(-1)[0];
+    expect(payload).toMatchObject({
+      provider: "opencode",
+      providerChain: ["opencode"],
+    });
+    expect(payload).not.toHaveProperty("provider_chain");
   });
 
   it("defaults the create worker version to the latest release while keeping it editable", async () => {

@@ -211,8 +211,8 @@ describe("WorkersScreen", () => {
     expect(within(workerRow).getByText("US-East Worker")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^stop service$/i }));
     await user.click(screen.getByRole("button", { name: /confirm stop/i }));
-    await user.click(screen.getByRole("button", { name: /^uninstall service$/i }));
-    await user.click(screen.getByRole("button", { name: /confirm uninstall/i }));
+    await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
 
     await waitFor(() => expect(pullwiseApi.system.disableWorker).toHaveBeenCalledWith("wk_1"));
     expect(pullwiseApi.system.updateWorker).toHaveBeenCalledWith("wk_1", expect.objectContaining({ region: "eu-west" }));
@@ -446,8 +446,8 @@ describe("WorkersScreen", () => {
     render(<WorkersScreen />);
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
-    await user.click(screen.getByRole("button", { name: /^remove worker$/i }));
-    await user.click(screen.getByRole("button", { name: /confirm remove/i }));
+    await user.click(screen.getByRole("button", { name: /^remove record$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm remove record/i }));
 
     await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
     expect(screen.queryByText("US-East Worker")).not.toBeInTheDocument();
@@ -472,9 +472,9 @@ describe("WorkersScreen", () => {
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /^remove worker$/i })).not.toBeDisabled());
-    await user.click(screen.getByRole("button", { name: /^remove worker$/i }));
-    await user.click(screen.getByRole("button", { name: /confirm remove/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^remove record$/i })).not.toBeDisabled());
+    await user.click(screen.getByRole("button", { name: /^remove record$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm remove record/i }));
 
     await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
   });
@@ -486,8 +486,8 @@ describe("WorkersScreen", () => {
     render(<WorkersScreen />);
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
-    await user.click(screen.getByRole("button", { name: /^remove worker$/i }));
-    await user.click(screen.getByRole("button", { name: /confirm remove/i }));
+    await user.click(screen.getByRole("button", { name: /^remove record$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm remove record/i }));
 
     await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
     expect(screen.queryByText("US-East Worker")).not.toBeInTheDocument();

@@ -26,7 +26,7 @@ function statusLabel(status) {
 
 function commandLabel(command) {
   const value = textValue(command, "command");
-  if (value === "uninstall") return "Uninstall service";
+  if (value === "uninstall") return "Delete instance";
   if (value === "stop") return "Stop service";
   return statusLabel(value);
 }
@@ -797,7 +797,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
                 setConfirmRemove(false);
               }
             }}>
-              <I.Trash size={13} /> {confirmDelete ? "Confirm uninstall" : "Uninstall service"}
+              <I.Trash size={13} /> {confirmDelete ? "Confirm delete instance" : "Delete instance"}
             </button>
             <button className="btn sm danger" type="button" disabled={busy} onClick={() => {
               if (confirmRemove) {
@@ -809,7 +809,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
                 setConfirmDelete(false);
               }
             }}>
-              <I.Trash size={13} /> {confirmRemove ? "Confirm remove" : "Remove worker"}
+              <I.Trash size={13} /> {confirmRemove ? "Confirm remove record" : "Remove record"}
             </button>
           </div>
           <WorkerTokenBlock token={rotatedToken} />
@@ -996,7 +996,7 @@ export function WorkersScreen() {
         setActionMessage("Stop command queued. Running jobs finish first.");
       } else if (action === "delete-service") {
         result = await pullwiseApi.system.commandWorker(workerId, "uninstall");
-        setActionMessage("Uninstall command queued. Worker removed from registry.");
+        setActionMessage("Delete instance command queued. Worker removed from registry.");
       } else if (action === "delete") {
         result = await pullwiseApi.system.deleteWorker(workerId);
         setWorkers((current) => current.filter((worker) => worker.worker_id !== workerId));

@@ -515,7 +515,7 @@ describe("WorkersScreen", () => {
     expect(writeText).toHaveBeenCalledWith("curl -fsSL https://api.example.com/install-worker.sh | bash");
   });
 
-  it("does not render unsupported top-level install command aliases", async () => {
+  it("does not render unsupported top-level install command fields", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.createWorker.mockResolvedValue({
       worker: { worker_id: "wk_new", name: "Alias Worker" },

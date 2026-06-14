@@ -500,7 +500,9 @@ describe("WorkersScreen", () => {
     pullwiseApi.system.createWorker.mockResolvedValue({
       worker: { worker_id: "wk_new", name: "Copy Worker" },
       worker_token: "pwk_once",
-      install_command: "curl -fsSL https://api.example.com/install-worker.sh | bash",
+      install_commands: {
+        standard: "curl -fsSL https://api.example.com/install-worker.sh | bash",
+      },
     });
 
     render(<WorkersScreen />);
@@ -511,5 +513,23 @@ describe("WorkersScreen", () => {
     await user.click(within(codeBlock).getByRole("button", { name: /copy/i }));
 
     expect(writeText).toHaveBeenCalledWith("curl -fsSL https://api.example.com/install-worker.sh | bash");
+  });
+
+  it("does not render unsupported top-level install command aliases", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.createWorker.mockResolvedValue({
+      worker: { worker_id: "wk_new", name: "Alias Worker" },
+      worker_token: "pwk_once",
+      install_command: "curl -fsSL https://api.example.com/unsupported.sh | bash",
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click(await screen.findByRole("button", { name: /register worker/i }));
+    await user.click(screen.getByRole("button", { name: /^create worker$/i }));
+
+    expect(await screen.findByText("pwk_once")).toBeInTheDocument();
+    expect(screen.queryByText("Standard deployment")).not.toBeInTheDocument();
+    expect(screen.queryByText(/unsupported\.sh/)).not.toBeInTheDocument();
   });
 });

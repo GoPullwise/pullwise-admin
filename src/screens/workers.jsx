@@ -131,8 +131,8 @@ function activityTime(record) {
 
 function installCommands(result) {
   const commands = [];
-  const standard = result?.install_commands?.standard || result?.install_command || "";
-  const local = result?.install_commands?.local || result?.local_install_command || "";
+  const standard = result?.install_commands?.standard || "";
+  const local = result?.install_commands?.local || "";
   if (standard) commands.push({ key: "standard", title: "Standard deployment", value: standard });
   if (local && local !== standard) commands.push({ key: "local", title: "Local same-host deployment", value: local });
   return commands;

@@ -639,23 +639,49 @@ function CreateWorkerModal({ onClose, onCreated }) {
               />
             </label>
             <fieldset className="field provider-chain-field">
-              <legend>Agent CLI providers</legend>
+              <div className="provider-chain-head">
+                <div>
+                  <legend>Agent CLI order</legend>
+                  <p>Selected CLIs run from top to bottom. The first enabled CLI is the primary provider.</p>
+                </div>
+                <span className="provider-chain-count">{providerChain.length} enabled</span>
+              </div>
               <div className="provider-chain-list">
                 {orderedProviderOptions.map((option) => {
                   const selected = providerChain.includes(option.value);
                   const providerIndex = providerChain.indexOf(option.value);
+                  const rowClass = [
+                    "provider-chain-row",
+                    selected ? "is-selected" : "is-disabled",
+                    selected && providerIndex === 0 ? "is-primary" : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
                   return (
-                    <div
-                      className={`provider-chain-row${selected ? "" : " is-disabled"}`}
-                      key={option.value}
-                    >
-                      <label className="setting-toggle provider-toggle provider-chain-main">
+                    <div className={rowClass} key={option.value}>
+                      <label className="provider-chain-main">
                         <input
+                          aria-label={option.label}
                           type="checkbox"
                           checked={selected}
                           onChange={() => toggleProvider(option.value)}
                         />
-                        <span>{option.label}</span>
+                        <span className="provider-chain-rank" aria-hidden="true">
+                          {selected ? providerIndex + 1 : "-"}
+                        </span>
+                        <span className="provider-chain-copy">
+                          <span className="provider-chain-title">
+                            <span>{option.label}</span>
+                            {selected && (
+                              <span className="provider-chain-badge">
+                                {providerIndex === 0 ? "Primary" : "Fallback"}
+                              </span>
+                            )}
+                          </span>
+                          <span className="provider-chain-description">
+                            {selected ? "Included in this worker's CLI fallback order." : "Enable to add this CLI to the order."}
+                          </span>
+                        </span>
                       </label>
                       <div className="provider-chain-actions">
                         <button

@@ -42,8 +42,8 @@ describe("WorkersScreen", () => {
       workerVersion: "0.4.2",
       workerPackage:
         "https://github.com/GoPullwise/pullwise-worker/releases/download/v0.4.2/pullwise_worker-0.4.2-py3-none-any.whl",
-      providerChain: ["opencode", "codex"],
-      defaults: { providerChain: ["opencode", "codex"] },
+      providerChain: ["codex"],
+      defaults: { providerChain: ["codex"] },
     });
     pullwiseApi.system.getWorker.mockResolvedValue({ worker: workers[0], auditEvents: [], taskActivity: [] });
   });
@@ -115,8 +115,8 @@ describe("WorkersScreen", () => {
     const payload = pullwiseApi.system.createWorker.mock.calls.at(-1)[0];
     expect(payload).toMatchObject({
       name: "New Worker",
-      provider: "opencode",
-      providerChain: ["opencode", "codex"],
+      provider: "codex",
+      providerChain: ["codex"],
       region: "eu-west",
     });
     expect(payload).not.toHaveProperty("provider_chain");
@@ -124,47 +124,25 @@ describe("WorkersScreen", () => {
     expect(screen.getByText(/install-worker\.sh/)).toBeInTheDocument();
   });
 
-  it("creates a worker with the selected agent CLI providers", async () => {
+  it("creates a worker with Codex CLI capability", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.createWorker.mockResolvedValue({
-      worker: { worker_id: "wk_open", name: "OpenCode Worker" },
-      worker_token: "pwk_open",
+      worker: { worker_id: "wk_codex", name: "Codex Worker" },
+      worker_token: "pwk_codex",
     });
 
     render(<WorkersScreen />);
 
     await user.click(await screen.findByRole("button", { name: /register worker/i }));
-    await user.type(screen.getByLabelText(/^name/i), "OpenCode Worker");
-    await user.click(screen.getByRole("checkbox", { name: /^codex cli$/i }));
-    await user.click(screen.getByRole("button", { name: /^create worker$/i }));
-
-    await waitFor(() => expect(pullwiseApi.system.createWorker).toHaveBeenCalled());
-    const payload = pullwiseApi.system.createWorker.mock.calls.at(-1)[0];
-    expect(payload).toMatchObject({
-      provider: "opencode",
-      providerChain: ["opencode"],
-    });
-    expect(payload).not.toHaveProperty("provider_chain");
-  });
-
-  it("creates a worker with an explicit agent CLI provider order", async () => {
-    const user = userEvent.setup();
-    pullwiseApi.system.createWorker.mockResolvedValue({
-      worker: { worker_id: "wk_ordered", name: "Ordered Worker" },
-      worker_token: "pwk_ordered",
-    });
-
-    render(<WorkersScreen />);
-
-    await user.click(await screen.findByRole("button", { name: /register worker/i }));
-    await user.click(await screen.findByRole("button", { name: /move codex cli up/i }));
+    await user.type(screen.getByLabelText(/^name/i), "Codex Worker");
+    expect(screen.getByText("Codex CLI")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^create worker$/i }));
 
     await waitFor(() => expect(pullwiseApi.system.createWorker).toHaveBeenCalled());
     const payload = pullwiseApi.system.createWorker.mock.calls.at(-1)[0];
     expect(payload).toMatchObject({
       provider: "codex",
-      providerChain: ["codex", "opencode"],
+      providerChain: ["codex"],
     });
     expect(payload).not.toHaveProperty("provider_chain");
   });
@@ -175,7 +153,7 @@ describe("WorkersScreen", () => {
       workerVersion: "0.2.3",
       workerPackage:
         "https://github.com/GoPullwise/pullwise-worker/releases/download/v0.2.3/pullwise_worker-0.2.3-py3-none-any.whl",
-      providerChain: ["opencode", "codex"],
+      providerChain: ["codex"],
     });
     pullwiseApi.system.createWorker.mockResolvedValue({
       worker: { worker_id: "wk_new", name: "Latest Worker" },

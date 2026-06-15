@@ -23,15 +23,6 @@ const proPlan = {
     plan: "pro",
     providerChain: ["codex"],
     codex: { cli: "codex", command: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
-    opencode: { cli: "opencode", command: "opencode", model: "opencode/big-pickle", variant: "medium" },
-  },
-};
-
-const multiProviderPlan = {
-  ...proPlan,
-  agentConfig: {
-    ...proPlan.agentConfig,
-    providerChain: ["codex", "opencode"],
   },
 };
 
@@ -106,9 +97,7 @@ describe("PlansScreen", () => {
     expect(within(card).getByDisplayValue("gpt-5.5")).toBeInTheDocument();
   });
 
-  it("shows only the selected agent CLI config fields", async () => {
-    const user = userEvent.setup();
-
+  it("shows Codex agent CLI config fields", async () => {
     render(<PlansScreen />);
 
     expect(await screen.findByText("Pro")).toBeInTheDocument();
@@ -116,18 +105,6 @@ describe("PlansScreen", () => {
     expect(screen.getByLabelText("Pro Codex CLI")).toHaveValue("codex");
     expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Pro Codex effort")).toHaveValue("medium");
-    expect(screen.queryByLabelText("Pro OpenCode CLI")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Pro OpenCode model")).not.toBeInTheDocument();
-
-    await user.selectOptions(screen.getByLabelText("Pro Agent CLI"), "opencode");
-
-    expect(screen.getByLabelText("Pro OpenCode CLI")).toHaveValue("opencode");
-    expect(screen.getByLabelText("Pro OpenCode model")).toHaveValue("opencode/big-pickle");
-    expect(screen.getByLabelText("Pro OpenCode variant")).toHaveValue("medium");
-    expect(screen.queryByLabelText("Pro Codex CLI")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Pro Codex model")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Pro Codex command")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Pro OpenCode command")).not.toBeInTheDocument();
   });
 
   it("saves edited provider and model settings for a plan", async () => {
@@ -136,9 +113,8 @@ describe("PlansScreen", () => {
       ...proPlan,
       agentConfig: {
         ...proPlan.agentConfig,
-        providerChain: ["opencode", "codex"],
+        providerChain: ["codex"],
         codex: { cli: "codex", command: "codex", model: "gpt-pro", reasoningEffort: "high" },
-        opencode: { cli: "opencode", command: "opencode", model: "opencode/pro", variant: "high" },
       },
     };
     pullwiseApi.system.updatePlanAgentConfig.mockResolvedValue({
@@ -152,54 +128,18 @@ describe("PlansScreen", () => {
     await user.selectOptions(screen.getByLabelText("Pro Codex effort"), "high");
     await user.clear(screen.getByLabelText("Pro Codex model"));
     await user.type(screen.getByLabelText("Pro Codex model"), "gpt-pro");
-    await user.selectOptions(screen.getByLabelText("Pro Agent CLI"), "opencode");
-    await user.selectOptions(screen.getByLabelText("Pro OpenCode variant"), "high");
-    await user.clear(screen.getByLabelText("Pro OpenCode model"));
-    await user.type(screen.getByLabelText("Pro OpenCode model"), "opencode/pro");
     await user.click(screen.getByRole("button", { name: /save pro/i }));
 
     await waitFor(() =>
       expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith(
         "pro",
         expect.objectContaining({
-          providerChain: ["opencode", "codex"],
+          providerChain: ["codex"],
           codex: expect.objectContaining({ cli: "codex", model: "gpt-pro", reasoningEffort: "high" }),
-          opencode: expect.objectContaining({ cli: "opencode", model: "opencode/pro", variant: "high" }),
         })
       )
     );
     expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();
-  });
-
-  it("promotes the selected plan CLI without dropping provider fallbacks", async () => {
-    const user = userEvent.setup();
-    const updatedPlan = {
-      ...multiProviderPlan,
-      agentConfig: {
-        ...multiProviderPlan.agentConfig,
-        providerChain: ["opencode", "codex"],
-      },
-    };
-    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({ plans: [multiProviderPlan] });
-    pullwiseApi.system.updatePlanAgentConfig.mockResolvedValue({
-      plan: updatedPlan,
-      agentConfig: updatedPlan.agentConfig,
-    });
-
-    render(<PlansScreen />);
-
-    await screen.findByText("Pro");
-    await user.selectOptions(screen.getByLabelText("Pro Agent CLI"), "opencode");
-    await user.click(screen.getByRole("button", { name: /save pro/i }));
-
-    await waitFor(() =>
-      expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith(
-        "pro",
-        expect.objectContaining({
-          providerChain: ["opencode", "codex"],
-        })
-      )
-    );
   });
 
   it("shows plan quotas and billing catalog from system config and saves them with agent settings", async () => {

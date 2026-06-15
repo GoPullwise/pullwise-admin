@@ -21,6 +21,13 @@ describe("admin deployment tooling", () => {
     expect(packageJson.scripts["preview:workers"]).not.toContain("https://api.pull-wise.com");
   });
 
+  it("publishes the admin app on the configured custom domain", () => {
+    expect(wrangler.routes).toContainEqual({
+      pattern: "admin.pull-wise.com",
+      custom_domain: true,
+    });
+  });
+
   it("binds Workers static assets for the admin SPA", () => {
     expect(wrangler.assets).toEqual(
       expect.objectContaining({

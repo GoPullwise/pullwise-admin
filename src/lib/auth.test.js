@@ -69,14 +69,18 @@ describe("admin auth helpers", () => {
     expect(assign).toHaveBeenCalledWith("/login");
   });
 
-  it("returns to the login screen even when sign-out API fails", async () => {
+  it("reports sign-out API failures without navigating away", async () => {
     const assign = vi.fn();
+    const alert = vi.fn();
     vi.stubGlobal("location", { ...window.location, assign });
-    pullwiseApi.auth.signOut.mockRejectedValue(new Error("offline"));
+    vi.stubGlobal("alert", alert);
+    const error = new Error("offline");
+    pullwiseApi.auth.signOut.mockRejectedValue(error);
 
-    await signOut();
+    await expect(signOut()).rejects.toThrow("offline");
 
     expect(pullwiseApi.auth.signOut).toHaveBeenCalledTimes(1);
-    expect(assign).toHaveBeenCalledWith("/login");
+    expect(assign).not.toHaveBeenCalled();
+    expect(alert).toHaveBeenCalledWith("offline");
   });
 });

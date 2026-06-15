@@ -55,6 +55,16 @@ function agentCliValue(source) {
   );
 }
 
+function promoteProviderInChain(chainText, provider) {
+  const selected = providerValue(provider) || "codex";
+  const existing = textValue(chainText)
+    .split(",")
+    .map((item) => providerValue(item))
+    .filter(Boolean);
+  const promoted = [selected, ...existing.filter((item) => item !== selected)];
+  return promoted.length ? promoted.join(",") : selected;
+}
+
 function agentCliLabel(value) {
   return AGENT_CLI_OPTIONS.find((option) => option.value === value)?.label || titleCase(value);
 }
@@ -297,7 +307,7 @@ export function PlansScreen() {
           ? {
               ...current[planId],
               agentCli: value,
-              providerChain: providerValue(value) || "codex",
+              providerChain: promoteProviderInChain(current[planId]?.providerChain, value),
             }
           : { ...current[planId], [field]: value },
     }));

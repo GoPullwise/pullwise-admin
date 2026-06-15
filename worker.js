@@ -27,6 +27,7 @@ export async function proxyApiRequest(request, env, incomingUrl = new URL(reques
   const headers = withoutClientProxyHeaders(request.headers);
   headers.set("X-Forwarded-Proto", incomingUrl.protocol.replace(":", ""));
   headers.set("X-Forwarded-Host", incomingUrl.host);
+  headers.set("X-Forwarded-Prefix", API_PREFIX);
 
   const methodHasBody = hasBody(request.method);
   const init = {

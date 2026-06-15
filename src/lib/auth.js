@@ -26,9 +26,9 @@ export async function startGitHubLogin({ redirectTo, signal, apiBaseUrl } = {}) 
 export async function signOut() {
   try {
     await pullwiseApi.auth.signOut();
-  } catch {
-    // Local navigation must still happen when the server-side logout request fails.
-  } finally {
-    window.location.assign("/login");
+  } catch (error) {
+    globalThis.alert?.(error?.message || "Unable to sign out.");
+    throw error;
   }
+  window.location.assign("/login");
 }

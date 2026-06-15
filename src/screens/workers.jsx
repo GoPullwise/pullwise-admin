@@ -520,9 +520,7 @@ function CreateWorkerModal({ onClose, onCreated }) {
       if (current.includes(provider)) {
         return current.filter((item) => item !== provider);
       }
-      return WORKER_PROVIDER_OPTIONS
-        .map((option) => option.value)
-        .filter((item) => item === provider || current.includes(item));
+      return [...current, provider];
     });
   };
 
@@ -537,9 +535,10 @@ function CreateWorkerModal({ onClose, onCreated }) {
     setError("");
     setResult(null);
     try {
-      const selectedProviders = WORKER_PROVIDER_OPTIONS
-        .map((option) => option.value)
-        .filter((provider) => providerChain.includes(provider));
+      const validProviders = new Set(WORKER_PROVIDER_OPTIONS.map((option) => option.value));
+      const selectedProviders = providerChain.filter(
+        (provider, index) => validProviders.has(provider) && providerChain.indexOf(provider) === index
+      );
       const payload = await pullwiseApi.system.createWorker({
         name: name.trim() || "Worker",
         provider: selectedProviders[0],

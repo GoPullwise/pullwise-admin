@@ -7,6 +7,9 @@ const WORKER_PROVIDER_OPTIONS = [
   { value: "codex", label: "Codex CLI" },
   { value: "opencode", label: "OpenCode CLI" },
 ];
+const DEFAULT_WORKER_PROVIDER_CHAIN = ["opencode", "codex"];
+const WORKER_PROVIDER_VALUES = new Set(WORKER_PROVIDER_OPTIONS.map((option) => option.value));
+const WORKER_PROVIDER_OPTION_BY_VALUE = new Map(WORKER_PROVIDER_OPTIONS.map((option) => [option.value, option]));
 
 function itemsFrom(payload, ...keys) {
   for (const key of keys) {
@@ -18,6 +21,27 @@ function itemsFrom(payload, ...keys) {
 function textValue(value, fallback = "") {
   if (value === undefined || value === null || value === "") return fallback;
   return String(value).replaceAll("\x00", "").split(/\r?\n|\r/, 1)[0].trim();
+}
+
+function normalizeWorkerProviderChain(value, fallback = DEFAULT_WORKER_PROVIDER_CHAIN) {
+  const rawItems = Array.isArray(value) ? value : typeof value === "string" ? value.split(",") : [];
+  const providers = [];
+  for (const item of rawItems) {
+    const provider = textValue(item).toLowerCase();
+    if (WORKER_PROVIDER_VALUES.has(provider) && !providers.includes(provider)) {
+      providers.push(provider);
+    }
+  }
+  if (providers.length) return providers;
+
+  const fallbackProviders = [];
+  for (const item of Array.isArray(fallback) ? fallback : []) {
+    const provider = textValue(item).toLowerCase();
+    if (WORKER_PROVIDER_VALUES.has(provider) && !fallbackProviders.includes(provider)) {
+      fallbackProviders.push(provider);
+    }
+  }
+  return fallbackProviders;
 }
 
 function statusLabel(status) {
@@ -492,10 +516,18 @@ function CreateWorkerModal({ onClose, onCreated }) {
   const [region, setRegion] = useState("");
   const [version, setVersion] = useState("");
   const [capacity, setCapacity] = useState("1");
-  const [providerChain, setProviderChain] = useState(["codex", "opencode"]);
+  const [providerChain, setProviderChain] = useState(DEFAULT_WORKER_PROVIDER_CHAIN);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const providerChainTouched = useRef(false);
+  const orderedProviderOptions = useMemo(() => {
+    const selectedOptions = providerChain
+      .map((provider) => WORKER_PROVIDER_OPTION_BY_VALUE.get(provider))
+      .filter(Boolean);
+    const remainingOptions = WORKER_PROVIDER_OPTIONS.filter((option) => !providerChain.includes(option.value));
+    return [...selectedOptions, ...remainingOptions];
+  }, [providerChain]);
 
   useEffect(() => {
     let disposed = false;
@@ -505,8 +537,15 @@ function CreateWorkerModal({ onClose, onCreated }) {
         const defaultVersion = textValue(
           payload?.workerVersion || payload?.version || payload?.defaults?.version
         );
+        const defaultProviderChain = normalizeWorkerProviderChain(
+          payload?.providerChain || payload?.defaults?.providerChain,
+          []
+        );
         if (!disposed && defaultVersion) {
           setVersion((current) => current || defaultVersion);
+        }
+        if (!disposed && defaultProviderChain.length && !providerChainTouched.current) {
+          setProviderChain(defaultProviderChain);
         }
       })
       .catch(() => {});
@@ -516,6 +555,7 @@ function CreateWorkerModal({ onClose, onCreated }) {
   }, []);
 
   const toggleProvider = (provider) => {
+    providerChainTouched.current = true;
     setProviderChain((current) => {
       if (current.includes(provider)) {
         return current.filter((item) => item !== provider);
@@ -524,10 +564,23 @@ function CreateWorkerModal({ onClose, onCreated }) {
     });
   };
 
+  const moveProvider = (provider, direction) => {
+    providerChainTouched.current = true;
+    setProviderChain((current) => {
+      const index = current.indexOf(provider);
+      const target = index + direction;
+      if (index < 0 || target < 0 || target >= current.length) return current;
+      const next = [...current];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
+  };
+
   const createWorker = async (event) => {
     event.preventDefault();
     if (busy) return;
-    if (!providerChain.length) {
+    const selectedProviders = normalizeWorkerProviderChain(providerChain, []);
+    if (!selectedProviders.length) {
       setError("Select at least one agent CLI provider.");
       return;
     }
@@ -535,10 +588,6 @@ function CreateWorkerModal({ onClose, onCreated }) {
     setError("");
     setResult(null);
     try {
-      const validProviders = new Set(WORKER_PROVIDER_OPTIONS.map((option) => option.value));
-      const selectedProviders = providerChain.filter(
-        (provider, index) => validProviders.has(provider) && providerChain.indexOf(provider) === index
-      );
       const payload = await pullwiseApi.system.createWorker({
         name: name.trim() || "Worker",
         provider: selectedProviders[0],
@@ -591,17 +640,48 @@ function CreateWorkerModal({ onClose, onCreated }) {
             </label>
             <fieldset className="field provider-chain-field">
               <legend>Agent CLI providers</legend>
-              <div className="provider-toggle-list">
-                {WORKER_PROVIDER_OPTIONS.map((option) => (
-                  <label className="setting-toggle provider-toggle" key={option.value}>
-                    <input
-                      type="checkbox"
-                      checked={providerChain.includes(option.value)}
-                      onChange={() => toggleProvider(option.value)}
-                    />
-                    <span>{option.label}</span>
-                  </label>
-                ))}
+              <div className="provider-chain-list">
+                {orderedProviderOptions.map((option) => {
+                  const selected = providerChain.includes(option.value);
+                  const providerIndex = providerChain.indexOf(option.value);
+                  return (
+                    <div
+                      className={`provider-chain-row${selected ? "" : " is-disabled"}`}
+                      key={option.value}
+                    >
+                      <label className="setting-toggle provider-toggle provider-chain-main">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => toggleProvider(option.value)}
+                        />
+                        <span>{option.label}</span>
+                      </label>
+                      <div className="provider-chain-actions">
+                        <button
+                          aria-label={`Move ${option.label} up`}
+                          className="btn ghost sm provider-chain-move"
+                          disabled={!selected || providerIndex <= 0}
+                          onClick={() => moveProvider(option.value, -1)}
+                          title={`Move ${option.label} up`}
+                          type="button"
+                        >
+                          <I.ChevU size={14} />
+                        </button>
+                        <button
+                          aria-label={`Move ${option.label} down`}
+                          className="btn ghost sm provider-chain-move"
+                          disabled={!selected || providerIndex === providerChain.length - 1}
+                          onClick={() => moveProvider(option.value, 1)}
+                          title={`Move ${option.label} down`}
+                          type="button"
+                        >
+                          <I.ChevD size={14} />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </fieldset>
           </div>

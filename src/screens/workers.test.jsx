@@ -44,6 +44,8 @@ describe("WorkersScreen", () => {
       workerVersion: "0.4.2",
       workerPackage:
         "https://github.com/GoPullwise/pullwise-worker/releases/download/v0.4.2/pullwise_worker-0.4.2-py3-none-any.whl",
+      providerChain: ["opencode", "codex"],
+      defaults: { providerChain: ["opencode", "codex"] },
     });
     pullwiseApi.system.getWorker.mockResolvedValue({ worker: workers[0], auditEvents: [], taskActivity: [] });
   });
@@ -115,8 +117,8 @@ describe("WorkersScreen", () => {
     const payload = pullwiseApi.system.createWorker.mock.calls.at(-1)[0];
     expect(payload).toMatchObject({
       name: "New Worker",
-      provider: "codex",
-      providerChain: ["codex", "opencode"],
+      provider: "opencode",
+      providerChain: ["opencode", "codex"],
       region: "eu-west",
     });
     expect(payload).not.toHaveProperty("provider_chain");
@@ -147,12 +149,35 @@ describe("WorkersScreen", () => {
     expect(payload).not.toHaveProperty("provider_chain");
   });
 
+  it("creates a worker with an explicit agent CLI provider order", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.createWorker.mockResolvedValue({
+      worker: { worker_id: "wk_ordered", name: "Ordered Worker" },
+      worker_token: "pwk_ordered",
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click(await screen.findByRole("button", { name: /register worker/i }));
+    await user.click(await screen.findByRole("button", { name: /move codex cli up/i }));
+    await user.click(screen.getByRole("button", { name: /^create worker$/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.createWorker).toHaveBeenCalled());
+    const payload = pullwiseApi.system.createWorker.mock.calls.at(-1)[0];
+    expect(payload).toMatchObject({
+      provider: "codex",
+      providerChain: ["codex", "opencode"],
+    });
+    expect(payload).not.toHaveProperty("provider_chain");
+  });
+
   it("defaults the create worker version to the latest release while keeping it editable", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.getWorkerDefaults.mockResolvedValue({
       workerVersion: "0.2.3",
       workerPackage:
         "https://github.com/GoPullwise/pullwise-worker/releases/download/v0.2.3/pullwise_worker-0.2.3-py3-none-any.whl",
+      providerChain: ["opencode", "codex"],
     });
     pullwiseApi.system.createWorker.mockResolvedValue({
       worker: { worker_id: "wk_new", name: "Latest Worker" },

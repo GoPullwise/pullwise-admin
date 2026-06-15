@@ -582,7 +582,7 @@ function CreateWorkerModal({ onClose, onCreated }) {
                         <span>{WORKER_PROVIDER_OPTIONS[0].label}</span>
                         <span className="provider-chain-badge">Primary</span>
                       </span>
-                      <span className="provider-chain-description">Required for this worker's review jobs.</span>
+                      <span className="provider-chain-description">Required for Codex review jobs.</span>
                     </span>
                   </div>
                 </div>

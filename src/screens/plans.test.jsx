@@ -136,7 +136,7 @@ describe("PlansScreen", () => {
       ...proPlan,
       agentConfig: {
         ...proPlan.agentConfig,
-        providerChain: ["opencode"],
+        providerChain: ["opencode", "codex"],
         codex: { cli: "codex", command: "codex", model: "gpt-pro", reasoningEffort: "high" },
         opencode: { cli: "opencode", command: "opencode", model: "opencode/pro", variant: "high" },
       },
@@ -162,7 +162,7 @@ describe("PlansScreen", () => {
       expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith(
         "pro",
         expect.objectContaining({
-          providerChain: ["opencode"],
+          providerChain: ["opencode", "codex"],
           codex: expect.objectContaining({ cli: "codex", model: "gpt-pro", reasoningEffort: "high" }),
           opencode: expect.objectContaining({ cli: "opencode", model: "opencode/pro", variant: "high" }),
         })
@@ -171,13 +171,13 @@ describe("PlansScreen", () => {
     expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();
   });
 
-  it("uses the selected plan CLI as the complete provider chain", async () => {
+  it("promotes the selected plan CLI without dropping provider fallbacks", async () => {
     const user = userEvent.setup();
     const updatedPlan = {
       ...multiProviderPlan,
       agentConfig: {
         ...multiProviderPlan.agentConfig,
-        providerChain: ["opencode"],
+        providerChain: ["opencode", "codex"],
       },
     };
     pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({ plans: [multiProviderPlan] });
@@ -196,7 +196,7 @@ describe("PlansScreen", () => {
       expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith(
         "pro",
         expect.objectContaining({
-          providerChain: ["opencode"],
+          providerChain: ["opencode", "codex"],
         })
       )
     );

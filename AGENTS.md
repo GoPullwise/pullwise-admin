@@ -1,5 +1,17 @@
 # Pullwise Admin Agent Notes
 
+## Worker Deployment Assumptions
+
+Admin worker screens and install payloads must preserve these worker invariants:
+
+- Worker installs target Ubuntu 22.04 only.
+- Each worker instance must use only the `codex` and `opencode` binaries under
+  that worker instance directory.
+- Each worker instance must use only its own login state, config, and cache.
+- Worker install, doctor, update, cleanup, and job execution must not depend on
+  a global CLI, root login state, host `HOME`, host `CODEX_HOME`, or another
+  worker instance directory.
+
 ## Plans, Providers, And Quota
 
 Admin screens configure plan policy for Pullwise accounts and repositories. Do

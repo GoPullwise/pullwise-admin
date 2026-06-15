@@ -995,7 +995,7 @@ export function WorkersScreen() {
         setActionMessage("Stop command queued. Running jobs finish first.");
       } else if (action === "delete-service") {
         result = await pullwiseApi.system.commandWorker(workerId, "uninstall");
-        setActionMessage("Delete instance command queued. Worker removed from registry.");
+        setActionMessage("Delete instance command queued. It will finish on the worker's next heartbeat.");
       } else if (action === "delete") {
         result = await pullwiseApi.system.deleteWorker(workerId);
         setWorkers((current) => current.filter((worker) => worker.worker_id !== workerId));

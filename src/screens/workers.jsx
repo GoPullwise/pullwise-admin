@@ -639,11 +639,9 @@ function CreateWorkerModal({ onClose, onCreated }) {
               />
             </label>
             <fieldset className="field provider-chain-field">
+              <legend>Agent CLI order</legend>
               <div className="provider-chain-head">
-                <div>
-                  <legend>Agent CLI order</legend>
-                  <p>Selected CLIs run from top to bottom. The first enabled CLI is the primary provider.</p>
-                </div>
+                <p>Selected CLIs run from top to bottom. The first enabled CLI is the primary provider.</p>
                 <span className="provider-chain-count">{providerChain.length} enabled</span>
               </div>
               <div className="provider-chain-list">

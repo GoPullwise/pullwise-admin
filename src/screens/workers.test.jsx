@@ -137,7 +137,7 @@ describe("WorkersScreen", () => {
 
     await user.click(await screen.findByRole("button", { name: /register worker/i }));
     await user.type(screen.getByLabelText(/^name/i), "OpenCode Worker");
-    await user.click(screen.getByLabelText(/codex cli/i));
+    await user.click(screen.getByRole("checkbox", { name: /^codex cli$/i }));
     await user.click(screen.getByRole("button", { name: /^create worker$/i }));
 
     await waitFor(() => expect(pullwiseApi.system.createWorker).toHaveBeenCalled());

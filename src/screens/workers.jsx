@@ -5,9 +5,8 @@ import { I } from "../icons.jsx";
 const REFRESH_MS = 15000;
 const WORKER_PROVIDER_OPTIONS = [
   { value: "codex", label: "Codex CLI" },
-  { value: "opencode", label: "OpenCode CLI" },
 ];
-const DEFAULT_WORKER_PROVIDER_CHAIN = ["opencode", "codex"];
+const DEFAULT_WORKER_PROVIDER_CHAIN = ["codex"];
 const WORKER_PROVIDER_VALUES = new Set(WORKER_PROVIDER_OPTIONS.map((option) => option.value));
 const WORKER_PROVIDER_OPTION_BY_VALUE = new Map(WORKER_PROVIDER_OPTIONS.map((option) => [option.value, option]));
 
@@ -51,12 +50,8 @@ function statusLabel(status) {
 function commandLabel(command) {
   const value = textValue(command, "command");
   if (value === "uninstall") return "Delete instance";
-  if (value === "stop") return "Stop service";
+  if (value === "stop") return "Disable";
   return statusLabel(value);
-}
-
-function activeCommand(command) {
-  return ["pending", "running"].includes(textValue(command?.status).toLowerCase());
 }
 
 function timestampValue(value) {
@@ -814,9 +809,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const [editRegion, setEditRegion] = useState(worker.region || "");
   const [editVersion, setEditVersion] = useState(worker.version || "");
   const [editCapacity, setEditCapacity] = useState(String(worker.max_concurrent_jobs || 1));
-  const [confirmStop, setConfirmStop] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState(false);
   const displayedWorker = detailWorker ? { ...worker, ...detailWorker } : worker;
 
   useEffect(() => {
@@ -836,7 +829,6 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const busy = Boolean(pendingAction);
   const running = displayedWorker.running_jobs ?? 0;
   const capacity = displayedWorker.max_concurrent_jobs ?? 1;
-  const hasActiveCommand = activeCommand(displayedWorker.latest_command);
 
   const save = async () => {
     const result = await onAction("save", workerId, {
@@ -863,55 +855,26 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
         <div className="worker-expanded">
           <div className="worker-actions">
             {isDisabled ? (
-              <button className="btn sm" type="button" disabled={busy || hasActiveCommand} onClick={() => onAction("enable", workerId)}>
+              <button className="btn sm" type="button" disabled={busy} onClick={() => onAction("enable", workerId)}>
                 Enable
               </button>
             ) : (
-              <button className="btn sm" type="button" disabled={busy || hasActiveCommand} onClick={() => onAction("disable", workerId)}>
-                Stop new jobs
+              <button className="btn sm" type="button" disabled={busy} onClick={() => onAction("disable", workerId)}>
+                Disable
               </button>
             )}
-            <button className="btn sm" type="button" disabled={busy} onClick={() => onAction("test", workerId)}>
-              Health check
-            </button>
-            <button className="btn sm" type="button" disabled={busy || hasActiveCommand} onClick={() => onAction("rotate", workerId)}>
+            <button className="btn sm" type="button" disabled={busy} onClick={() => onAction("rotate", workerId)}>
               Rotate token
             </button>
-            <button className="btn sm" type="button" disabled={busy || hasActiveCommand} onClick={() => {
-              if (confirmStop) {
-                setConfirmStop(false);
-                onAction("stop-service", workerId);
-              } else {
-                setConfirmStop(true);
-                setConfirmDelete(false);
-                setConfirmRemove(false);
-              }
-            }}>
-              <I.Power size={13} /> {confirmStop ? "Confirm stop" : "Stop service"}
-            </button>
-            <button className="btn sm danger" type="button" disabled={busy || hasActiveCommand} onClick={() => {
+            <button className="btn sm danger" type="button" disabled={busy} onClick={() => {
               if (confirmDelete) {
                 setConfirmDelete(false);
-                onAction("delete-service", workerId);
+                onAction("delete", workerId);
               } else {
                 setConfirmDelete(true);
-                setConfirmStop(false);
-                setConfirmRemove(false);
               }
             }}>
               <I.Trash size={13} /> {confirmDelete ? "Confirm delete instance" : "Delete instance"}
-            </button>
-            <button className="btn sm danger" type="button" disabled={busy} onClick={() => {
-              if (confirmRemove) {
-                setConfirmRemove(false);
-                onAction("delete", workerId);
-              } else {
-                setConfirmRemove(true);
-                setConfirmStop(false);
-                setConfirmDelete(false);
-              }
-            }}>
-              <I.Trash size={13} /> {confirmRemove ? "Confirm remove record" : "Remove record"}
             </button>
           </div>
           <WorkerTokenBlock token={rotatedToken} />
@@ -1083,9 +1046,6 @@ export function WorkersScreen() {
       } else if (action === "disable") {
         result = await pullwiseApi.system.disableWorker(workerId);
         setActionMessage("Worker disabled. Running jobs continue.");
-      } else if (action === "test") {
-        result = await pullwiseApi.system.testWorker(workerId);
-        setActionMessage(result?.result?.ok ? "Health check passed." : "Health check needs attention.");
       } else if (action === "rotate") {
         result = await pullwiseApi.system.rotateWorkerToken(workerId);
         setRotatedTokens((current) => ({
@@ -1093,12 +1053,6 @@ export function WorkersScreen() {
           [workerId]: tokenFromResult(result),
         }));
         setActionMessage("Worker token rotated.");
-      } else if (action === "stop-service") {
-        result = await pullwiseApi.system.commandWorker(workerId, "stop");
-        setActionMessage("Stop command queued. Running jobs finish first.");
-      } else if (action === "delete-service") {
-        result = await pullwiseApi.system.commandWorker(workerId, "uninstall");
-        setActionMessage("Worker removed from registry. If the instance is still running, it will clean itself up on its next heartbeat.");
       } else if (action === "delete") {
         result = await pullwiseApi.system.deleteWorker(workerId);
         setWorkers((current) => current.filter((worker) => worker.worker_id !== workerId));
@@ -1107,7 +1061,7 @@ export function WorkersScreen() {
           delete next[workerId];
           return next;
         });
-        setActionMessage("Worker removed from registry.");
+        setActionMessage("Worker instance deleted.");
         return result;
       }
       await loadWorkers({ preserveRotatedTokens: action === "rotate" });

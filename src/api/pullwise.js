@@ -33,12 +33,8 @@ export const pullwiseApi = {
       request(`/admin/workers/${pathSegment(workerId)}/enable`, { method: "POST" }),
     disableWorker: (workerId) =>
       request(`/admin/workers/${pathSegment(workerId)}/disable`, { method: "POST" }),
-    commandWorker: (workerId, command) =>
-      request(`/admin/workers/${pathSegment(workerId)}/commands`, { method: "POST", body: { command } }),
     rotateWorkerToken: (workerId) =>
       request(`/admin/workers/${pathSegment(workerId)}/rotate-token`, { method: "POST" }),
-    testWorker: (workerId) =>
-      request(`/admin/workers/${pathSegment(workerId)}/test`, { method: "POST" }),
     deleteWorker: (workerId) =>
       request(`/admin/workers/${pathSegment(workerId)}`, { method: "DELETE" }),
     getServerMetrics: () => request("/admin/server-metrics"),

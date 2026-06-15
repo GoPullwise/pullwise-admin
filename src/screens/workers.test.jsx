@@ -15,9 +15,7 @@ vi.mock("../api/pullwise.js", () => ({
       updateWorker: vi.fn(),
       enableWorker: vi.fn(),
       disableWorker: vi.fn(),
-      commandWorker: vi.fn(),
       rotateWorkerToken: vi.fn(),
-      testWorker: vi.fn(),
       deleteWorker: vi.fn(),
     },
   },
@@ -207,41 +205,38 @@ describe("WorkersScreen", () => {
     pullwiseApi.system.disableWorker.mockResolvedValue({ worker: { ...workers[0], enabled: false } });
     pullwiseApi.system.enableWorker.mockResolvedValue({ worker: workers[0] });
     pullwiseApi.system.updateWorker.mockResolvedValue({ worker: workers[0] });
-    pullwiseApi.system.testWorker.mockResolvedValue({ result: { ok: true } });
     pullwiseApi.system.rotateWorkerToken.mockResolvedValue({
       worker_token: "pwk_rotated",
       install_commands: {
         standard: "curl -fsSL https://api.example.com/install-worker.sh | bash",
       },
     });
-    pullwiseApi.system.commandWorker.mockResolvedValue({ ok: true, command: { id: "cmd_1", status: "pending" } });
+    pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
 
     render(<WorkersScreen />);
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
-    await user.click(screen.getByRole("button", { name: /stop new jobs/i }));
+    expect(screen.queryByRole("button", { name: /health check/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^stop service$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^remove record$/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^disable$/i }));
     await user.click(screen.getByRole("button", { name: /edit/i }));
     await user.clear(screen.getByLabelText(/region/i));
     await user.type(screen.getByLabelText(/region/i), "eu-west");
     await user.click(screen.getByRole("button", { name: /save/i }));
-    await user.click(screen.getByRole("button", { name: /health check/i }));
     await user.click(screen.getByRole("button", { name: /rotate token/i }));
     const rotatedToken = await screen.findByText("pwk_rotated");
     const workerRow = rotatedToken.closest(".worker-row");
     expect(workerRow).toBeTruthy();
     expect(within(workerRow).getByText("US-East Worker")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^stop service$/i }));
-    await user.click(screen.getByRole("button", { name: /confirm stop/i }));
     await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
     await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
 
     await waitFor(() => expect(pullwiseApi.system.disableWorker).toHaveBeenCalledWith("wk_1"));
     expect(pullwiseApi.system.updateWorker).toHaveBeenCalledWith("wk_1", expect.objectContaining({ region: "eu-west" }));
-    expect(pullwiseApi.system.testWorker).toHaveBeenCalledWith("wk_1");
     expect(pullwiseApi.system.rotateWorkerToken).toHaveBeenCalledWith("wk_1");
-    expect(pullwiseApi.system.commandWorker).toHaveBeenCalledWith("wk_1", "stop");
-    expect(pullwiseApi.system.commandWorker).toHaveBeenCalledWith("wk_1", "uninstall");
-    expect(await screen.findByText(/Worker removed from registry/i)).toBeInTheDocument();
+    expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1");
+    expect(await screen.findByText(/Worker instance deleted/i)).toBeInTheDocument();
     expect(screen.queryByText(/install-worker\.sh/)).not.toBeInTheDocument();
   });
 
@@ -453,7 +448,7 @@ describe("WorkersScreen", () => {
     expect(screen.getByLabelText(/region/i)).toHaveValue("eu-west");
   });
 
-  it("allows registry removal while an operational command is active", async () => {
+  it("allows instance deletion while an old operational command is active", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
     pullwiseApi.system.listWorkers.mockResolvedValue({
@@ -468,14 +463,14 @@ describe("WorkersScreen", () => {
     render(<WorkersScreen />);
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
-    await user.click(screen.getByRole("button", { name: /^remove record$/i }));
-    await user.click(screen.getByRole("button", { name: /confirm remove record/i }));
+    await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
 
     await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
     expect(screen.queryByText("US-East Worker")).not.toBeInTheDocument();
   });
 
-  it("allows registry removal when the detail endpoint reports an active command", async () => {
+  it("allows instance deletion when the detail endpoint reports an active command", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
     pullwiseApi.system.listWorkers.mockResolvedValue({
@@ -494,26 +489,26 @@ describe("WorkersScreen", () => {
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /^remove record$/i })).not.toBeDisabled());
-    await user.click(screen.getByRole("button", { name: /^remove record$/i }));
-    await user.click(screen.getByRole("button", { name: /confirm remove record/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^delete instance$/i })).not.toBeDisabled());
+    await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
 
     await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
   });
 
-  it("removes a worker from the registry", async () => {
+  it("deletes a worker instance and removes it from the list", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
 
     render(<WorkersScreen />);
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
-    await user.click(screen.getByRole("button", { name: /^remove record$/i }));
-    await user.click(screen.getByRole("button", { name: /confirm remove record/i }));
+    await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
 
     await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
     expect(screen.queryByText("US-East Worker")).not.toBeInTheDocument();
-    expect(screen.getByText("Worker removed from registry.")).toBeInTheDocument();
+    expect(screen.getByText("Worker instance deleted.")).toBeInTheDocument();
   });
 
   it("copies install commands when clipboard is available", async () => {

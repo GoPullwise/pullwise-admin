@@ -5,7 +5,7 @@
 Admin worker screens and install payloads must preserve these worker invariants:
 
 - Worker installs target Ubuntu 22.04 only.
-- Each worker instance must use only the `codex` and `opencode` binaries under
+- Each worker instance must use only the `codex` binary under
   that worker instance directory.
 - Each worker instance must use only its own login state, config, and cache.
 - Worker install, doctor, update, cleanup, and job execution must not depend on
@@ -22,8 +22,7 @@ admin flows.
 - Plan quota fields represent account/user scan quota and repository scan
   quota, not workspace quota.
 - Review agent policy is plan-scoped and should preserve provider chains plus
-  provider-specific settings:
+  Codex-specific settings:
   - Codex: model and reasoning effort.
-  - OpenCode: model and variant.
 - Admin worker install payloads should preserve provider chain order and should
-  not imply that global Codex/OpenCode config is shared across workers.
+  not imply that global Codex config is shared across workers.

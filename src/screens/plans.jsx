@@ -6,7 +6,6 @@ import { cloneSettings, isPlanSettingGroup, SettingField, setValueAt, valueAt } 
 const PLAN_ORDER = ["free", "pro", "max"];
 const AGENT_CLI_OPTIONS = [
   { value: "codex", label: "Codex" },
-  { value: "opencode", label: "OpenCode" },
 ];
 const EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
 
@@ -72,7 +71,6 @@ function agentCliLabel(value) {
 function formFromPlan(plan) {
   const agentConfig = plan?.agentConfig || {};
   const codex = agentConfig.codex || {};
-  const opencode = agentConfig.opencode || {};
   const providerChain = chainValue(agentConfig);
   return {
     id: textValue(plan?.id || agentConfig.plan, "free").toLowerCase(),
@@ -83,9 +81,6 @@ function formFromPlan(plan) {
     codexCli: textValue(codex.cli, "codex"),
     codexModel: textValue(codex.model, "gpt-5.5"),
     codexReasoningEffort: textValue(codex.reasoningEffort, "medium"),
-    opencodeCli: textValue(opencode.cli, "opencode"),
-    opencodeModel: textValue(opencode.model, "opencode/big-pickle"),
-    opencodeVariant: textValue(opencode.variant, "medium"),
   };
 }
 
@@ -100,11 +95,6 @@ function payloadFromForm(form) {
       cli: form.codexCli,
       model: form.codexModel,
       reasoningEffort: form.codexReasoningEffort,
-    },
-    opencode: {
-      cli: form.opencodeCli,
-      model: form.opencodeModel,
-      variant: form.opencodeVariant,
     },
   };
 }
@@ -181,69 +171,37 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
       <section className="plan-agent-config-section">
         <div className="plan-agent-config-head">
           <h3>{agentLabel}</h3>
-          <p>{agentCli === "codex" ? "Codex worker CLI settings for this plan." : "OpenCode worker CLI settings for this plan."}</p>
+          <p>Codex worker CLI settings for this plan.</p>
         </div>
-        {agentCli === "codex" ? (
-          <div className="form-grid">
-            <TextField
-              label="CLI"
-              ariaLabel={`${form.name} Codex CLI`}
-              value={form.codexCli}
-              onChange={(value) => onChange(form.id, "codexCli", value)}
-              description="Plan-facing Codex CLI label. The executable path stays in worker environment variables."
-            />
-            <TextField
-              label="Model"
-              ariaLabel={`${form.name} Codex model`}
-              value={form.codexModel}
-              onChange={(value) => onChange(form.id, "codexModel", value)}
-              description="Codex model passed to the worker CLI for this plan."
-            />
-            <SelectField
-              label="Reasoning effort"
-              ariaLabel={`${form.name} Codex effort`}
-              value={form.codexReasoningEffort}
-              onChange={(value) => onChange(form.id, "codexReasoningEffort", value)}
-              description="Codex reasoning effort used by worker CLI execution for this plan."
-            >
-              {EFFORT_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </SelectField>
-          </div>
-        ) : (
-          <div className="form-grid">
-            <TextField
-              label="CLI"
-              ariaLabel={`${form.name} OpenCode CLI`}
-              value={form.opencodeCli}
-              onChange={(value) => onChange(form.id, "opencodeCli", value)}
-              description="Plan-facing OpenCode CLI label. The executable path stays in worker environment variables."
-            />
-            <TextField
-              label="Model"
-              ariaLabel={`${form.name} OpenCode model`}
-              value={form.opencodeModel}
-              onChange={(value) => onChange(form.id, "opencodeModel", value)}
-              description="OpenCode model passed to the worker CLI for this plan."
-            />
-            <SelectField
-              label="Variant"
-              ariaLabel={`${form.name} OpenCode variant`}
-              value={form.opencodeVariant}
-              onChange={(value) => onChange(form.id, "opencodeVariant", value)}
-              description="OpenCode variant passed by the worker when OpenCode is selected."
-            >
-              {EFFORT_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </SelectField>
-          </div>
-        )}
+        <div className="form-grid">
+          <TextField
+            label="CLI"
+            ariaLabel={`${form.name} Codex CLI`}
+            value={form.codexCli}
+            onChange={(value) => onChange(form.id, "codexCli", value)}
+            description="Plan-facing Codex CLI label. The executable path stays in worker environment variables."
+          />
+          <TextField
+            label="Model"
+            ariaLabel={`${form.name} Codex model`}
+            value={form.codexModel}
+            onChange={(value) => onChange(form.id, "codexModel", value)}
+            description="Codex model passed to the worker CLI for this plan."
+          />
+          <SelectField
+            label="Reasoning effort"
+            ariaLabel={`${form.name} Codex effort`}
+            value={form.codexReasoningEffort}
+            onChange={(value) => onChange(form.id, "codexReasoningEffort", value)}
+            description="Codex reasoning effort used by worker CLI execution for this plan."
+          >
+            {EFFORT_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </SelectField>
+        </div>
       </section>
 
       <div className="plan-config-actions">

@@ -241,6 +241,7 @@ describe("WorkersScreen", () => {
     expect(pullwiseApi.system.rotateWorkerToken).toHaveBeenCalledWith("wk_1");
     expect(pullwiseApi.system.commandWorker).toHaveBeenCalledWith("wk_1", "stop");
     expect(pullwiseApi.system.commandWorker).toHaveBeenCalledWith("wk_1", "uninstall");
+    expect(await screen.findByText(/Worker removed from registry/i)).toBeInTheDocument();
     expect(screen.queryByText(/install-worker\.sh/)).not.toBeInTheDocument();
   });
 

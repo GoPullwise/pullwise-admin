@@ -26,6 +26,11 @@ host. Workers may be installed on different machines from the server, so delete
 status should be modeled as a lifecycle operation whose cleanup is executed by a
 worker-host watcher/supervisor/finalizer and reported back to the server.
 
+A worker host can have multiple worker instances. Admin flows must treat each
+worker instance and its watcher as a one-to-one pair; never imply that a watcher,
+worker process, service user, config, home, log directory, or lifecycle state is
+shared between instances.
+
 ## Plans, Providers, And Quota
 
 Admin screens configure plan policy for Pullwise accounts and repositories. Do

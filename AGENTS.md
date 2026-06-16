@@ -12,6 +12,20 @@ Admin worker screens and install payloads must preserve these worker invariants:
   a global CLI, root login state, host `HOME`, host `CODEX_HOME`, or another
   worker instance directory.
 
+## Delete Instance Semantics
+
+Admin Delete instance must mean "remove this worker instance and its
+worker-host resources", not only "remove this row from the server list". UI copy,
+API handling, tests, and status states should reflect that deletion includes
+remote worker-host cleanup for the instance's service/config/user/home/log
+resources, especially the instance directories under `/var/lib/pullwise-worker`
+and `/var/log/pullwise-worker`.
+
+The admin app must not imply the Pullwise Server host is necessarily the worker
+host. Workers may be installed on different machines from the server, so delete
+status should be modeled as a lifecycle operation whose cleanup is executed by a
+worker-host watcher/supervisor/finalizer and reported back to the server.
+
 ## Plans, Providers, And Quota
 
 Admin screens configure plan policy for Pullwise accounts and repositories. Do

@@ -21,7 +21,7 @@ admin flows.
 - Plans are `free`, `pro`, and `max`.
 - Plan quota fields represent account/user scan quota and repository scan
   quota, not workspace quota.
-- Review agent policy is plan-scoped and should preserve provider chains plus
+- Review agent policy is plan-scoped and should preserve a single provider plus
   Codex-specific settings:
   - Codex: model and reasoning effort.
 - Admin worker install payloads should preserve provider chain order and should

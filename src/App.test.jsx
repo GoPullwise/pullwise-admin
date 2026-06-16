@@ -152,7 +152,7 @@ describe("Admin App", () => {
           reviewLimit: 60,
           agentConfig: {
             plan: "pro",
-            providerChain: ["codex"],
+            provider: "codex",
             codex: { cli: "codex", command: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
           },
         },

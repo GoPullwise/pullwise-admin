@@ -4,7 +4,7 @@ import { I } from "../icons.jsx";
 import { cloneSettings, isPlanSettingGroup, SettingField, setValueAt, valueAt } from "./settings.jsx";
 
 const PLAN_ORDER = ["free", "pro", "max"];
-const AGENT_CLI_OPTIONS = [
+const AGENT_PROVIDER_OPTIONS = [
   { value: "codex", label: "Codex" },
 ];
 const EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
@@ -29,55 +29,29 @@ function textValue(value, fallback = "") {
 
 function providerValue(value) {
   const provider = textValue(value).toLowerCase();
-  return AGENT_CLI_OPTIONS.some((option) => option.value === provider) ? provider : "";
+  return AGENT_PROVIDER_OPTIONS.some((option) => option.value === provider) ? provider : "";
 }
 
 function planName(plan) {
   return textValue(plan?.name, titleCase(plan?.id));
 }
 
-function chainValue(agentConfig) {
-  const chain = Array.isArray(agentConfig?.providerChain) ? agentConfig.providerChain : [];
-  const normalized = chain.map((item) => providerValue(item)).filter(Boolean);
-  return normalized.length ? normalized.join(",") : "codex";
+function agentProviderValue(source) {
+  return providerValue(source?.provider) || "codex";
 }
 
-function agentCliValue(source) {
-  const chain = textValue(source?.providerChain)
-    .split(",")
-    .map((item) => providerValue(item))
-    .filter(Boolean);
-  return (
-    providerValue(source?.agentCli) ||
-    chain[0] ||
-    "codex"
-  );
-}
-
-function promoteProviderInChain(chainText, provider) {
-  const selected = providerValue(provider) || "codex";
-  const existing = textValue(chainText)
-    .split(",")
-    .map((item) => providerValue(item))
-    .filter(Boolean);
-  const promoted = [selected, ...existing.filter((item) => item !== selected)];
-  return promoted.length ? promoted.join(",") : selected;
-}
-
-function agentCliLabel(value) {
-  return AGENT_CLI_OPTIONS.find((option) => option.value === value)?.label || titleCase(value);
+function agentProviderLabel(value) {
+  return AGENT_PROVIDER_OPTIONS.find((option) => option.value === value)?.label || titleCase(value);
 }
 
 function formFromPlan(plan) {
   const agentConfig = plan?.agentConfig || {};
   const codex = agentConfig.codex || {};
-  const providerChain = chainValue(agentConfig);
   return {
     id: textValue(plan?.id || agentConfig.plan, "free").toLowerCase(),
     name: planName(plan),
     reviewLimit: plan?.reviewLimit ?? "",
-    providerChain,
-    agentCli: agentCliValue({ ...agentConfig, providerChain }),
+    provider: agentProviderValue(agentConfig),
     codexCli: textValue(codex.cli, "codex"),
     codexModel: textValue(codex.model, "gpt-5.5"),
     codexReasoningEffort: textValue(codex.reasoningEffort, "medium"),
@@ -85,12 +59,8 @@ function formFromPlan(plan) {
 }
 
 function payloadFromForm(form) {
-  const providerChain = textValue(form.providerChain)
-    .split(",")
-    .map((item) => providerValue(item))
-    .filter(Boolean);
   return {
-    providerChain: providerChain.length ? providerChain : [agentCliValue(form)],
+    provider: agentProviderValue(form),
     codex: {
       cli: form.codexCli,
       model: form.codexModel,
@@ -134,8 +104,8 @@ function TextField({ label, value, onChange, ariaLabel, description }) {
 }
 
 function PlanConfigCard({ form, saving, onChange, onSave }) {
-  const agentCli = agentCliValue(form);
-  const agentLabel = agentCliLabel(agentCli);
+  const agentProvider = agentProviderValue(form);
+  const agentLabel = agentProviderLabel(agentProvider);
   return (
     <article className="plan-config-card">
       <div className="plan-config-head">
@@ -154,13 +124,13 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
 
       <div className="form-grid compact">
         <SelectField
-          label="Agent CLI"
-          ariaLabel={`${form.name} Agent CLI`}
-          value={agentCli}
-          onChange={(value) => onChange(form.id, "agentCli", value)}
-          description="The review agent CLI used for this plan's worker jobs."
+          label="Agent provider"
+          ariaLabel={`${form.name} Agent provider`}
+          value={agentProvider}
+          onChange={(value) => onChange(form.id, "provider", value)}
+          description="The review agent provider used for this plan's worker jobs."
         >
-          {AGENT_CLI_OPTIONS.map((option) => (
+          {AGENT_PROVIDER_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
@@ -260,14 +230,7 @@ export function PlansScreen() {
   const updateField = (planId, field, value) => {
     setForms((current) => ({
       ...current,
-      [planId]:
-        field === "agentCli"
-          ? {
-              ...current[planId],
-              agentCli: value,
-              providerChain: promoteProviderInChain(current[planId]?.providerChain, value),
-            }
-          : { ...current[planId], [field]: value },
+      [planId]: { ...current[planId], [field]: value },
     }));
   };
 
@@ -381,7 +344,7 @@ export function PlansScreen() {
           <div className="plan-settings-head">
             <div>
               <h2>Plan Agent Configs</h2>
-              <p>Agent CLI and model settings sent to workers for each plan.</p>
+              <p>Agent provider and model settings sent to workers for each plan.</p>
             </div>
           </div>
           <div className="plan-config-list">

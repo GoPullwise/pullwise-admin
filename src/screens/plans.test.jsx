@@ -21,7 +21,7 @@ const proPlan = {
   reviewLimit: 60,
   agentConfig: {
     plan: "pro",
-    providerChain: ["codex"],
+    provider: "codex",
     codex: { cli: "codex", command: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
   },
 };
@@ -101,7 +101,7 @@ describe("PlansScreen", () => {
     render(<PlansScreen />);
 
     expect(await screen.findByText("Pro")).toBeInTheDocument();
-    expect(screen.getByLabelText("Pro Agent CLI")).toHaveValue("codex");
+    expect(screen.getByLabelText("Pro Agent provider")).toHaveValue("codex");
     expect(screen.getByLabelText("Pro Codex CLI")).toHaveValue("codex");
     expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Pro Codex effort")).toHaveValue("medium");
@@ -113,7 +113,7 @@ describe("PlansScreen", () => {
       ...proPlan,
       agentConfig: {
         ...proPlan.agentConfig,
-        providerChain: ["codex"],
+        provider: "codex",
         codex: { cli: "codex", command: "codex", model: "gpt-pro", reasoningEffort: "high" },
       },
     };
@@ -134,7 +134,7 @@ describe("PlansScreen", () => {
       expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith(
         "pro",
         expect.objectContaining({
-          providerChain: ["codex"],
+          provider: "codex",
           codex: expect.objectContaining({ cli: "codex", model: "gpt-pro", reasoningEffort: "high" }),
         })
       )

@@ -1,4 +1,5 @@
 const API_PREFIX = "/api";
+const DEFAULT_PULLWISE_API_ORIGIN = "https://api.pull-wise.com";
 
 export default {
   async fetch(request, env) {
@@ -23,29 +24,42 @@ export async function proxyApiRequest(request, env, incomingUrl = new URL(reques
     return json({ message: "PULLWISE_API_ORIGIN must use HTTPS or loopback HTTP." }, 500);
   }
 
-  const targetUrl = new URL(backendPath(incomingUrl.pathname) + incomingUrl.search, upstreamOrigin);
+  const backendPathWithSearch = backendPath(incomingUrl.pathname) + incomingUrl.search;
+  const targetUrl = new URL(backendPathWithSearch, upstreamOrigin);
   const headers = withoutClientProxyHeaders(request.headers);
   headers.set("X-Forwarded-Proto", incomingUrl.protocol.replace(":", ""));
   headers.set("X-Forwarded-Host", incomingUrl.host);
   headers.set("X-Forwarded-Prefix", API_PREFIX);
 
   const methodHasBody = hasBody(request.method);
+  const bufferedBody = methodHasBody ? await request.clone().arrayBuffer() : undefined;
   const init = {
     method: request.method,
     headers,
-    body: methodHasBody ? request.body : undefined,
+    body: bufferedBody,
     redirect: "manual",
   };
   if (methodHasBody) {
     init.duplex = "half";
   }
 
-  let response;
+  let response = await fetchUpstream(targetUrl, init);
+  if (await shouldRetryCloudflare1003(response, upstreamOrigin, env)) {
+    const fallbackOrigin = apiOrigin(env.PULLWISE_API_FALLBACK_ORIGIN || DEFAULT_PULLWISE_API_ORIGIN);
+    response = await fetchUpstream(new URL(backendPathWithSearch, fallbackOrigin), init);
+  }
+  return proxyResponse(response);
+}
+
+async function fetchUpstream(targetUrl, init) {
   try {
-    response = await fetch(targetUrl, init);
+    return await fetch(targetUrl, init);
   } catch {
     return json({ message: "Unable to reach Pullwise API upstream." }, 502);
   }
+}
+
+function proxyResponse(response) {
   return new Response(response.body, {
     status: response.status,
     statusText: response.statusText,
@@ -77,6 +91,19 @@ function apiOrigin(origin) {
 function isLoopbackHost(hostname) {
   const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   return ["localhost", "127.0.0.1", "::1"].includes(normalized);
+}
+
+async function shouldRetryCloudflare1003(response, upstreamOrigin, env) {
+  if (response.status !== 403) return false;
+  const fallbackOrigin = apiOrigin(env.PULLWISE_API_FALLBACK_ORIGIN || DEFAULT_PULLWISE_API_ORIGIN);
+  if (!fallbackOrigin || fallbackOrigin.origin === upstreamOrigin.origin) return false;
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("text/html") && !contentType.includes("text/plain")) return false;
+  try {
+    return (await response.clone().text()).includes("error code: 1003");
+  } catch {
+    return false;
+  }
 }
 
 function hasBody(method) {

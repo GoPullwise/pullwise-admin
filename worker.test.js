@@ -86,6 +86,70 @@ describe("admin Cloudflare worker proxy", () => {
     });
   });
 
+  it("retries the default API origin when the Worker upstream returns Cloudflare 1003", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response("<html>error code: 1003</html>", {
+          status: 403,
+          headers: { "content-type": "text/html" },
+        })
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ authenticated: false }), { status: 200 }));
+    globalThis.fetch = fetchMock;
+
+    const response = await proxyApiRequest(
+      new Request("https://admin.pull-wise.com/api/auth/session"),
+      { PULLWISE_API_ORIGIN: "https://198.51.100.10" },
+      new URL("https://admin.pull-wise.com/api/auth/session")
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, new URL("https://198.51.100.10/auth/session"), expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, new URL("https://api.pull-wise.com/auth/session"), expect.any(Object));
+  });
+
+  it("does not retry ordinary backend 403 responses", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ message: "Admin access is required." }), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      })
+    );
+    globalThis.fetch = fetchMock;
+
+    const response = await proxyApiRequest(
+      new Request("https://admin.pull-wise.com/api/admin/workers"),
+      { PULLWISE_API_ORIGIN: "https://api.example.com" },
+      new URL("https://admin.pull-wise.com/api/admin/workers")
+    );
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries the default API origin when the Pages upstream returns Cloudflare 1003", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response("error code: 1003", {
+          status: 403,
+          headers: { "content-type": "text/plain" },
+        })
+      )
+      .mockResolvedValueOnce(new Response(JSON.stringify({ authenticated: false }), { status: 200 }));
+    globalThis.fetch = fetchMock;
+
+    const response = await pagesApiOnRequest({
+      request: new Request("https://admin.pull-wise.com/api/auth/session"),
+      env: { PULLWISE_API_ORIGIN: "https://198.51.100.10" },
+    });
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenNthCalledWith(1, new URL("https://198.51.100.10/auth/session"), expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, new URL("https://api.pull-wise.com/auth/session"), expect.any(Object));
+  });
+
   it("allows loopback HTTP upstreams for local Worker preview", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
     globalThis.fetch = fetchMock;

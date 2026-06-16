@@ -13,16 +13,22 @@ describe("admin deployment tooling", () => {
     expect(packageLock.packages["node_modules/wrangler"]).toBeTruthy();
     expect(packageJson.scripts["preview:workers"]).toContain("wrangler dev");
     expect(packageJson.scripts["preview:workers"]).toContain("PULLWISE_API_ORIGIN:http://localhost:8080");
-    expect(packageJson.scripts["deploy:workers"]).toBe("npm run build && wrangler deploy");
+    expect(packageJson.scripts["deploy:workers"]).toBe("npm run build && wrangler deploy --env production");
   });
 
-  it("configures the deployed Worker proxy upstream while local preview overrides it", () => {
-    expect(wrangler.vars?.PULLWISE_API_ORIGIN).toBe("https://api.pull-wise.com");
+  it("uses local Worker proxy vars by default and requires production deploys to opt in", () => {
+    expect(wrangler.vars?.PULLWISE_API_ORIGIN).toBe("http://localhost:8080");
+    expect(wrangler.env?.production?.vars?.PULLWISE_API_ORIGIN).toBe("https://api.pull-wise.com");
     expect(packageJson.scripts["preview:workers"]).not.toContain("https://api.pull-wise.com");
+    expect(packageJson.scripts["deploy:workers"]).toContain("--env production");
   });
 
   it("publishes the admin app on the configured custom domain", () => {
-    expect(wrangler.routes).toContainEqual({
+    expect(wrangler.routes || []).not.toContainEqual({
+      pattern: "admin.pull-wise.com",
+      custom_domain: true,
+    });
+    expect(wrangler.env?.production?.routes).toContainEqual({
       pattern: "admin.pull-wise.com",
       custom_domain: true,
     });

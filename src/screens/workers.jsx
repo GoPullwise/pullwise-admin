@@ -38,6 +38,10 @@ function normalizeWorkerCapacity(value) {
   return Number.isFinite(number) && number > 0 ? number : 1;
 }
 
+function hasActiveWorkerCommand(worker) {
+  return ["pending", "running"].includes(textValue(worker?.latest_command?.status).toLowerCase());
+}
+
 function nextPatchVersion(value) {
   const version = textValue(value).replace(/^v/i, "");
   const match = version.match(/^(\d+)\.(\d+)\.(\d+)$/);
@@ -688,6 +692,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const workerId = displayedWorker.worker_id;
   const isDisabled = displayedWorker.enabled === false;
   const busy = Boolean(pendingAction);
+  const hasActiveCommand = hasActiveWorkerCommand(displayedWorker);
   const running = displayedWorker.running_jobs ?? 0;
   const capacity = displayedWorker.max_concurrent_jobs ?? 1;
 
@@ -716,18 +721,18 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
         <div className="worker-expanded">
           <div className="worker-actions">
             {isDisabled ? (
-              <button className="btn sm" type="button" disabled={busy} onClick={() => onAction("enable", workerId)}>
+              <button className="btn sm" type="button" disabled={busy || hasActiveCommand} onClick={() => onAction("enable", workerId)}>
                 Enable
               </button>
             ) : (
-              <button className="btn sm" type="button" disabled={busy} onClick={() => onAction("disable", workerId)}>
+              <button className="btn sm" type="button" disabled={busy || hasActiveCommand} onClick={() => onAction("disable", workerId)}>
                 Disable
               </button>
             )}
-            <button className="btn sm" type="button" disabled={busy} onClick={() => onAction("rotate", workerId)}>
+            <button className="btn sm" type="button" disabled={busy || hasActiveCommand} onClick={() => onAction("rotate", workerId)}>
               Rotate token
             </button>
-            <button className="btn sm danger" type="button" disabled={busy} onClick={() => {
+            <button className="btn sm danger" type="button" disabled={busy || hasActiveCommand} onClick={() => {
               if (confirmDelete) {
                 setConfirmDelete(false);
                 onAction("delete", workerId);

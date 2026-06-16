@@ -413,7 +413,7 @@ describe("WorkersScreen", () => {
     expect(screen.getByLabelText(/region/i)).toHaveValue("eu-west");
   });
 
-  it("allows instance deletion while an old operational command is active", async () => {
+  it("disables instance deletion while a listed operational command is active", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
     pullwiseApi.system.listWorkers.mockResolvedValue({
@@ -428,14 +428,12 @@ describe("WorkersScreen", () => {
     render(<WorkersScreen />);
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
-    await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
-    await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
 
-    await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
-    expect(screen.queryByText("US-East Worker")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^delete instance$/i })).toBeDisabled();
+    expect(pullwiseApi.system.deleteWorker).not.toHaveBeenCalled();
   });
 
-  it("allows instance deletion when the detail endpoint reports an active command", async () => {
+  it("disables instance deletion when the detail endpoint reports an active command", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
     pullwiseApi.system.listWorkers.mockResolvedValue({
@@ -454,11 +452,8 @@ describe("WorkersScreen", () => {
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /^delete instance$/i })).not.toBeDisabled());
-    await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
-    await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
-
-    await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
+    await waitFor(() => expect(screen.getByRole("button", { name: /^delete instance$/i })).toBeDisabled());
+    expect(pullwiseApi.system.deleteWorker).not.toHaveBeenCalled();
   });
 
   it("deletes a worker instance and removes it from the list", async () => {

@@ -15,7 +15,7 @@
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest --passWithNoTests",
     "preview:workers": "npm run build && wrangler dev --var PULLWISE_API_ORIGIN:http://localhost:8080",
-    "deploy:workers": "npm run build && wrangler deploy",
+    "deploy:workers": "npm run build && wrangler deploy --env production",
     "check": "npm run lint && npm run test && npm run build"
   },
   "dependencies": {

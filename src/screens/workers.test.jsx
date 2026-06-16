@@ -124,27 +124,14 @@ describe("WorkersScreen", () => {
     expect(screen.getByText(/install-worker\.sh/)).toBeInTheDocument();
   });
 
-  it("creates a worker with Codex CLI capability", async () => {
+  it("does not show Agent CLI copy in the register worker modal", async () => {
     const user = userEvent.setup();
-    pullwiseApi.system.createWorker.mockResolvedValue({
-      worker: { worker_id: "wk_codex", name: "Codex Worker" },
-      worker_token: "pwk_codex",
-    });
 
     render(<WorkersScreen />);
 
     await user.click(await screen.findByRole("button", { name: /register worker/i }));
-    await user.type(screen.getByLabelText(/^name/i), "Codex Worker");
-    expect(screen.getByText("Codex CLI")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: /^create worker$/i }));
-
-    await waitFor(() => expect(pullwiseApi.system.createWorker).toHaveBeenCalled());
-    const payload = pullwiseApi.system.createWorker.mock.calls.at(-1)[0];
-    expect(payload).toMatchObject({
-      provider: "codex",
-      providerChain: ["codex"],
-    });
-    expect(payload).not.toHaveProperty("provider_chain");
+    expect(screen.queryByText("Agent CLI")).not.toBeInTheDocument();
+    expect(screen.queryByText("Codex CLI")).not.toBeInTheDocument();
   });
 
   it("defaults the create worker version to the latest release while keeping it editable", async () => {

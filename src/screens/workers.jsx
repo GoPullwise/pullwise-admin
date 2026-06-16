@@ -3,9 +3,6 @@ import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
 
 const REFRESH_MS = 15000;
-const WORKER_PROVIDER_OPTIONS = [
-  { value: "codex", label: "Codex CLI" },
-];
 const DEFAULT_WORKER_PROVIDER_CHAIN = ["codex"];
 
 function itemsFrom(payload, ...keys) {
@@ -567,27 +564,6 @@ function CreateWorkerModal({ onClose, onCreated }) {
                 onChange={(event) => setCapacity(event.target.value)}
               />
             </label>
-            <fieldset className="field provider-chain-field">
-              <legend>Agent CLI</legend>
-              <div className="provider-chain-head">
-                <p>Workers registered from admin use Codex CLI for review jobs.</p>
-                <span className="provider-chain-count">1 enabled</span>
-              </div>
-              <div className="provider-chain-list">
-                <div className="provider-chain-row is-selected is-primary">
-                  <div className="provider-chain-main">
-                    <span className="provider-chain-rank" aria-hidden="true">1</span>
-                    <span className="provider-chain-copy">
-                      <span className="provider-chain-title">
-                        <span>{WORKER_PROVIDER_OPTIONS[0].label}</span>
-                        <span className="provider-chain-badge">Primary</span>
-                      </span>
-                      <span className="provider-chain-description">Required for Codex review jobs.</span>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </fieldset>
           </div>
           {error && (
             <div className="auth-error" role="alert">

@@ -470,6 +470,20 @@
   padding: 0 10px;
 }
 
+.checkbox-field span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.checkbox-field input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  padding: 0;
+}
+
 .settings-list {
   display: grid;
   gap: 12px;

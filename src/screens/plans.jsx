@@ -8,6 +8,7 @@ const AGENT_PROVIDER_OPTIONS = [
   { value: "codex", label: "Codex" },
 ];
 const EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
+const GRAPH_VERIFIED_MODE_OPTIONS = ["fast", "standard", "deep"];
 
 function itemsFrom(payload) {
   const plans = payload?.plans;
@@ -47,6 +48,7 @@ function agentProviderLabel(value) {
 function formFromPlan(plan) {
   const agentConfig = plan?.agentConfig || {};
   const codex = agentConfig.codex || {};
+  const graphVerified = agentConfig.graphVerified || {};
   return {
     id: textValue(plan?.id || agentConfig.plan, "free").toLowerCase(),
     name: planName(plan),
@@ -55,6 +57,13 @@ function formFromPlan(plan) {
     codexCli: textValue(codex.cli, "codex"),
     codexModel: textValue(codex.model, "gpt-5.5"),
     codexReasoningEffort: textValue(codex.reasoningEffort, "medium"),
+    graphVerifiedEnabled: graphVerified.enabled === true,
+    graphVerifiedMode: GRAPH_VERIFIED_MODE_OPTIONS.includes(textValue(graphVerified.mode)) ? textValue(graphVerified.mode) : "standard",
+    graphVerifiedMaxRepro: Number.isFinite(Number(graphVerified.maxRepro)) ? Number(graphVerified.maxRepro) : 0,
+    graphVerifiedMinScoreForRepro: Number.isFinite(Number(graphVerified.minScoreForRepro))
+      ? Number(graphVerified.minScoreForRepro)
+      : 8,
+    graphVerifiedRequireRedGreen: graphVerified.requireRedGreen === true,
   };
 }
 
@@ -66,7 +75,19 @@ function payloadFromForm(form) {
       model: form.codexModel,
       reasoningEffort: form.codexReasoningEffort,
     },
+    graphVerified: {
+      enabled: form.graphVerifiedEnabled === true,
+      mode: form.graphVerifiedMode,
+      maxRepro: numericFormValue(form.graphVerifiedMaxRepro, 0),
+      minScoreForRepro: numericFormValue(form.graphVerifiedMinScoreForRepro, 8),
+      requireRedGreen: form.graphVerifiedRequireRedGreen === true,
+    },
   };
+}
+
+function numericFormValue(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
 }
 
 function sortPlans(plans) {
@@ -98,6 +119,40 @@ function TextField({ label, value, onChange, ariaLabel, description }) {
     <label className="field">
       <span>{label}</span>
       <input aria-label={ariaLabel || label} value={value} onChange={(event) => onChange(event.target.value)} />
+      {description && <small className="field-help">{description}</small>}
+    </label>
+  );
+}
+
+function NumberField({ label, value, onChange, ariaLabel, description, min = 0, max }) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input
+        aria-label={ariaLabel || label}
+        min={min}
+        max={max}
+        type="number"
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+      {description && <small className="field-help">{description}</small>}
+    </label>
+  );
+}
+
+function CheckboxField({ label, checked, onChange, ariaLabel, description }) {
+  return (
+    <label className="field checkbox-field">
+      <span>
+        <input
+          aria-label={ariaLabel || label}
+          checked={checked}
+          type="checkbox"
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        {label}
+      </span>
       {description && <small className="field-help">{description}</small>}
     </label>
   );
@@ -171,6 +226,60 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
               </option>
             ))}
           </SelectField>
+        </div>
+      </section>
+
+      <section className="plan-agent-config-section">
+        <div className="plan-agent-config-head">
+          <h3>Graph verification</h3>
+          <p>Confirmed-only CodeGraph and reproduction gate policy for this plan.</p>
+        </div>
+        <div className="form-grid">
+          <CheckboxField
+            label="Enable graph verification"
+            ariaLabel={`${form.name} Enable graph verification`}
+            checked={form.graphVerifiedEnabled}
+            onChange={(value) => onChange(form.id, "graphVerifiedEnabled", value)}
+            description="Run the graph-sliced, reproduction-gated review pipeline after the normal worker review."
+          />
+          <SelectField
+            label="Mode"
+            ariaLabel={`${form.name} Graph verification mode`}
+            value={form.graphVerifiedMode}
+            onChange={(value) => onChange(form.id, "graphVerifiedMode", value)}
+            description="Controls slice and reproduction budget defaults."
+          >
+            {GRAPH_VERIFIED_MODE_OPTIONS.map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </SelectField>
+          <NumberField
+            label="Max repro"
+            ariaLabel={`${form.name} Graph verification max repro`}
+            min={0}
+            max={100}
+            value={form.graphVerifiedMaxRepro}
+            onChange={(value) => onChange(form.id, "graphVerifiedMaxRepro", value)}
+            description="0 uses the selected mode default."
+          />
+          <NumberField
+            label="Min repro score"
+            ariaLabel={`${form.name} Graph verification min repro score`}
+            min={0}
+            max={50}
+            value={form.graphVerifiedMinScoreForRepro}
+            onChange={(value) => onChange(form.id, "graphVerifiedMinScoreForRepro", value)}
+            description="Candidates below this score do not enter reproduction unless severity is critical or high."
+          />
+          <CheckboxField
+            label="Require red-green"
+            ariaLabel={`${form.name} Graph verification require red-green`}
+            checked={form.graphVerifiedRequireRedGreen}
+            onChange={(value) => onChange(form.id, "graphVerifiedRequireRedGreen", value)}
+            description="Only show findings reproduced at L3."
+          />
         </div>
       </section>
 

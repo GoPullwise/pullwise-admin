@@ -23,6 +23,7 @@ const proPlan = {
     plan: "pro",
     provider: "codex",
     codex: { cli: "codex", command: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
+    graphVerified: { enabled: true, mode: "standard", maxRepro: 20, minScoreForRepro: 8, requireRedGreen: false },
   },
 };
 
@@ -105,6 +106,11 @@ describe("PlansScreen", () => {
     expect(screen.getByLabelText("Pro Codex CLI")).toHaveValue("codex");
     expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Pro Codex effort")).toHaveValue("medium");
+    expect(screen.getByLabelText("Pro Enable graph verification")).toBeChecked();
+    expect(screen.getByLabelText("Pro Graph verification mode")).toHaveValue("standard");
+    expect(screen.getByLabelText("Pro Graph verification max repro")).toHaveValue(20);
+    expect(screen.getByLabelText("Pro Graph verification min repro score")).toHaveValue(8);
+    expect(screen.getByLabelText("Pro Graph verification require red-green")).not.toBeChecked();
   });
 
   it("saves edited provider and model settings for a plan", async () => {
@@ -115,6 +121,7 @@ describe("PlansScreen", () => {
         ...proPlan.agentConfig,
         provider: "codex",
         codex: { cli: "codex", command: "codex", model: "gpt-pro", reasoningEffort: "high" },
+        graphVerified: { enabled: true, mode: "deep", maxRepro: 12, minScoreForRepro: 7, requireRedGreen: true },
       },
     };
     pullwiseApi.system.updatePlanAgentConfig.mockResolvedValue({
@@ -126,8 +133,14 @@ describe("PlansScreen", () => {
 
     await screen.findByText("Pro");
     await user.selectOptions(screen.getByLabelText("Pro Codex effort"), "high");
+    await user.selectOptions(screen.getByLabelText("Pro Graph verification mode"), "deep");
     await user.clear(screen.getByLabelText("Pro Codex model"));
     await user.type(screen.getByLabelText("Pro Codex model"), "gpt-pro");
+    await user.clear(screen.getByLabelText("Pro Graph verification max repro"));
+    await user.type(screen.getByLabelText("Pro Graph verification max repro"), "12");
+    await user.clear(screen.getByLabelText("Pro Graph verification min repro score"));
+    await user.type(screen.getByLabelText("Pro Graph verification min repro score"), "7");
+    await user.click(screen.getByLabelText("Pro Graph verification require red-green"));
     await user.click(screen.getByRole("button", { name: /save pro/i }));
 
     await waitFor(() =>
@@ -136,6 +149,13 @@ describe("PlansScreen", () => {
         expect.objectContaining({
           provider: "codex",
           codex: expect.objectContaining({ cli: "codex", model: "gpt-pro", reasoningEffort: "high" }),
+          graphVerified: {
+            enabled: true,
+            mode: "deep",
+            maxRepro: 12,
+            minScoreForRepro: 7,
+            requireRedGreen: true,
+          },
         })
       )
     );

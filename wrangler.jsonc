@@ -10,7 +10,7 @@
     "run_worker_first": ["/api/*"]
   },
   "vars": {
-    "PULLWISE_API_ORIGIN": "http://localhost:8080"
+    "PULLWISE_API_ORIGIN": "https://api.pull-wise.com"
   },
   "env": {
     "production": {

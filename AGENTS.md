@@ -19,10 +19,11 @@ Production `admin.pull-wise.com` must proxy API calls to
 
 `http://localhost:8080` is only valid for local development, Vite proxying, and
 the local `preview:workers` flow. Do not commit, push, or deploy a change that
-makes the production Cloudflare Worker runtime variable, `env.production.vars`,
-or Cloudflare Dashboard setting for `PULLWISE_API_ORIGIN` point to localhost or
-any loopback address. If a local-only change is needed while debugging, keep it
-uncommitted and revert it before handoff.
+makes the Cloudflare Worker runtime variable, top-level `vars`,
+`env.production.vars`, or Cloudflare Dashboard setting for
+`PULLWISE_API_ORIGIN` point to localhost or any loopback address. If a
+local-only change is needed while debugging, keep it in local command-line
+overrides such as `wrangler dev --var ...`, not in committed deploy config.
 
 ## Delete Instance Semantics
 

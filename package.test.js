@@ -16,8 +16,8 @@ describe("admin deployment tooling", () => {
     expect(packageJson.scripts["deploy:workers"]).toBe("npm run build && wrangler deploy --env production");
   });
 
-  it("uses local Worker proxy vars by default and requires production deploys to opt in", () => {
-    expect(wrangler.vars?.PULLWISE_API_ORIGIN).toBe("http://localhost:8080");
+  it("keeps deployed Worker proxy vars on the production API origin", () => {
+    expect(wrangler.vars?.PULLWISE_API_ORIGIN).toBe("https://api.pull-wise.com");
     expect(wrangler.env?.production?.vars?.PULLWISE_API_ORIGIN).toBe("https://api.pull-wise.com");
     expect(packageJson.scripts["preview:workers"]).not.toContain("https://api.pull-wise.com");
     expect(packageJson.scripts["deploy:workers"]).toContain("--env production");

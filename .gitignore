@@ -1,6 +1,13 @@
 node_modules
 dist
+.vite
+coverage
+.nyc_output
+.wrangler
 .env
 .env.local
+.env.*.local
+!.env.example
+!.env.production
 .DS_Store
 *.log

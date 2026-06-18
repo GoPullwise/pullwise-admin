@@ -31,7 +31,6 @@ const workers = [
     status: "idle",
     enabled: true,
     running_jobs: 0,
-    max_concurrent_jobs: 1,
     provider: "codex",
     region: "us-east",
   },

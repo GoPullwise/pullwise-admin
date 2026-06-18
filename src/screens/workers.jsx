@@ -507,7 +507,7 @@ function CreateWorkerModal({ onClose, onCreated }) {
 
   const createWorker = async (event) => {
     event.preventDefault();
-    if (busy) return;
+    if (busy || result) return;
     setBusy(true);
     setError("");
     setResult(null);
@@ -559,12 +559,20 @@ function CreateWorkerModal({ onClose, onCreated }) {
           )}
           {result && <ResultBlock result={result} />}
           <div className="modal-foot">
-            <button className="btn ghost" type="button" onClick={onClose}>
-              Cancel
-            </button>
-            <button className="btn primary" type="submit" disabled={busy}>
-              <I.Plus size={14} /> Create worker
-            </button>
+            {result ? (
+              <button className="btn primary" type="button" onClick={onClose}>
+                Close
+              </button>
+            ) : (
+              <>
+                <button className="btn ghost" type="button" onClick={onClose}>
+                  Cancel
+                </button>
+                <button className="btn primary" type="submit" disabled={busy}>
+                  <I.Plus size={14} /> Create worker
+                </button>
+              </>
+            )}
           </div>
         </form>
       </div>

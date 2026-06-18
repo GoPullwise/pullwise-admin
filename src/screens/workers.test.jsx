@@ -124,6 +124,11 @@ describe("WorkersScreen", () => {
     expect(screen.queryByLabelText(/max concurrent jobs/i)).not.toBeInTheDocument();
     expect(await screen.findByText("pwk_once")).toBeInTheDocument();
     expect(screen.getByText(/install-worker\.sh/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^create worker$/i })).not.toBeInTheDocument();
+    const footer = screen.getByText("Close").closest(".modal-foot");
+    expect(footer).toBeTruthy();
+    expect(within(footer).getByRole("button", { name: /^close$/i })).toBeInTheDocument();
+    expect(pullwiseApi.system.createWorker).toHaveBeenCalledTimes(1);
   });
 
   it("does not show Agent CLI copy in the register worker modal", async () => {

@@ -22,7 +22,7 @@ describe("SettingsScreen", () => {
       settings: {
         plans: { pro: { userReviewLimit: 60 } },
         billing: { creemProProductIds: ["prod_monthly"] },
-        scan: { maxRunningScansPerUser: 1 },
+        scan: { maxQueuedScansGlobal: 1000 },
         worker: { maxClaimJobs: 2, codexTimeoutSeconds: 1800 },
       },
       groups: [
@@ -42,7 +42,7 @@ describe("SettingsScreen", () => {
           id: "scan",
           title: "Scan scheduling",
           description: "Queue settings.",
-          fields: [{ path: "scan.maxRunningScansPerUser", label: "Max running scans per user", type: "integer" }],
+          fields: [{ path: "scan.maxQueuedScansGlobal", label: "Max queued scans global", type: "integer" }],
         },
         {
           id: "worker",

@@ -45,3 +45,19 @@ admin flows.
   - Codex: model and reasoning effort.
 - Admin worker install payloads should preserve provider chain order and should
   not imply that global Codex config is shared across workers.
+
+## Admin Scale And Worker Status
+
+Admin worker/status views must stay compatible with large worker and scan
+counts.
+
+- Use paginated worker APIs. Do not fetch all workers and count running jobs in
+  the browser.
+- Capacity, queue, worker status, and running-job totals should come from server
+  aggregate fields or paginated rows, not client-side scans over full worker or
+  scan lists.
+- Keep status refresh intervals conservative and pause polling when views are
+  hidden if the admin app adds tab visibility handling.
+- Do not expose worker host internals, last errors, or machine metrics in
+  non-admin/public status surfaces. Admin pages may display them only from
+  authenticated admin endpoints.

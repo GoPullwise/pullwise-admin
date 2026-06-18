@@ -40,7 +40,7 @@ const systemConfigPayload = {
       creemTestMode: false,
       creemUpgradeBehavior: "proration-charge-immediately",
     },
-    scan: { maxRunningScansPerUser: 1 },
+    scan: { maxQueuedScansGlobal: 1000 },
   },
   defaults: {
     billing: {
@@ -77,7 +77,7 @@ const systemConfigPayload = {
       id: "scan",
       title: "Scan scheduling",
       description: "Queue settings.",
-      fields: [{ path: "scan.maxRunningScansPerUser", label: "Max running scans per user", type: "integer" }],
+      fields: [{ path: "scan.maxQueuedScansGlobal", label: "Max queued scans global", type: "integer" }],
     },
   ],
 };

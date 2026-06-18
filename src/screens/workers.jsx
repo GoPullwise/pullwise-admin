@@ -3,6 +3,8 @@ import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
 
 const REFRESH_MS = 15000;
+const LOG_STREAM_POLL_MS = 1000;
+const LOG_STREAM_CLIENT_LINE_LIMIT = 500;
 const DEFAULT_WORKER_PROVIDER_CHAIN = ["codex"];
 const WORKER_TOKEN_PROMPT_PREFIX =
   "read -rsp 'Pullwise worker token: ' PULLWISE_WORKER_TOKEN; echo; export PULLWISE_WORKER_TOKEN; ";
@@ -408,6 +410,155 @@ function WorkerActivity({ activity }) {
   );
 }
 
+function LogStreamPanel({ source, workerId = "", title }) {
+  const [session, setSession] = useState(null);
+  const [lines, setLines] = useState([]);
+  const [listening, setListening] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const lastSequenceRef = useRef(0);
+  const pollingRef = useRef(false);
+  const sessionRef = useRef(null);
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  useEffect(() => {
+    return () => {
+      const activeSession = sessionRef.current;
+      if (activeSession?.id) {
+        pullwiseApi.system.pauseLogStream(activeSession.id).catch(() => {});
+      }
+    };
+  }, []);
+
+  const pollLines = useCallback(async () => {
+    if (!session?.id || pollingRef.current) return;
+    pollingRef.current = true;
+    try {
+      const payload = await pullwiseApi.system.readLogStreamLines(session.id, {
+        after: lastSequenceRef.current,
+        limit: 200,
+      });
+      const nextLines = Array.isArray(payload?.lines) ? payload.lines : [];
+      if (nextLines.length) {
+        lastSequenceRef.current = Math.max(
+          lastSequenceRef.current,
+          ...nextLines.map((line) => Number(line.sequence) || 0)
+        );
+        setLines((current) => [...current, ...nextLines].slice(-LOG_STREAM_CLIENT_LINE_LIMIT));
+      }
+      if (payload?.session) {
+        setSession(payload.session);
+        if (payload.session.status && payload.session.status !== "active") {
+          setListening(false);
+        }
+      }
+      setError("");
+    } catch (err) {
+      setError(err?.message || "Unable to read logs.");
+    } finally {
+      pollingRef.current = false;
+    }
+  }, [session?.id]);
+
+  useEffect(() => {
+    if (!listening || !session?.id) return undefined;
+    pollLines();
+    const intervalId = setInterval(pollLines, LOG_STREAM_POLL_MS);
+    return () => clearInterval(intervalId);
+  }, [listening, pollLines, session?.id]);
+
+  const startListening = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const payload = await pullwiseApi.system.createLogStream({
+        source,
+        ...(source === "worker" ? { worker_id: workerId } : {}),
+      });
+      const nextSession = payload?.session || null;
+      setSession(nextSession);
+      setLines([]);
+      lastSequenceRef.current = 0;
+      setListening(Boolean(nextSession?.id));
+    } catch (err) {
+      setError(err?.message || "Unable to start log listening.");
+      setListening(false);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const pauseListening = async () => {
+    setBusy(true);
+    setError("");
+    const activeSession = session;
+    setListening(false);
+    try {
+      if (activeSession?.id) {
+        const payload = await pullwiseApi.system.pauseLogStream(activeSession.id);
+        if (payload?.session) setSession(payload.session);
+      }
+    } catch (err) {
+      setError(err?.message || "Unable to pause log listening.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="log-stream-panel">
+      <div className="log-stream-head">
+        <h3>{title}</h3>
+        <div className="inline-actions">
+          {listening ? (
+            <button className="btn sm" type="button" onClick={pauseListening} disabled={busy}>
+              <I.Terminal size={13} /> Pause listening
+            </button>
+          ) : (
+            <button className="btn sm" type="button" onClick={startListening} disabled={busy || (source === "worker" && !workerId)}>
+              <I.Terminal size={13} /> Enable listening
+            </button>
+          )}
+          <button
+            className="btn ghost sm"
+            type="button"
+            onClick={() => setLines([])}
+            disabled={!lines.length}
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+      <div className="log-stream-meta">
+        <span>{listening ? "Listening" : "Paused"}</span>
+        {session?.nextSequence ? <span>Next #{session.nextSequence}</span> : null}
+      </div>
+      {error && (
+        <div className="auth-error" role="alert">
+          <I.X size={14} /> {error}
+        </div>
+      )}
+      <div className="log-stream-output" role="log" aria-label={title}>
+        {lines.length ? (
+          lines.map((line, index) => (
+            <div className="log-stream-line" key={`${line.sequence || index}-${index}`}>
+              <span>{line.sequence || index + 1}</span>
+              <time dateTime={timestampDateTime(line.timestamp)}>{formatTimestamp(line.timestamp)}</time>
+              <b>{line.stream || line.source || "log"}</b>
+              <code>{line.line}</code>
+            </div>
+          ))
+        ) : (
+          <div className="log-stream-empty">No live log lines.</div>
+        )}
+      </div>
+    </section>
+  );
+}
+
 function ResultBlock({ result }) {
   const token = tokenFromResult(result);
   const commands = installCommands(result, token);
@@ -674,6 +825,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
       </section>
       <WorkerMachineMetrics metrics={displayedWorker.machineMetrics} />
       <WorkerActivity activity={taskActivity} />
+      <LogStreamPanel source="worker" workerId={displayedWorker.worker_id} title="Worker logs" />
     </div>
   );
 }
@@ -966,6 +1118,8 @@ export function WorkersScreen() {
         onReleaseVersionChange={setReleaseVersion}
         onSubmit={handleReleaseWorker}
       />
+
+      <LogStreamPanel source="server" title="Server logs" />
 
       <section className="kpis" aria-label="Worker summary">
         <div className="kpi">

@@ -17,6 +17,9 @@ vi.mock("../api/pullwise.js", () => ({
       disableWorker: vi.fn(),
       rotateWorkerToken: vi.fn(),
       deleteWorker: vi.fn(),
+      createLogStream: vi.fn(),
+      readLogStreamLines: vi.fn(),
+      pauseLogStream: vi.fn(),
     },
   },
 }));
@@ -46,6 +49,16 @@ describe("WorkersScreen", () => {
       defaults: { providerChain: ["codex"] },
     });
     pullwiseApi.system.getWorker.mockResolvedValue({ worker: workers[0], auditEvents: [], taskActivity: [] });
+    pullwiseApi.system.createLogStream.mockResolvedValue({
+      session: { id: "log_1", source: "server", status: "active", nextSequence: 1 },
+    });
+    pullwiseApi.system.readLogStreamLines.mockResolvedValue({
+      session: { id: "log_1", source: "server", status: "active", nextSequence: 1 },
+      lines: [],
+    });
+    pullwiseApi.system.pauseLogStream.mockResolvedValue({
+      session: { id: "log_1", source: "server", status: "paused", nextSequence: 1 },
+    });
   });
 
   it("lists workers returned by the admin API", async () => {
@@ -380,6 +393,53 @@ describe("WorkersScreen", () => {
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
 
     expect(await screen.findByText("Never")).toBeInTheDocument();
+  });
+
+  it("starts server log listening only after the admin enables it", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.createLogStream.mockResolvedValueOnce({
+      session: { id: "log_server", source: "server", status: "active", nextSequence: 1 },
+    });
+    pullwiseApi.system.readLogStreamLines.mockResolvedValueOnce({
+      session: { id: "log_server", source: "server", status: "active", nextSequence: 2 },
+      lines: [{ sequence: 1, timestamp: 1781200000, source: "server", stream: "app", line: "server started" }],
+      nextSequence: 2,
+    });
+
+    render(<WorkersScreen />);
+
+    const serverLog = await screen.findByRole("log", { name: "Server logs" });
+    expect(pullwiseApi.system.createLogStream).not.toHaveBeenCalled();
+    await user.click(within(serverLog.closest(".log-stream-panel")).getByRole("button", { name: /enable listening/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.createLogStream).toHaveBeenCalledWith({ source: "server" }));
+    expect(await screen.findByText("server started")).toBeInTheDocument();
+
+    await user.click(within(serverLog.closest(".log-stream-panel")).getByRole("button", { name: /pause listening/i }));
+    await waitFor(() => expect(pullwiseApi.system.pauseLogStream).toHaveBeenCalledWith("log_server"));
+  });
+
+  it("starts worker log listening for the expanded worker", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.createLogStream.mockResolvedValueOnce({
+      session: { id: "log_worker", source: "worker", worker_id: "wk_1", status: "active", nextSequence: 1 },
+    });
+    pullwiseApi.system.readLogStreamLines.mockResolvedValueOnce({
+      session: { id: "log_worker", source: "worker", worker_id: "wk_1", status: "active", nextSequence: 2 },
+      lines: [{ sequence: 1, timestamp: 1781200000, source: "worker", stream: "journal", line: "claimed job" }],
+      nextSequence: 2,
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    const workerLog = await screen.findByRole("log", { name: "Worker logs" });
+    await user.click(within(workerLog.closest(".log-stream-panel")).getByRole("button", { name: /enable listening/i }));
+
+    await waitFor(() =>
+      expect(pullwiseApi.system.createLogStream).toHaveBeenCalledWith({ source: "worker", worker_id: "wk_1" })
+    );
+    expect(await screen.findByText("claimed job")).toBeInTheDocument();
   });
 
   it("hides fixed worker capacity and does not submit it while saving configuration", async () => {

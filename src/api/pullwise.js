@@ -37,6 +37,11 @@ export const pullwiseApi = {
       request(`/admin/workers/${pathSegment(workerId)}/rotate-token`, { method: "POST" }),
     deleteWorker: (workerId) =>
       request(`/admin/workers/${pathSegment(workerId)}`, { method: "DELETE" }),
+    createLogStream: (payload = {}) => request("/admin/log-streams", { method: "POST", body: payload }),
+    readLogStreamLines: (streamId, params = {}) =>
+      request(withSearchParams(`/admin/log-streams/${pathSegment(streamId)}/lines`, params)),
+    pauseLogStream: (streamId) =>
+      request(`/admin/log-streams/${pathSegment(streamId)}/pause`, { method: "POST" }),
     getServerMetrics: () => request("/admin/server-metrics"),
     restartServer: () => request("/admin/server/restart", { method: "POST" }),
     getSystemConfig: () => request("/admin/system-config"),

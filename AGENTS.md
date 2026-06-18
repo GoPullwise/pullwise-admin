@@ -70,6 +70,11 @@ admin flows.
 Admin worker/status views must stay compatible with large worker and scan
 counts.
 
+- A worker instance always has exactly one job execution slot. Do not expose,
+  send, or persist editable `max_concurrent_jobs`, max claim jobs, worker queue
+  size, or worker-side job parallelism controls in admin UI or deploy config.
+  The server owns the scan job queue; workers claim one job only after finishing
+  the current job.
 - Use paginated worker APIs. Do not fetch all workers and count running jobs in
   the browser.
 - Capacity, queue, worker status, and running-job totals should come from server

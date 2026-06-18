@@ -23,7 +23,7 @@ describe("SettingsScreen", () => {
         plans: { pro: { userReviewLimit: 60 } },
         billing: { creemProProductIds: ["prod_monthly"] },
         scan: { maxQueuedScansGlobal: 1000 },
-        worker: { maxClaimJobs: 2, codexTimeoutSeconds: 1800 },
+        worker: { codexTimeoutSeconds: 1800 },
       },
       groups: [
         {
@@ -49,7 +49,6 @@ describe("SettingsScreen", () => {
           title: "Worker control plane",
           description: "Worker settings.",
           fields: [
-            { path: "worker.maxClaimJobs", label: "Max claim jobs", type: "integer" },
             {
               path: "worker.codexTimeoutSeconds",
               label: "Codex timeout seconds",
@@ -113,6 +112,7 @@ describe("SettingsScreen", () => {
     expect(screen.queryByText("Billing catalog")).not.toBeInTheDocument();
     expect(screen.getByText("Scan scheduling")).toBeInTheDocument();
     expect(screen.getByText("Worker control plane")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Max claim jobs")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Codex timeout seconds")).toHaveValue(1800);
   });
 

@@ -28,7 +28,7 @@ const workers = [
     status: "idle",
     enabled: true,
     running_jobs: 0,
-    max_concurrent_jobs: 4,
+    max_concurrent_jobs: 1,
     provider: "codex",
     region: "us-east",
   },
@@ -119,7 +119,9 @@ describe("WorkersScreen", () => {
       providerChain: ["codex"],
       region: "eu-west",
     });
+    expect(payload).not.toHaveProperty("max_concurrent_jobs");
     expect(payload).not.toHaveProperty("provider_chain");
+    expect(screen.queryByLabelText(/max concurrent jobs/i)).not.toBeInTheDocument();
     expect(await screen.findByText("pwk_once")).toBeInTheDocument();
     expect(screen.getByText(/install-worker\.sh/)).toBeInTheDocument();
   });
@@ -374,22 +376,22 @@ describe("WorkersScreen", () => {
     expect(await screen.findByText("Never")).toBeInTheDocument();
   });
 
-  it("normalizes edited worker capacity before saving", async () => {
+  it("keeps worker capacity fixed and does not submit it while saving configuration", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.updateWorker.mockResolvedValue({ worker: workers[0] });
 
     render(<WorkersScreen />);
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    expect(screen.getByText(/0\/1 jobs/i)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /edit/i }));
-    await user.clear(screen.getByLabelText(/max concurrent jobs/i));
-    await user.type(screen.getByLabelText(/max concurrent jobs/i), "-5");
+    expect(screen.queryByLabelText(/max concurrent jobs/i)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /save/i }));
 
     await waitFor(() =>
       expect(pullwiseApi.system.updateWorker).toHaveBeenCalledWith(
         "wk_1",
-        expect.objectContaining({ max_concurrent_jobs: 1 })
+        expect.not.objectContaining({ max_concurrent_jobs: expect.anything() })
       )
     );
   });

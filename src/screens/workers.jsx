@@ -33,11 +33,6 @@ function timestampValue(value) {
   return Number.isFinite(number) && number > 0 ? number : 0;
 }
 
-function normalizeWorkerCapacity(value) {
-  const number = Math.floor(Number(value));
-  return Number.isFinite(number) && number > 0 ? number : 1;
-}
-
 function hasActiveWorkerCommand(worker) {
   return ["pending", "running"].includes(textValue(worker?.latest_command?.status).toLowerCase());
 }
@@ -488,7 +483,6 @@ function CreateWorkerModal({ onClose, onCreated }) {
   const [name, setName] = useState("");
   const [region, setRegion] = useState("");
   const [version, setVersion] = useState("");
-  const [capacity, setCapacity] = useState("1");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
@@ -524,7 +518,6 @@ function CreateWorkerModal({ onClose, onCreated }) {
         providerChain: DEFAULT_WORKER_PROVIDER_CHAIN,
         region: region.trim(),
         version: version.trim(),
-        max_concurrent_jobs: normalizeWorkerCapacity(capacity),
       });
       setResult(payload);
       onCreated?.();
@@ -557,16 +550,6 @@ function CreateWorkerModal({ onClose, onCreated }) {
             <label className="field">
               <span>Version</span>
               <input value={version} onChange={(event) => setVersion(event.target.value)} placeholder="0.1.0" />
-            </label>
-            <label className="field">
-              <span>Max concurrent jobs</span>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                value={capacity}
-                onChange={(event) => setCapacity(event.target.value)}
-              />
             </label>
           </div>
           {error && (
@@ -673,7 +656,6 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const [editing, setEditing] = useState(false);
   const [editRegion, setEditRegion] = useState(worker.region || "");
   const [editVersion, setEditVersion] = useState(worker.version || "");
-  const [editCapacity, setEditCapacity] = useState(String(worker.max_concurrent_jobs || 1));
   const [confirmDelete, setConfirmDelete] = useState(false);
   const displayedWorker = detailWorker ? { ...worker, ...detailWorker } : worker;
 
@@ -685,22 +667,20 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
     if (!editing) {
       setEditRegion(displayedWorker.region || "");
       setEditVersion(displayedWorker.version || "");
-      setEditCapacity(String(displayedWorker.max_concurrent_jobs || 1));
     }
-  }, [displayedWorker.max_concurrent_jobs, displayedWorker.region, displayedWorker.version, editing]);
+  }, [displayedWorker.region, displayedWorker.version, editing]);
 
   const workerId = displayedWorker.worker_id;
   const isDisabled = displayedWorker.enabled === false;
   const busy = Boolean(pendingAction);
   const hasActiveCommand = hasActiveWorkerCommand(displayedWorker);
   const running = displayedWorker.running_jobs ?? 0;
-  const capacity = displayedWorker.max_concurrent_jobs ?? 1;
+  const capacity = 1;
 
   const save = async () => {
     const result = await onAction("save", workerId, {
       region: editRegion,
       version: editVersion,
-      max_concurrent_jobs: normalizeWorkerCapacity(editCapacity),
     });
     if (result) setEditing(false);
   };
@@ -770,17 +750,6 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
               <label className="field">
                 <span>Version</span>
                 <input value={editVersion} onChange={(event) => setEditVersion(event.target.value)} disabled={!editing} />
-              </label>
-              <label className="field">
-                <span>Max concurrent jobs</span>
-                <input
-                  type="number"
-                  min="1"
-                  step="1"
-                  value={editCapacity}
-                  onChange={(event) => setEditCapacity(event.target.value)}
-                  disabled={!editing}
-                />
               </label>
             </div>
           </div>

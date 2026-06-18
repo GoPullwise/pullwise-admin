@@ -122,8 +122,9 @@ describe("WorkersScreen", () => {
     expect(payload).not.toHaveProperty("max_concurrent_jobs");
     expect(payload).not.toHaveProperty("provider_chain");
     expect(screen.queryByLabelText(/max concurrent jobs/i)).not.toBeInTheDocument();
-    expect(await screen.findByText("pwk_once")).toBeInTheDocument();
+    expect(await screen.findByText(/pwk_once/)).toBeInTheDocument();
     expect(screen.getByText(/install-worker\.sh/)).toBeInTheDocument();
+    expect(screen.queryByText("Worker token")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^create worker$/i })).not.toBeInTheDocument();
     const footer = screen.getByText("Close").closest(".modal-foot");
     expect(footer).toBeTruthy();
@@ -381,14 +382,16 @@ describe("WorkersScreen", () => {
     expect(await screen.findByText("Never")).toBeInTheDocument();
   });
 
-  it("keeps worker capacity fixed and does not submit it while saving configuration", async () => {
+  it("hides fixed worker capacity and does not submit it while saving configuration", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.updateWorker.mockResolvedValue({ worker: workers[0] });
 
     render(<WorkersScreen />);
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
-    expect(screen.getByText(/0\/1 jobs/i)).toBeInTheDocument();
+    expect(screen.getByText(/idle.*us-east/i)).toBeInTheDocument();
+    expect(screen.queryByText(/0\/1 jobs/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/1\/1 jobs/i)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /edit/i }));
     expect(screen.queryByLabelText(/max concurrent jobs/i)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /save/i }));
@@ -489,7 +492,8 @@ describe("WorkersScreen", () => {
       worker: { worker_id: "wk_new", name: "Copy Worker" },
       worker_token: "pwk_once",
       install_commands: {
-        standard: "curl -fsSL https://api.example.com/install-worker.sh | bash",
+        standard:
+          "read -rsp 'Pullwise worker token: ' PULLWISE_WORKER_TOKEN; echo; export PULLWISE_WORKER_TOKEN; curl -fsSL https://api.example.com/install-worker.sh | bash",
       },
     });
 
@@ -500,7 +504,10 @@ describe("WorkersScreen", () => {
     const codeBlock = (await screen.findByText("Standard deployment")).closest(".code-block");
     await user.click(within(codeBlock).getByRole("button", { name: /copy/i }));
 
-    expect(writeText).toHaveBeenCalledWith("curl -fsSL https://api.example.com/install-worker.sh | bash");
+    expect(writeText).toHaveBeenCalledWith(
+      "PULLWISE_WORKER_TOKEN='pwk_once'; export PULLWISE_WORKER_TOKEN; curl -fsSL https://api.example.com/install-worker.sh | bash"
+    );
+    expect(screen.queryByText(/read -rsp/)).not.toBeInTheDocument();
   });
 
   it("does not render unsupported top-level install command fields", async () => {

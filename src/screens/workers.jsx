@@ -4,6 +4,8 @@ import { I } from "../icons.jsx";
 
 const REFRESH_MS = 15000;
 const DEFAULT_WORKER_PROVIDER_CHAIN = ["codex"];
+const WORKER_TOKEN_PROMPT_PREFIX =
+  "read -rsp 'Pullwise worker token: ' PULLWISE_WORKER_TOKEN; echo; export PULLWISE_WORKER_TOKEN; ";
 
 function itemsFrom(payload, ...keys) {
   for (const key of keys) {
@@ -121,10 +123,28 @@ function activityTime(record) {
   );
 }
 
-function installCommands(result) {
+function shellQuote(value) {
+  const text = textValue(value);
+  if (!text) return "''";
+  return `'${text.replaceAll("'", "'\"'\"'")}'`;
+}
+
+function installCommandWithToken(command, token) {
+  const value = textValue(command);
+  const workerToken = textValue(token);
+  if (!value || !workerToken) return value;
+  if (value.includes(workerToken) || /PULLWISE_WORKER_TOKEN\s*=/.test(value)) return value;
+  const tokenExport = `PULLWISE_WORKER_TOKEN=${shellQuote(workerToken)}; export PULLWISE_WORKER_TOKEN; `;
+  if (value.startsWith(WORKER_TOKEN_PROMPT_PREFIX)) {
+    return `${tokenExport}${value.slice(WORKER_TOKEN_PROMPT_PREFIX.length)}`;
+  }
+  return `${tokenExport}${value}`;
+}
+
+function installCommands(result, token = "") {
   const commands = [];
-  const standard = result?.install_commands?.standard || "";
-  const local = result?.install_commands?.local || "";
+  const standard = installCommandWithToken(result?.install_commands?.standard || "", token);
+  const local = installCommandWithToken(result?.install_commands?.local || "", token);
   if (standard) commands.push({ key: "standard", title: "Standard deployment", value: standard });
   if (local && local !== standard) commands.push({ key: "local", title: "Local same-host deployment", value: local });
   return commands;
@@ -389,8 +409,8 @@ function WorkerActivity({ activity }) {
 }
 
 function ResultBlock({ result }) {
-  const commands = installCommands(result);
   const token = tokenFromResult(result);
+  const commands = installCommands(result, token);
   const [copied, setCopied] = useState("");
 
   const copy = async (key, value) => {
@@ -414,7 +434,7 @@ function ResultBlock({ result }) {
           <pre>{command.value}</pre>
         </div>
       ))}
-      {token && (
+      {token && !commands.length && (
         <div className="code-block">
           <div className="code-head">
             <strong>Worker token</strong>
@@ -682,8 +702,6 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const isDisabled = displayedWorker.enabled === false;
   const busy = Boolean(pendingAction);
   const hasActiveCommand = hasActiveWorkerCommand(displayedWorker);
-  const running = displayedWorker.running_jobs ?? 0;
-  const capacity = 1;
 
   const save = async () => {
     const result = await onAction("save", workerId, {
@@ -700,7 +718,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
         <span className="worker-title">
           <strong>{textValue(displayedWorker.name, displayedWorker.worker_id)}</strong>
           <small>
-            {statusLabel(displayedWorker.status)} · {running}/{capacity} jobs · {displayedWorker.region || "No region"}
+            {statusLabel(displayedWorker.status)} · {displayedWorker.region || "No region"}
           </small>
         </span>
         <I.ChevD size={16} className={expanded ? "rotate" : ""} />

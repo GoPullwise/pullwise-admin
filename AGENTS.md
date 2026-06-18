@@ -17,6 +17,12 @@ Admin worker screens and install payloads must preserve these worker invariants:
 Production `admin.pull-wise.com` must proxy API calls to
 `PULLWISE_API_ORIGIN=https://api.pull-wise.com`.
 
+In the Cloudflare Dashboard, verify the runtime value at
+`Workers & Pages > pullwise-admin > Settings > Variables and secrets`. The
+`PULLWISE_API_ORIGIN` row in that screen must show `https://api.pull-wise.com`;
+if it shows `http://localhost:8080`, edit that Dashboard variable before
+considering the admin deployment fixed.
+
 `http://localhost:8080` is only valid for local development, Vite proxying, and
 the local `preview:workers` flow. Do not commit, push, or deploy a change that
 makes the Cloudflare Worker runtime variable, top-level `vars`,

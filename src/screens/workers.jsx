@@ -410,6 +410,10 @@ function WorkerActivity({ activity }) {
   );
 }
 
+function isMissingLogStreamError(error) {
+  return Number(error?.status) === 404 && /log stream not found/i.test(String(error?.message || ""));
+}
+
 function LogStreamPanel({ source, workerId = "", title }) {
   const [session, setSession] = useState(null);
   const [lines, setLines] = useState([]);
@@ -457,6 +461,13 @@ function LogStreamPanel({ source, workerId = "", title }) {
       }
       setError("");
     } catch (err) {
+      if (isMissingLogStreamError(err)) {
+        setListening(false);
+        setSession(null);
+        sessionRef.current = null;
+        setError("");
+        return;
+      }
       setError(err?.message || "Unable to read logs.");
     } finally {
       pollingRef.current = false;
@@ -502,6 +513,12 @@ function LogStreamPanel({ source, workerId = "", title }) {
         if (payload?.session) setSession(payload.session);
       }
     } catch (err) {
+      if (isMissingLogStreamError(err)) {
+        setSession(null);
+        sessionRef.current = null;
+        setError("");
+        return;
+      }
       setError(err?.message || "Unable to pause log listening.");
     } finally {
       setBusy(false);

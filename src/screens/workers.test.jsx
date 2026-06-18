@@ -419,6 +419,29 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(pullwiseApi.system.pauseLogStream).toHaveBeenCalledWith("log_server"));
   });
 
+  it("stops listening without showing stale log stream not found errors", async () => {
+    const user = userEvent.setup();
+    const missingStream = new Error("Log stream not found.");
+    missingStream.status = 404;
+    pullwiseApi.system.createLogStream.mockResolvedValueOnce({
+      session: { id: "log_missing", source: "server", status: "active", nextSequence: 1 },
+    });
+    pullwiseApi.system.readLogStreamLines.mockRejectedValueOnce(missingStream);
+
+    render(<WorkersScreen />);
+
+    const serverLog = await screen.findByRole("log", { name: "Server logs" });
+    const panel = serverLog.closest(".log-stream-panel");
+    await user.click(within(panel).getByRole("button", { name: /enable listening/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.readLogStreamLines).toHaveBeenCalledWith("log_missing", {
+      after: 0,
+      limit: 200,
+    }));
+    await waitFor(() => expect(within(panel).getByRole("button", { name: /enable listening/i })).toBeInTheDocument());
+    expect(within(panel).queryByText("Log stream not found.")).not.toBeInTheDocument();
+  });
+
   it("starts worker log listening for the expanded worker", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.createLogStream.mockResolvedValueOnce({

@@ -240,7 +240,7 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
             ariaLabel={`${form.name} Enable graph verification`}
             checked={form.graphVerifiedEnabled}
             onChange={(value) => onChange(form.id, "graphVerifiedEnabled", value)}
-            description="Run the graph-sliced, reproduction-gated review pipeline after the normal worker review."
+            description="Run the graph-sliced, reproduction-gated review pipeline as this plan's worker review path."
           />
           <SelectField
             label="Mode"

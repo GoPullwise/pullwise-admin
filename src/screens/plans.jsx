@@ -232,7 +232,7 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
       <section className="plan-agent-config-section">
         <div className="plan-agent-config-head">
           <h3>Graph verification</h3>
-          <p>Confirmed-only CodeGraph and reproduction gate policy for this plan.</p>
+          <p>Confirmed-only repository context and reproduction gate policy for this plan.</p>
         </div>
         <div className="form-grid">
           <CheckboxField

@@ -65,10 +65,15 @@ admin flows.
 - Admin worker install payloads should preserve provider chain order and should
   not imply that global Codex config is shared across workers.
 
+## Graph-Verified Review Copy
+
+Admin UI/API copy for GraphVerified must describe it as a full-repository
+snapshot review of the current checkout. Report surfaces should expect
+review-unit coverage data even when there are zero confirmed findings.
+
 ## Admin Scale And Worker Status
 
-Admin worker/status views must stay compatible with large worker and scan
-counts.
+Admin worker/status views must handle large worker and scan counts.
 
 - A worker instance always has exactly one job execution slot. Do not expose,
   send, or persist editable `max_concurrent_jobs`, max claim jobs, worker queue

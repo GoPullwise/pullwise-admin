@@ -8,6 +8,7 @@ const originalFetch = globalThis.fetch;
 describe("request", () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.useRealTimers();
     globalThis.fetch = originalFetch;
     if (originalWindow === undefined) {
       delete globalThis.window;
@@ -81,5 +82,47 @@ describe("request", () => {
       payload: { message: "Admin access is required.", code: "ADMIN_REQUIRED" },
       code: "ADMIN_REQUIRED",
     });
+  });
+
+  it("surfaces request timeouts without leaking browser abort messages", async () => {
+    vi.useFakeTimers();
+    globalThis.fetch = vi.fn((_url, init) => {
+      return new Promise((_resolve, reject) => {
+        init.signal.addEventListener("abort", () => {
+          reject(new DOMException("signal is aborted without reason", "AbortError"));
+        });
+      });
+    });
+
+    const pending = request("/admin/workers", { timeout: 5 });
+    const assertion = expect(pending).rejects.toMatchObject({
+      name: "ApiError",
+      message: "Request timed out. Please retry.",
+      code: "REQUEST_TIMEOUT",
+      payload: { code: "REQUEST_TIMEOUT" },
+    });
+    await vi.advanceTimersByTimeAsync(5);
+    await assertion;
+  });
+
+  it("surfaces caller aborts without leaking browser abort messages", async () => {
+    const controller = new AbortController();
+    globalThis.fetch = vi.fn((_url, init) => {
+      return new Promise((_resolve, reject) => {
+        init.signal.addEventListener("abort", () => {
+          reject(new DOMException("signal is aborted without reason", "AbortError"));
+        });
+      });
+    });
+
+    const pending = request("/admin/workers", { signal: controller.signal });
+    const assertion = expect(pending).rejects.toMatchObject({
+      name: "ApiError",
+      message: "Request canceled.",
+      code: "REQUEST_CANCELED",
+      payload: { code: "REQUEST_CANCELED" },
+    });
+    controller.abort();
+    await assertion;
   });
 });

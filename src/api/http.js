@@ -11,6 +11,8 @@ export class ApiError extends Error {
 }
 
 const DEFAULT_TIMEOUT_MS = 12000;
+const REQUEST_CANCELED_CODE = "REQUEST_CANCELED";
+const REQUEST_TIMEOUT_CODE = "REQUEST_TIMEOUT";
 
 export const http = {
   defaults: {
@@ -37,7 +39,14 @@ async function fetchRequest(config = {}) {
   const body = requestBody(config.data, headers);
   const controller = new AbortController();
   const timeout = Number.isFinite(config.timeout) ? config.timeout : http.defaults.timeout;
-  const timeoutId = timeout > 0 ? setTimeout(() => controller.abort(), timeout) : null;
+  let timedOut = false;
+  const timeoutId =
+    timeout > 0
+      ? setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+        }, timeout)
+      : null;
   const abortListener = () => controller.abort();
   config.signal?.addEventListener?.("abort", abortListener, { once: true });
 
@@ -62,6 +71,12 @@ async function fetchRequest(config = {}) {
     if (error instanceof ApiError) {
       throw error;
     }
+    if (timedOut) {
+      throw new ApiError("Request timed out. Please retry.", { payload: { code: REQUEST_TIMEOUT_CODE } });
+    }
+    if (isAbortError(error) || config.signal?.aborted || controller.signal.aborted) {
+      throw new ApiError("Request canceled.", { payload: { code: REQUEST_CANCELED_CODE } });
+    }
     throw new ApiError(error?.message || "Network Error");
   } finally {
     if (timeoutId) {
@@ -69,6 +84,10 @@ async function fetchRequest(config = {}) {
     }
     config.signal?.removeEventListener?.("abort", abortListener);
   }
+}
+
+function isAbortError(error) {
+  return error?.name === "AbortError" || /aborted/i.test(String(error?.message || ""));
 }
 
 function buildUrl(path, params) {

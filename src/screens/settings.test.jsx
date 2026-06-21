@@ -22,7 +22,7 @@ describe("SettingsScreen", () => {
       settings: {
         plans: { pro: { userReviewLimit: 60 } },
         billing: { creemProProductIds: ["prod_monthly"] },
-        scan: { maxQueuedScansGlobal: 1000 },
+        scan: { maxQueuedScansGlobal: 1000, jobRetryAttempts: 1 },
         worker: { codexTimeoutSeconds: 1800 },
       },
       groups: [
@@ -42,7 +42,10 @@ describe("SettingsScreen", () => {
           id: "scan",
           title: "Scan scheduling",
           description: "Queue settings.",
-          fields: [{ path: "scan.maxQueuedScansGlobal", label: "Max queued scans global", type: "integer" }],
+          fields: [
+            { path: "scan.maxQueuedScansGlobal", label: "Max queued scans global", type: "integer" },
+            { path: "scan.jobRetryAttempts", label: "Scan job retry attempts", type: "integer", min: 0 },
+          ],
         },
         {
           id: "worker",
@@ -112,6 +115,7 @@ describe("SettingsScreen", () => {
     expect(screen.queryByText("Billing catalog")).not.toBeInTheDocument();
     expect(screen.getByText("Scan scheduling")).toBeInTheDocument();
     expect(screen.getByText("Worker control plane")).toBeInTheDocument();
+    expect(screen.getByLabelText("Scan job retry attempts")).toHaveValue(1);
     expect(screen.queryByLabelText("Max claim jobs")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Codex timeout seconds")).toHaveValue(1800);
   });

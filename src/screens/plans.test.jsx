@@ -96,19 +96,25 @@ describe("PlansScreen", () => {
     const card = (await screen.findByText("Pro")).closest(".plan-config-card");
     expect(within(card).getByText("60 scans")).toBeInTheDocument();
     expect(screen.getByLabelText("Pro Codex CLI")).toHaveValue("codex");
+    expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Pro Codex effort")).toHaveValue("medium");
-    expect(screen.queryByLabelText("Pro Codex model")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Pro Enable graph verification")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Pro Graph verification max repro")).not.toBeInTheDocument();
   });
 
-  it("saves edited CLI and reasoning effort for a plan", async () => {
+  it("saves edited CLI, model, and reasoning effort for a plan", async () => {
     const user = userEvent.setup();
     const updatedPlan = {
       ...proPlan,
       agentConfig: {
         ...proPlan.agentConfig,
-        codex: { ...proPlan.agentConfig.codex, cli: "codex-pro", command: "codex-pro", reasoningEffort: "high" },
+        codex: {
+          ...proPlan.agentConfig.codex,
+          cli: "codex-pro",
+          command: "codex-pro",
+          model: "gpt-pro",
+          reasoningEffort: "high",
+        },
       },
     };
     pullwiseApi.system.updatePlanAgentConfig.mockResolvedValue({
@@ -121,12 +127,14 @@ describe("PlansScreen", () => {
     await screen.findByText("Pro");
     await user.clear(screen.getByLabelText("Pro Codex CLI"));
     await user.type(screen.getByLabelText("Pro Codex CLI"), "codex-pro");
+    await user.clear(screen.getByLabelText("Pro Codex model"));
+    await user.type(screen.getByLabelText("Pro Codex model"), "gpt-pro");
     await user.selectOptions(screen.getByLabelText("Pro Codex effort"), "high");
     await user.click(screen.getByRole("button", { name: /save pro/i }));
 
     await waitFor(() => expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalled());
     expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith("pro", {
-      codex: { cli: "codex-pro", reasoningEffort: "high" },
+      codex: { cli: "codex-pro", model: "gpt-pro", reasoningEffort: "high" },
     });
     expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();
   });
@@ -151,7 +159,7 @@ describe("PlansScreen", () => {
     expect(screen.getByText("Billing catalog")).toBeInTheDocument();
     expect(screen.queryByText("Scan scheduling")).not.toBeInTheDocument();
     expect(screen.getByText("Plan Agent Configs")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Pro Codex model")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Pro user review limit")).toHaveValue(60);
     expect(screen.getByLabelText("Pro repository file limit")).toHaveValue(1000);
     expect(screen.getByLabelText("Pro repository byte limit")).toHaveValue(20 * 1024 * 1024);

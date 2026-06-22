@@ -38,6 +38,7 @@ function formFromPlan(plan) {
     name: textValue(plan?.name, titleCase(id)),
     reviewLimit: plan?.reviewLimit ?? "",
     codexCli: textValue(codex.cli || codex.command, "codex"),
+    codexModel: textValue(codex.model, "gpt-5.5"),
     codexReasoningEffort: effortValue(codex.reasoningEffort),
   };
 }
@@ -46,6 +47,7 @@ function payloadFromForm(form) {
   return {
     codex: {
       cli: form.codexCli,
+      model: form.codexModel,
       reasoningEffort: form.codexReasoningEffort,
     },
   };
@@ -105,7 +107,7 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
       <section className="plan-agent-config-section">
         <div className="plan-agent-config-head">
           <h3>Codex</h3>
-          <p>Plan-level CLI and reasoning effort policy sent to worker jobs.</p>
+          <p>Plan-level CLI, model, and reasoning effort policy sent to worker jobs.</p>
         </div>
         <div className="form-grid">
           <TextField
@@ -114,6 +116,13 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
             value={form.codexCli}
             onChange={(value) => onChange(form.id, "codexCli", value)}
             description="Codex CLI label for this plan."
+          />
+          <TextField
+            label="Model"
+            ariaLabel={`${form.name} Codex model`}
+            value={form.codexModel}
+            onChange={(value) => onChange(form.id, "codexModel", value)}
+            description="Codex model used for this plan."
           />
           <SelectField
             label="Reasoning effort"
@@ -300,7 +309,7 @@ export function PlansScreen() {
           <div className="plan-settings-head">
             <div>
               <h2>Plan Agent Configs</h2>
-              <p>Codex CLI and reasoning effort settings sent to workers for each plan.</p>
+              <p>Codex CLI, model, and reasoning effort settings sent to workers for each plan.</p>
             </div>
           </div>
           <div className="plan-config-list">

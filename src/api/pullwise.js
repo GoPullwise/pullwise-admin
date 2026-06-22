@@ -47,9 +47,6 @@ export const pullwiseApi = {
     getSystemConfig: () => request("/admin/system-config"),
     updateSystemConfig: (payload = {}) =>
       request("/admin/system-config", { method: "PATCH", body: payload }),
-    listPlanAgentConfigs: () => request("/admin/subscription-plans/agent-configs"),
-    updatePlanAgentConfig: (planId, payload = {}) =>
-      request(`/admin/subscription-plans/agent-configs/${pathSegment(planId)}`, { method: "PATCH", body: payload }),
     listUsers: () => request("/admin/users"),
     deleteUser: (userId) =>
       request(`/admin/users/${pathSegment(userId)}`, { method: "DELETE" }),

@@ -11,8 +11,6 @@ vi.mock("./api/pullwise.js", () => ({
     system: {
       listWorkers: vi.fn(),
       listUsers: vi.fn(),
-      listPlanAgentConfigs: vi.fn(),
-      updatePlanAgentConfig: vi.fn(),
       getSystemConfig: vi.fn(),
       updateSystemConfig: vi.fn(),
     },
@@ -25,7 +23,6 @@ describe("Admin App", () => {
     pullwiseApi.auth.getSession.mockResolvedValue({ authenticated: false });
     pullwiseApi.system.listWorkers.mockResolvedValue({ workers: [] });
     pullwiseApi.system.listUsers.mockResolvedValue({ users: [] });
-    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({ plans: [] });
     pullwiseApi.system.getSystemConfig.mockResolvedValue({ settings: {}, groups: [] });
     window.history.pushState({}, "", "/workers");
   });
@@ -137,31 +134,27 @@ describe("Admin App", () => {
     expect(await screen.findByText("Authorized User")).toBeInTheDocument();
   });
 
-  it("renders plan agent config management for authenticated admins on the plans route", async () => {
+  it("renders plan settings management for authenticated admins on the plans route", async () => {
     window.history.pushState({}, "", "/plans");
     pullwiseApi.auth.getSession.mockResolvedValueOnce({
       authenticated: true,
       admin: true,
       user: { email: "admin@example.com" },
     });
-    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValueOnce({
-      plans: [
+    pullwiseApi.system.getSystemConfig.mockResolvedValueOnce({
+      settings: { plans: { pro: { userReviewLimit: 60 } } },
+      groups: [
         {
-          id: "pro",
-          name: "Pro",
-          reviewLimit: 60,
-          agentConfig: {
-            plan: "pro",
-            provider: "codex",
-            codex: { cli: "codex", command: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
-          },
+          id: "plans",
+          title: "Plan quotas",
+          fields: [{ path: "plans.pro.userReviewLimit", label: "Pro user review limit", type: "integer" }],
         },
       ],
     });
 
     render(<App />);
 
-    expect(await screen.findByText("Plan Agent Configs")).toBeInTheDocument();
-    expect(await screen.findByText("Pro")).toBeInTheDocument();
+    expect(await screen.findByText("Plan Settings")).toBeInTheDocument();
+    expect(await screen.findByText("Plan quotas")).toBeInTheDocument();
   });
 });

@@ -3,325 +3,27 @@ import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
 import { cloneSettings, isPlanSettingGroup, SettingField, setValueAt, valueAt } from "./settings.jsx";
 
-const PLAN_ORDER = ["free", "pro", "max"];
-const AGENT_PROVIDER_OPTIONS = [
-  { value: "codex", label: "Codex" },
-];
-const EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
-const GRAPH_VERIFIED_MODE_OPTIONS = ["fast", "standard", "deep"];
-
-function itemsFrom(payload) {
-  const plans = payload?.plans;
-  if (Array.isArray(plans)) return plans;
-  if (plans && typeof plans === "object") {
-    return Object.entries(plans).map(([id, plan]) => ({ id, ...(plan || {}) }));
-  }
-  return [];
-}
-
-function titleCase(value) {
-  const text = String(value || "").trim();
-  return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
-}
-
-function textValue(value, fallback = "") {
-  return typeof value === "string" && value.trim() ? value.trim() : fallback;
-}
-
-function providerValue(value) {
-  const provider = textValue(value).toLowerCase();
-  return AGENT_PROVIDER_OPTIONS.some((option) => option.value === provider) ? provider : "";
-}
-
-function planName(plan) {
-  return textValue(plan?.name, titleCase(plan?.id));
-}
-
-function agentProviderValue(source) {
-  return providerValue(source?.provider) || "codex";
-}
-
-function agentProviderLabel(value) {
-  return AGENT_PROVIDER_OPTIONS.find((option) => option.value === value)?.label || titleCase(value);
-}
-
-function formFromPlan(plan) {
-  const agentConfig = plan?.agentConfig || {};
-  const codex = agentConfig.codex || {};
-  const graphVerified = agentConfig.graphVerified || {};
-  return {
-    id: textValue(plan?.id || agentConfig.plan, "free").toLowerCase(),
-    name: planName(plan),
-    reviewLimit: plan?.reviewLimit ?? "",
-    provider: agentProviderValue(agentConfig),
-    codexCli: textValue(codex.cli, "codex"),
-    codexModel: textValue(codex.model, "gpt-5.5"),
-    codexReasoningEffort: textValue(codex.reasoningEffort, "medium"),
-    graphVerifiedEnabled: graphVerified.enabled === true,
-    graphVerifiedMode: GRAPH_VERIFIED_MODE_OPTIONS.includes(textValue(graphVerified.mode)) ? textValue(graphVerified.mode) : "standard",
-    graphVerifiedMaxRepro: Number.isFinite(Number(graphVerified.maxRepro)) ? Number(graphVerified.maxRepro) : 0,
-    graphVerifiedMinScoreForRepro: Number.isFinite(Number(graphVerified.minScoreForRepro))
-      ? Number(graphVerified.minScoreForRepro)
-      : 8,
-    graphVerifiedRequireRedGreen: graphVerified.requireRedGreen === true,
-  };
-}
-
-function payloadFromForm(form) {
-  return {
-    provider: agentProviderValue(form),
-    codex: {
-      cli: form.codexCli,
-      model: form.codexModel,
-      reasoningEffort: form.codexReasoningEffort,
-    },
-    graphVerified: {
-      enabled: form.graphVerifiedEnabled === true,
-      mode: form.graphVerifiedMode,
-      maxRepro: numericFormValue(form.graphVerifiedMaxRepro, 0),
-      minScoreForRepro: numericFormValue(form.graphVerifiedMinScoreForRepro, 8),
-      requireRedGreen: form.graphVerifiedRequireRedGreen === true,
-    },
-  };
-}
-
-function numericFormValue(value, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
-}
-
-function sortPlans(plans) {
-  return [...plans].sort((left, right) => {
-    const leftIndex = PLAN_ORDER.indexOf(left.id);
-    const rightIndex = PLAN_ORDER.indexOf(right.id);
-    return (leftIndex === -1 ? 99 : leftIndex) - (rightIndex === -1 ? 99 : rightIndex);
-  });
-}
-
 function planSettingGroups(payload) {
   return Array.isArray(payload?.groups) ? payload.groups.filter(isPlanSettingGroup) : [];
 }
 
-function SelectField({ label, value, onChange, children, ariaLabel, description }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <select aria-label={ariaLabel || label} value={value} onChange={(event) => onChange(event.target.value)}>
-        {children}
-      </select>
-      {description && <small className="field-help">{description}</small>}
-    </label>
-  );
-}
-
-function TextField({ label, value, onChange, ariaLabel, description }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <input aria-label={ariaLabel || label} value={value} onChange={(event) => onChange(event.target.value)} />
-      {description && <small className="field-help">{description}</small>}
-    </label>
-  );
-}
-
-function NumberField({ label, value, onChange, ariaLabel, description, min = 0, max }) {
-  return (
-    <label className="field">
-      <span>{label}</span>
-      <input
-        aria-label={ariaLabel || label}
-        min={min}
-        max={max}
-        type="number"
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
-      />
-      {description && <small className="field-help">{description}</small>}
-    </label>
-  );
-}
-
-function CheckboxField({ label, checked, onChange, ariaLabel, description }) {
-  return (
-    <label className="field checkbox-field">
-      <span>
-        <input
-          aria-label={ariaLabel || label}
-          checked={checked}
-          type="checkbox"
-          onChange={(event) => onChange(event.target.checked)}
-        />
-        {label}
-      </span>
-      {description && <small className="field-help">{description}</small>}
-    </label>
-  );
-}
-
-function PlanConfigCard({ form, saving, onChange, onSave }) {
-  const agentProvider = agentProviderValue(form);
-  const agentLabel = agentProviderLabel(agentProvider);
-  return (
-    <article className="plan-config-card">
-      <div className="plan-config-head">
-        <div>
-          <h2>{form.name}</h2>
-          <div className="plan-config-meta">
-            <span className="pill">{form.id}</span>
-            <span>{form.reviewLimit} scans</span>
-          </div>
-        </div>
-        <div className="plan-config-primary">
-          <I.Bot size={15} />
-          <span>{agentLabel}</span>
-        </div>
-      </div>
-
-      <div className="form-grid compact">
-        <SelectField
-          label="Agent provider"
-          ariaLabel={`${form.name} Agent provider`}
-          value={agentProvider}
-          onChange={(value) => onChange(form.id, "provider", value)}
-          description="The review agent provider used for this plan's worker jobs."
-        >
-          {AGENT_PROVIDER_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </SelectField>
-      </div>
-
-      <section className="plan-agent-config-section">
-        <div className="plan-agent-config-head">
-          <h3>{agentLabel}</h3>
-          <p>Codex worker CLI settings for this plan.</p>
-        </div>
-        <div className="form-grid">
-          <TextField
-            label="CLI"
-            ariaLabel={`${form.name} Codex CLI`}
-            value={form.codexCli}
-            onChange={(value) => onChange(form.id, "codexCli", value)}
-            description="Plan-facing Codex CLI label. The executable path stays in worker environment variables."
-          />
-          <TextField
-            label="Model"
-            ariaLabel={`${form.name} Codex model`}
-            value={form.codexModel}
-            onChange={(value) => onChange(form.id, "codexModel", value)}
-            description="Codex model passed to the worker CLI for this plan."
-          />
-          <SelectField
-            label="Reasoning effort"
-            ariaLabel={`${form.name} Codex effort`}
-            value={form.codexReasoningEffort}
-            onChange={(value) => onChange(form.id, "codexReasoningEffort", value)}
-            description="Codex reasoning effort used by worker CLI execution for this plan."
-          >
-            {EFFORT_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </SelectField>
-        </div>
-      </section>
-
-      <section className="plan-agent-config-section">
-        <div className="plan-agent-config-head">
-          <h3>Graph verification</h3>
-          <p>Confirmed-only repository context and reproduction gate policy for this plan.</p>
-        </div>
-        <div className="form-grid">
-          <CheckboxField
-            label="Enable graph verification"
-            ariaLabel={`${form.name} Enable graph verification`}
-            checked={form.graphVerifiedEnabled}
-            onChange={(value) => onChange(form.id, "graphVerifiedEnabled", value)}
-            description="Run the graph-sliced, reproduction-gated review pipeline as this plan's worker review path."
-          />
-          <SelectField
-            label="Mode"
-            ariaLabel={`${form.name} Graph verification mode`}
-            value={form.graphVerifiedMode}
-            onChange={(value) => onChange(form.id, "graphVerifiedMode", value)}
-            description="Controls slice and reproduction budget defaults."
-          >
-            {GRAPH_VERIFIED_MODE_OPTIONS.map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </SelectField>
-          <NumberField
-            label="Max repro"
-            ariaLabel={`${form.name} Graph verification max repro`}
-            min={0}
-            max={100}
-            value={form.graphVerifiedMaxRepro}
-            onChange={(value) => onChange(form.id, "graphVerifiedMaxRepro", value)}
-            description="0 uses the selected mode default."
-          />
-          <NumberField
-            label="Min repro score"
-            ariaLabel={`${form.name} Graph verification min repro score`}
-            min={0}
-            max={50}
-            value={form.graphVerifiedMinScoreForRepro}
-            onChange={(value) => onChange(form.id, "graphVerifiedMinScoreForRepro", value)}
-            description="Candidates below this score do not enter reproduction unless severity is critical or high."
-          />
-          <CheckboxField
-            label="Require red-green"
-            ariaLabel={`${form.name} Graph verification require red-green`}
-            checked={form.graphVerifiedRequireRedGreen}
-            onChange={(value) => onChange(form.id, "graphVerifiedRequireRedGreen", value)}
-            description="Only show findings reproduced at L3."
-          />
-        </div>
-      </section>
-
-      <div className="plan-config-actions">
-        <button className="btn primary" type="button" onClick={() => onSave(form.id)} disabled={saving}>
-          {saving ? <I.Refresh size={14} className="spin" /> : <I.Save size={14} />}
-          Save {form.name}
-        </button>
-      </div>
-    </article>
-  );
-}
-
 export function PlansScreen() {
-  const [forms, setForms] = useState({});
   const [systemPayload, setSystemPayload] = useState(null);
   const [planSettings, setPlanSettings] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [savingPlan, setSavingPlan] = useState("");
   const [savingPlanSettings, setSavingPlanSettings] = useState(false);
 
   const loadPlans = useCallback(async () => {
     setLoading(true);
     setError("");
     try {
-      const [payload, nextSystemPayload] = await Promise.all([
-        pullwiseApi.system.listPlanAgentConfigs(),
-        pullwiseApi.system.getSystemConfig(),
-      ]);
-      const nextForms = {};
-      for (const plan of itemsFrom(payload)) {
-        const form = formFromPlan(plan);
-        nextForms[form.id] = form;
-      }
-      setForms(nextForms);
+      const nextSystemPayload = await pullwiseApi.system.getSystemConfig();
       setSystemPayload(nextSystemPayload);
       setPlanSettings(cloneSettings(nextSystemPayload?.settings));
     } catch (err) {
-      setError(err?.message || "Unable to load plan agent configs.");
-      setForms({});
+      setError(err?.message || "Unable to load plan settings.");
       setSystemPayload(null);
       setPlanSettings({});
     } finally {
@@ -333,15 +35,7 @@ export function PlansScreen() {
     loadPlans();
   }, [loadPlans]);
 
-  const plans = useMemo(() => sortPlans(Object.values(forms)), [forms]);
   const groups = useMemo(() => planSettingGroups(systemPayload), [systemPayload]);
-
-  const updateField = (planId, field, value) => {
-    setForms((current) => ({
-      ...current,
-      [planId]: { ...current[planId], [field]: value },
-    }));
-  };
 
   const updatePlanSetting = (path, value) => {
     setPlanSettings((current) => setValueAt(current, path, value));
@@ -360,24 +54,6 @@ export function PlansScreen() {
       setError(err?.message || "Unable to save plan settings.");
     } finally {
       setSavingPlanSettings(false);
-    }
-  };
-
-  const savePlan = async (planId) => {
-    const form = forms[planId];
-    if (!form) return;
-    setSavingPlan(planId);
-    setError("");
-    setMessage("");
-    try {
-      const payload = await pullwiseApi.system.updatePlanAgentConfig(planId, payloadFromForm(form));
-      const updated = formFromPlan(payload.plan || { id: planId, name: form.name, agentConfig: payload.agentConfig });
-      setForms((current) => ({ ...current, [planId]: updated }));
-      setMessage(`${updated.name} agent config saved.`);
-    } catch (err) {
-      setError(err?.message || "Unable to save plan agent config.");
-    } finally {
-      setSavingPlan("");
     }
   };
 
@@ -406,7 +82,7 @@ export function PlansScreen() {
         </div>
       )}
 
-      {loading && <div className="empty">Loading plan agent configs...</div>}
+      {loading && <div className="empty">Loading plan settings...</div>}
       {!loading && groups.length > 0 && (
         <section className="plan-settings-panel">
           <div className="plan-settings-head">
@@ -447,28 +123,7 @@ export function PlansScreen() {
           </div>
         </section>
       )}
-      {!loading && plans.length === 0 && <div className="empty">No plan agent configs returned.</div>}
-      {!loading && plans.length > 0 && (
-        <section className="plan-agents-panel">
-          <div className="plan-settings-head">
-            <div>
-              <h2>Plan Agent Configs</h2>
-              <p>Agent provider and model settings sent to workers for each plan.</p>
-            </div>
-          </div>
-          <div className="plan-config-list">
-            {plans.map((form) => (
-              <PlanConfigCard
-                key={form.id}
-                form={form}
-                saving={savingPlan === form.id}
-                onChange={updateField}
-                onSave={savePlan}
-              />
-            ))}
-          </div>
-        </section>
-      )}
+      {!loading && groups.length === 0 && <div className="empty">No plan settings returned.</div>}
     </main>
   );
 }

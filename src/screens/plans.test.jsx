@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
@@ -7,11 +7,25 @@ import { PlansScreen } from "./plans.jsx";
 vi.mock("../api/pullwise.js", () => ({
   pullwiseApi: {
     system: {
+      listPlanAgentConfigs: vi.fn(),
+      updatePlanAgentConfig: vi.fn(),
       getSystemConfig: vi.fn(),
       updateSystemConfig: vi.fn(),
     },
   },
 }));
+
+const proPlan = {
+  id: "pro",
+  name: "Pro",
+  reviewLimit: 60,
+  agentConfig: {
+    plan: "pro",
+    provider: "codex",
+    codex: { cli: "codex", command: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
+    graphVerified: { maxRepro: 20, minScoreForRepro: 8, requireRedGreen: false },
+  },
+};
 
 const systemConfigPayload = {
   settings: {
@@ -71,7 +85,50 @@ const systemConfigPayload = {
 describe("PlansScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({ plans: [proPlan] });
     pullwiseApi.system.getSystemConfig.mockResolvedValue(systemConfigPayload);
+  });
+
+  it("loads the remaining plan agent config fields from the admin API", async () => {
+    render(<PlansScreen />);
+
+    expect(await screen.findByText("Plan Agent Configs")).toBeInTheDocument();
+    const card = (await screen.findByText("Pro")).closest(".plan-config-card");
+    expect(within(card).getByText("60 scans")).toBeInTheDocument();
+    expect(screen.getByLabelText("Pro Codex CLI")).toHaveValue("codex");
+    expect(screen.getByLabelText("Pro Codex effort")).toHaveValue("medium");
+    expect(screen.queryByLabelText("Pro Codex model")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Pro Enable graph verification")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Pro Graph verification max repro")).not.toBeInTheDocument();
+  });
+
+  it("saves edited CLI and reasoning effort for a plan", async () => {
+    const user = userEvent.setup();
+    const updatedPlan = {
+      ...proPlan,
+      agentConfig: {
+        ...proPlan.agentConfig,
+        codex: { ...proPlan.agentConfig.codex, cli: "codex-pro", command: "codex-pro", reasoningEffort: "high" },
+      },
+    };
+    pullwiseApi.system.updatePlanAgentConfig.mockResolvedValue({
+      plan: updatedPlan,
+      agentConfig: updatedPlan.agentConfig,
+    });
+
+    render(<PlansScreen />);
+
+    await screen.findByText("Pro");
+    await user.clear(screen.getByLabelText("Pro Codex CLI"));
+    await user.type(screen.getByLabelText("Pro Codex CLI"), "codex-pro");
+    await user.selectOptions(screen.getByLabelText("Pro Codex effort"), "high");
+    await user.click(screen.getByRole("button", { name: /save pro/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalled());
+    expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith("pro", {
+      codex: { cli: "codex-pro", reasoningEffort: "high" },
+    });
+    expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();
   });
 
   it("shows plan quotas and billing catalog from system config and saves them", async () => {
@@ -93,7 +150,7 @@ describe("PlansScreen", () => {
     expect(screen.getByText("Plan quotas")).toBeInTheDocument();
     expect(screen.getByText("Billing catalog")).toBeInTheDocument();
     expect(screen.queryByText("Scan scheduling")).not.toBeInTheDocument();
-    expect(screen.queryByText("Plan Agent Configs")).not.toBeInTheDocument();
+    expect(screen.getByText("Plan Agent Configs")).toBeInTheDocument();
     expect(screen.queryByLabelText("Pro Codex model")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Pro user review limit")).toHaveValue(60);
     expect(screen.getByLabelText("Pro repository file limit")).toHaveValue(1000);

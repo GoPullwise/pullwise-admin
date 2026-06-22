@@ -11,6 +11,8 @@ vi.mock("./api/pullwise.js", () => ({
     system: {
       listWorkers: vi.fn(),
       listUsers: vi.fn(),
+      listPlanAgentConfigs: vi.fn(),
+      updatePlanAgentConfig: vi.fn(),
       getSystemConfig: vi.fn(),
       updateSystemConfig: vi.fn(),
     },
@@ -23,6 +25,7 @@ describe("Admin App", () => {
     pullwiseApi.auth.getSession.mockResolvedValue({ authenticated: false });
     pullwiseApi.system.listWorkers.mockResolvedValue({ workers: [] });
     pullwiseApi.system.listUsers.mockResolvedValue({ users: [] });
+    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({ plans: [] });
     pullwiseApi.system.getSystemConfig.mockResolvedValue({ settings: {}, groups: [] });
     window.history.pushState({}, "", "/workers");
   });
@@ -151,10 +154,25 @@ describe("Admin App", () => {
         },
       ],
     });
+    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValueOnce({
+      plans: [
+        {
+          id: "pro",
+          name: "Pro",
+          reviewLimit: 60,
+          agentConfig: {
+            plan: "pro",
+            provider: "codex",
+            codex: { cli: "codex", command: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
+          },
+        },
+      ],
+    });
 
     render(<App />);
 
     expect(await screen.findByText("Plan Settings")).toBeInTheDocument();
     expect(await screen.findByText("Plan quotas")).toBeInTheDocument();
+    expect(await screen.findByText("Plan Agent Configs")).toBeInTheDocument();
   });
 });

@@ -357,7 +357,7 @@ function WorkerMachineMetrics({ metrics }) {
   );
 }
 
-function WorkerActivity({ activity }) {
+function WorkerActivity({ activity, error = "" }) {
   const todayCount = useMemo(
     () => activity.filter((record) => sameLocalDay(activityTime(record))).length,
     [activity]
@@ -372,7 +372,9 @@ function WorkerActivity({ activity }) {
           <span>{todayCount === 1 ? "task today" : "tasks today"}</span>
         </div>
       </div>
-      {activity.length ? (
+      {error ? (
+        <p className="muted">Task activity unavailable.</p>
+      ) : activity.length ? (
         <ul className="activity-list">
           {activity.map((record) => (
             <li key={`${record.job_id}-${record.attempt || 0}`}>
@@ -506,14 +508,15 @@ function LogStreamPanel({ source, workerId = "", title }) {
     setBusy(true);
     setError("");
     const activeSession = session;
-    setListening(false);
     try {
       if (activeSession?.id) {
         const payload = await pullwiseApi.system.pauseLogStream(activeSession.id);
         if (payload?.session) setSession(payload.session);
       }
+      setListening(false);
     } catch (err) {
       if (isMissingLogStreamError(err)) {
+        setListening(false);
         setSession(null);
         sessionRef.current = null;
         setError("");
@@ -772,9 +775,11 @@ function WorkerDetail({ worker, onWorkerChange }) {
   const [detailWorker, setDetailWorker] = useState(null);
   const [auditEvents, setAuditEvents] = useState([]);
   const [taskActivity, setTaskActivity] = useState([]);
+  const [detailError, setDetailError] = useState("");
 
   useEffect(() => {
     let disposed = false;
+    setDetailError("");
     pullwiseApi.system
       .getWorker(worker.worker_id)
       .then((payload) => {
@@ -786,10 +791,9 @@ function WorkerDetail({ worker, onWorkerChange }) {
           setTaskActivity(itemsFrom(payload, "taskActivity", "activityEvents", "activity"));
         }
       })
-      .catch(() => {
+      .catch((err) => {
         if (!disposed) {
-          setDetailWorker(null);
-          onWorkerChange?.(null);
+          setDetailError(err?.message || "Unable to load worker details.");
           setAuditEvents([]);
           setTaskActivity([]);
         }
@@ -828,6 +832,11 @@ function WorkerDetail({ worker, onWorkerChange }) {
           )}
         </dl>
       </section>
+      {detailError && (
+        <div className="auth-error" role="alert">
+          <I.X size={14} /> {detailError}
+        </div>
+      )}
       <section>
         <h3>Audit log</h3>
         {auditEvents.length ? (
@@ -836,12 +845,14 @@ function WorkerDetail({ worker, onWorkerChange }) {
               <li key={`${event.action}-${index}`}>{event.action}</li>
             ))}
           </ul>
+        ) : detailError ? (
+          <p className="muted">Audit events unavailable.</p>
         ) : (
           <p className="muted">No audit events.</p>
         )}
       </section>
       <WorkerMachineMetrics metrics={displayedWorker.machineMetrics} />
-      <WorkerActivity activity={taskActivity} />
+      <WorkerActivity activity={taskActivity} error={detailError} />
       <LogStreamPanel source="worker" workerId={displayedWorker.worker_id} title="Worker logs" />
     </div>
   );
@@ -869,7 +880,8 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
 
   const workerId = displayedWorker.worker_id;
   const isDisabled = displayedWorker.enabled === false;
-  const busy = Boolean(pendingAction);
+  const pendingWorkerId = pendingAction ? pendingAction.replace(/^[^:]+:/, "") : "";
+  const busy = pendingWorkerId === String(workerId);
   const hasActiveCommand = hasActiveWorkerCommand(displayedWorker);
 
   const save = async () => {
@@ -958,6 +970,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
 export function WorkersScreen() {
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [pendingAction, setPendingAction] = useState("");
@@ -1014,9 +1027,13 @@ export function WorkersScreen() {
     }
   }, []);
 
-  const refreshWorkers = useCallback(() => {
-    loadWorkers();
-    loadWorkerDefaults({ refresh: true });
+  const refreshWorkers = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([loadWorkers(), loadWorkerDefaults({ refresh: true })]);
+    } finally {
+      setRefreshing(false);
+    }
   }, [loadWorkerDefaults, loadWorkers]);
 
   useEffect(() => {
@@ -1112,8 +1129,8 @@ export function WorkersScreen() {
           <p>Register, configure, and monitor Pullwise scan workers.</p>
         </div>
         <div className="page-actions">
-          <button className="btn" type="button" onClick={refreshWorkers} disabled={loading}>
-            <I.Refresh size={14} /> Refresh
+          <button className="btn" type="button" onClick={refreshWorkers} disabled={loading || refreshing}>
+            <I.Refresh size={14} className={loading || refreshing ? "spin" : ""} /> {refreshing ? "Refreshing..." : "Refresh"}
           </button>
           <button className="btn primary" type="button" onClick={() => setShowCreate(true)}>
             <I.Plus size={14} /> Register worker
@@ -1160,7 +1177,7 @@ export function WorkersScreen() {
       <section className="worker-list">
         {loading && workers.length === 0 ? (
           <div className="empty">Loading workers...</div>
-        ) : workers.length === 0 ? (
+        ) : !error && workers.length === 0 ? (
           <div className="empty">No workers registered yet.</div>
         ) : (
           workers.map((worker) => (

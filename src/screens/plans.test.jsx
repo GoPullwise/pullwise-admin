@@ -139,6 +139,15 @@ describe("PlansScreen", () => {
     expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();
   });
 
+  it("does not show an empty plan state when loading plans fails", async () => {
+    pullwiseApi.system.listPlanAgentConfigs.mockRejectedValueOnce(new Error("plans down"));
+
+    render(<PlansScreen />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("plans down");
+    expect(screen.queryByText("No plan settings returned.")).not.toBeInTheDocument();
+  });
+
   it("shows plan quotas and billing catalog from system config and saves them", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.updateSystemConfig.mockResolvedValue({

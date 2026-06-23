@@ -67,6 +67,15 @@ describe("WorkersScreen", () => {
     expect(screen.getByText(/us-east/)).toBeInTheDocument();
   });
 
+  it("does not show an empty worker state when loading workers fails", async () => {
+    pullwiseApi.system.listWorkers.mockRejectedValueOnce(new Error("workers down"));
+
+    render(<WorkersScreen />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("workers down");
+    expect(screen.queryByText("No workers registered yet.")).not.toBeInTheDocument();
+  });
+
   it("shows the latest worker release and dispatches a new version", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.releaseWorker.mockResolvedValue({ version: "0.4.3", tag: "v0.4.3" });
@@ -104,6 +113,27 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(pullwiseApi.system.getWorkerDefaults).toHaveBeenLastCalledWith({ refresh: "1" }));
     expect(await screen.findByText("0.5.5")).toBeInTheDocument();
     expect(screen.getByLabelText(/new release version/i)).toHaveValue("0.5.6");
+  });
+
+  it("shows a refreshing state while manually refreshing workers", async () => {
+    const user = userEvent.setup();
+    let resolveDefaults;
+    pullwiseApi.system.getWorkerDefaults
+      .mockResolvedValueOnce({ workerVersion: "0.5.4", latestWorkerVersion: "0.5.4" })
+      .mockReturnValueOnce(
+        new Promise((resolve) => {
+          resolveDefaults = resolve;
+        })
+      );
+
+    render(<WorkersScreen />);
+
+    expect(await screen.findByText("0.5.4")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+
+    expect(screen.getByRole("button", { name: /refreshing/i })).toBeDisabled();
+    resolveDefaults({ workerVersion: "0.5.5", latestWorkerVersion: "0.5.5" });
+    expect(await screen.findByText("0.5.5")).toBeInTheDocument();
   });
 
   it("creates a worker and shows the one-time token", async () => {
@@ -384,6 +414,21 @@ describe("WorkersScreen", () => {
     expect(screen.getByRole("img", { name: /worker storage usage over time/i })).toBeInTheDocument();
   });
 
+  it("shows worker detail errors instead of empty audit and activity states", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.getWorker.mockRejectedValueOnce(new Error("detail down"));
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("detail down");
+    expect(screen.getByText("Audit events unavailable.")).toBeInTheDocument();
+    expect(screen.getByText("Task activity unavailable.")).toBeInTheDocument();
+    expect(screen.queryByText("No audit events.")).not.toBeInTheDocument();
+    expect(screen.queryByText("No task activity recorded.")).not.toBeInTheDocument();
+  });
+
   it("renders Never when the worker detail has no heartbeat", async () => {
     const user = userEvent.setup();
 
@@ -416,6 +461,30 @@ describe("WorkersScreen", () => {
 
     await user.click(within(serverLog.closest(".log-stream-panel")).getByRole("button", { name: /pause listening/i }));
     await waitFor(() => expect(pullwiseApi.system.pauseLogStream).toHaveBeenCalledWith("log_server"));
+  });
+
+  it("keeps log listening active when pausing the stream fails", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.createLogStream.mockResolvedValueOnce({
+      session: { id: "log_server", source: "server", status: "active", nextSequence: 1 },
+    });
+    pullwiseApi.system.readLogStreamLines.mockResolvedValueOnce({
+      session: { id: "log_server", source: "server", status: "active", nextSequence: 1 },
+      lines: [],
+    });
+    pullwiseApi.system.pauseLogStream.mockRejectedValueOnce(new Error("pause down"));
+
+    render(<WorkersScreen />);
+
+    const serverLog = await screen.findByRole("log", { name: "Server logs" });
+    const panel = serverLog.closest(".log-stream-panel");
+    await user.click(within(panel).getByRole("button", { name: /enable listening/i }));
+    await waitFor(() => expect(within(panel).getByRole("button", { name: /pause listening/i })).toBeInTheDocument());
+
+    await user.click(within(panel).getByRole("button", { name: /pause listening/i }));
+
+    expect(await within(panel).findByRole("alert")).toHaveTextContent("pause down");
+    expect(within(panel).getByRole("button", { name: /pause listening/i })).toBeInTheDocument();
   });
 
   it("stops listening without showing stale log stream not found errors", async () => {
@@ -484,6 +553,39 @@ describe("WorkersScreen", () => {
         expect.not.objectContaining({ max_concurrent_jobs: expect.anything() })
       )
     );
+  });
+
+  it("keeps row actions enabled for other workers while one row is pending", async () => {
+    const user = userEvent.setup();
+    const secondWorker = { ...workers[0], worker_id: "wk_2", name: "EU Worker", region: "eu-west" };
+    let resolveDisable;
+    pullwiseApi.system.listWorkers.mockResolvedValue({ workers: [workers[0], secondWorker] });
+    pullwiseApi.system.getWorker.mockImplementation((workerId) =>
+      Promise.resolve({
+        worker: workerId === "wk_2" ? secondWorker : workers[0],
+        auditEvents: [],
+        taskActivity: [],
+      })
+    );
+    pullwiseApi.system.disableWorker.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveDisable = resolve;
+      })
+    );
+
+    render(<WorkersScreen />);
+
+    const firstRow = (await screen.findByText("US-East Worker")).closest(".worker-row");
+    const secondRow = (await screen.findByText("EU Worker")).closest(".worker-row");
+    await user.click(within(firstRow).getByRole("button", { name: /US-East Worker/i }));
+    await user.click(within(secondRow).getByRole("button", { name: /EU Worker/i }));
+    await user.click(within(firstRow).getByRole("button", { name: /^disable$/i }));
+
+    await waitFor(() => expect(within(firstRow).getByRole("button", { name: /^disable$/i })).toBeDisabled());
+    expect(within(secondRow).getByRole("button", { name: /^disable$/i })).toBeEnabled();
+
+    resolveDisable({ worker: { ...workers[0], enabled: false } });
+    await waitFor(() => expect(pullwiseApi.system.disableWorker).toHaveBeenCalledWith("wk_1"));
   });
 
   it("keeps worker edits open when saving fails", async () => {

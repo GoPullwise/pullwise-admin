@@ -1,5 +1,4 @@
 const API_PREFIX = "/api";
-const DEFAULT_PULLWISE_API_ORIGIN = "https://api.pull-wise.com";
 
 export default {
   async fetch(request, env) {
@@ -29,7 +28,6 @@ export async function proxyApiRequest(request, env, incomingUrl = new URL(reques
   const headers = withoutClientProxyHeaders(request.headers);
   headers.set("X-Forwarded-Proto", incomingUrl.protocol.replace(":", ""));
   headers.set("X-Forwarded-Host", incomingUrl.host);
-  headers.set("X-Forwarded-Prefix", API_PREFIX);
 
   const methodHasBody = hasBody(request.method);
   const bufferedBody = methodHasBody ? await request.clone().arrayBuffer() : undefined;
@@ -45,7 +43,7 @@ export async function proxyApiRequest(request, env, incomingUrl = new URL(reques
 
   let response = await fetchUpstream(targetUrl, init);
   if (await shouldRetryCloudflare1003(response, upstreamOrigin, env)) {
-    const fallbackOrigin = apiOrigin(env.PULLWISE_API_FALLBACK_ORIGIN || DEFAULT_PULLWISE_API_ORIGIN);
+    const fallbackOrigin = apiOrigin(env.PULLWISE_API_FALLBACK_ORIGIN || "");
     response = await fetchUpstream(new URL(backendPathWithSearch, fallbackOrigin), init);
   }
   return proxyResponse(response);
@@ -95,7 +93,7 @@ function isLoopbackHost(hostname) {
 
 async function shouldRetryCloudflare1003(response, upstreamOrigin, env) {
   if (response.status !== 403) return false;
-  const fallbackOrigin = apiOrigin(env.PULLWISE_API_FALLBACK_ORIGIN || DEFAULT_PULLWISE_API_ORIGIN);
+  const fallbackOrigin = apiOrigin(env.PULLWISE_API_FALLBACK_ORIGIN || "");
   if (!fallbackOrigin || fallbackOrigin.origin === upstreamOrigin.origin) return false;
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html") && !contentType.includes("text/plain")) return false;

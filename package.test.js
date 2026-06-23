@@ -13,7 +13,7 @@ describe("admin deployment tooling", () => {
     expect(packageLock.packages["node_modules/wrangler"]).toBeTruthy();
     expect(packageJson.scripts["preview:workers"]).toContain("wrangler dev");
     expect(packageJson.scripts["preview:workers"]).toContain("PULLWISE_API_ORIGIN:http://localhost:8080");
-    expect(packageJson.scripts["deploy:workers"]).toBe("npm run build && wrangler deploy --env production");
+    expect(packageJson.scripts["deploy:workers"]).toBe("npm run check && wrangler deploy --env production");
   });
 
   it("keeps deployed Worker proxy vars on the production API origin", () => {

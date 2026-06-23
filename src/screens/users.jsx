@@ -234,7 +234,7 @@ export function UsersScreen() {
       <section className="user-list">
         {loading && users.length === 0 ? (
           <div className="empty">Loading users...</div>
-        ) : users.length === 0 ? (
+        ) : !error && users.length === 0 ? (
           <div className="empty">No authorized users found.</div>
         ) : (
           users.map((user) => (

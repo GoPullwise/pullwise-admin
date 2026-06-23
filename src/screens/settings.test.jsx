@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
@@ -148,6 +148,38 @@ describe("SettingsScreen", () => {
 
     expect(pullwiseApi.system.restartServer).toHaveBeenCalledTimes(1);
     expect(await screen.findByText("Pullwise server restart started.")).toBeInTheDocument();
+  });
+
+  it("expires restart confirmation before dispatching a restart", async () => {
+    render(<SettingsScreen />);
+    const restart = await screen.findByRole("button", { name: /restart server/i });
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(restart);
+      expect(screen.getByRole("button", { name: /confirm restart/i })).toBeInTheDocument();
+
+      act(() => {
+        vi.advanceTimersByTime(10001);
+      });
+
+      const expiredRestart = screen.getByRole("button", { name: /restart server/i });
+      fireEvent.click(expiredRestart);
+
+      expect(pullwiseApi.system.restartServer).not.toHaveBeenCalled();
+      expect(screen.getByRole("button", { name: /confirm restart/i })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not show empty config metadata when system config loading fails", async () => {
+    pullwiseApi.system.getSystemConfig.mockRejectedValueOnce(new Error("config down"));
+
+    render(<SettingsScreen />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("config down");
+    expect(screen.queryByText("No system config metadata returned.")).not.toBeInTheDocument();
   });
 
   it("normalizes invalid numeric system setting edits to an empty value", () => {

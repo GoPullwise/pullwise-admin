@@ -1,9 +1,10 @@
 /* eslint-disable react-refresh/only-export-components */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
 
 const PLAN_SETTING_GROUP_IDS = new Set(["plans", "billing"]);
+const RESTART_CONFIRM_TIMEOUT_MS = 10000;
 
 const SUGGESTED_DEFAULTS = {
   "billing.creemProProductIds": "prod_pro_monthly, prod_pro_yearly",
@@ -375,6 +376,16 @@ export function SettingsScreen() {
   const [error, setError] = useState("");
   const [metricsError, setMetricsError] = useState("");
   const [message, setMessage] = useState("");
+  const restartConfirmTimerRef = useRef(null);
+
+  const clearRestartConfirmTimer = useCallback(() => {
+    if (restartConfirmTimerRef.current) {
+      window.clearTimeout(restartConfirmTimerRef.current);
+      restartConfirmTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => clearRestartConfirmTimer, [clearRestartConfirmTimer]);
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
@@ -438,11 +449,18 @@ export function SettingsScreen() {
 
   const restartServer = async () => {
     if (!restartConfirm) {
+      clearRestartConfirmTimer();
       setRestartConfirm(true);
       setError("");
       setMessage("");
+      restartConfirmTimerRef.current = window.setTimeout(() => {
+        setRestartConfirm(false);
+        restartConfirmTimerRef.current = null;
+      }, RESTART_CONFIRM_TIMEOUT_MS);
       return;
     }
+    clearRestartConfirmTimer();
+    setRestartConfirm(false);
     setRestarting(true);
     setError("");
     setMessage("");
@@ -493,7 +511,7 @@ export function SettingsScreen() {
       <ServerMetricsPanel metrics={serverMetrics} loading={loading} error={metricsError} />
 
       {loading && <div className="empty">Loading system config...</div>}
-      {!loading && groups.length === 0 && <div className="empty">No system config metadata returned.</div>}
+      {!loading && !error && groups.length === 0 && <div className="empty">No system config metadata returned.</div>}
       {!loading && groups.length > 0 && (
         <div className="settings-list">
           {groups.map((group) => (

@@ -325,7 +325,7 @@ export function PlansScreen() {
           </div>
         </section>
       )}
-      {!loading && groups.length === 0 && plans.length === 0 && <div className="empty">No plan settings returned.</div>}
+      {!loading && !error && groups.length === 0 && plans.length === 0 && <div className="empty">No plan settings returned.</div>}
     </main>
   );
 }

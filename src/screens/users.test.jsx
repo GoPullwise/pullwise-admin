@@ -71,6 +71,15 @@ describe("UsersScreen", () => {
     expect(screen.getAllByRole("button", { name: /delete user/i })[0]).toBeDisabled();
   });
 
+  it("does not show an empty user state when loading users fails", async () => {
+    pullwiseApi.system.listUsers.mockRejectedValueOnce(new Error("users down"));
+
+    render(<UsersScreen />);
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("users down");
+    expect(screen.queryByText("No authorized users found.")).not.toBeInTheDocument();
+  });
+
   it("deletes a user after confirmation", async () => {
     const user = userEvent.setup();
     render(<UsersScreen />);

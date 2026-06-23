@@ -86,7 +86,7 @@ describe("admin Cloudflare worker proxy", () => {
     });
   });
 
-  it("retries the default API origin when the Worker upstream returns Cloudflare 1003", async () => {
+  it("retries a configured fallback API origin when the Worker upstream returns Cloudflare 1003", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -100,13 +100,35 @@ describe("admin Cloudflare worker proxy", () => {
 
     const response = await proxyApiRequest(
       new Request("https://admin.pull-wise.com/api/auth/session"),
-      { PULLWISE_API_ORIGIN: "https://198.51.100.10" },
+      {
+        PULLWISE_API_ORIGIN: "https://198.51.100.10",
+        PULLWISE_API_FALLBACK_ORIGIN: "https://fallback.example.com",
+      },
       new URL("https://admin.pull-wise.com/api/auth/session")
     );
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenNthCalledWith(1, new URL("https://198.51.100.10/auth/session"), expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(2, new URL("https://api.pull-wise.com/auth/session"), expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, new URL("https://fallback.example.com/auth/session"), expect.any(Object));
+  });
+
+  it("does not retry Cloudflare 1003 without a fallback API origin", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("error code: 1003", {
+        status: 403,
+        headers: { "content-type": "text/plain" },
+      })
+    );
+    globalThis.fetch = fetchMock;
+
+    const response = await proxyApiRequest(
+      new Request("https://admin.pull-wise.com/api/auth/session"),
+      { PULLWISE_API_ORIGIN: "https://198.51.100.10" },
+      new URL("https://admin.pull-wise.com/api/auth/session")
+    );
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("does not retry ordinary backend 403 responses", async () => {
@@ -128,7 +150,7 @@ describe("admin Cloudflare worker proxy", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it("retries the default API origin when the Pages upstream returns Cloudflare 1003", async () => {
+  it("retries a configured fallback API origin when the Pages upstream returns Cloudflare 1003", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
@@ -142,12 +164,15 @@ describe("admin Cloudflare worker proxy", () => {
 
     const response = await pagesApiOnRequest({
       request: new Request("https://admin.pull-wise.com/api/auth/session"),
-      env: { PULLWISE_API_ORIGIN: "https://198.51.100.10" },
+      env: {
+        PULLWISE_API_ORIGIN: "https://198.51.100.10",
+        PULLWISE_API_FALLBACK_ORIGIN: "https://fallback.example.com",
+      },
     });
 
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenNthCalledWith(1, new URL("https://198.51.100.10/auth/session"), expect.any(Object));
-    expect(fetchMock).toHaveBeenNthCalledWith(2, new URL("https://api.pull-wise.com/auth/session"), expect.any(Object));
+    expect(fetchMock).toHaveBeenNthCalledWith(2, new URL("https://fallback.example.com/auth/session"), expect.any(Object));
   });
 
   it("allows loopback HTTP upstreams for local Worker preview", async () => {
@@ -214,7 +239,7 @@ describe("admin Cloudflare worker proxy", () => {
     expect(headers.get("X-Real-IP")).toBeNull();
     expect(headers.get("X-Forwarded-Proto")).toBe("https");
     expect(headers.get("X-Forwarded-Host")).toBe("admin.pull-wise.com");
-    expect(headers.get("X-Forwarded-Prefix")).toBe("/api");
+    expect(headers.get("X-Forwarded-Prefix")).toBeNull();
   });
 
   it("replaces client-supplied forwarded headers in the Pages function proxy", async () => {
@@ -239,7 +264,7 @@ describe("admin Cloudflare worker proxy", () => {
     expect(headers.get("X-Real-IP")).toBeNull();
     expect(headers.get("X-Forwarded-Proto")).toBe("https");
     expect(headers.get("X-Forwarded-Host")).toBe("admin.pull-wise.com");
-    expect(headers.get("X-Forwarded-Prefix")).toBe("/api");
+    expect(headers.get("X-Forwarded-Prefix")).toBeNull();
   });
 
   it("keeps OAuth callback Set-Cookie headers on proxied responses", async () => {

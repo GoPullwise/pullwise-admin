@@ -8,6 +8,8 @@ const LOG_STREAM_CLIENT_LINE_LIMIT = 500;
 const DEFAULT_WORKER_PROVIDER_CHAIN = ["codex"];
 const WORKER_TOKEN_PROMPT_PREFIX =
   "read -rsp 'Pullwise worker token: ' PULLWISE_WORKER_TOKEN; echo; export PULLWISE_WORKER_TOKEN; ";
+const WORKER_COMMAND_ACTIVE_STATUSES = new Set(["pending", "running"]);
+const WORKER_CLEANUP_COMPLETE_STATUSES = new Set(["succeeded"]);
 
 function itemsFrom(payload, ...keys) {
   for (const key of keys) {
@@ -32,13 +34,134 @@ function commandLabel(command) {
   return statusLabel(value);
 }
 
+function objectValue(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function hasOwn(record, key) {
+  return Boolean(record && Object.prototype.hasOwnProperty.call(record, key));
+}
+
+function normalizeCleanupStatus(value) {
+  const raw = textValue(value).toLowerCase().replaceAll("-", "_");
+  if (!raw) return "";
+  const status = raw.startsWith("cleanup_") ? raw.slice("cleanup_".length) : raw;
+  if (["queued", "accepted"].includes(status)) return "pending";
+  if (["in_progress", "processing"].includes(status)) return "running";
+  if (["complete", "completed", "done", "deleted"].includes(status)) return "succeeded";
+  if (status === "error") return "failed";
+  return status;
+}
+
+function cleanupStatusLabel(status) {
+  const normalized = normalizeCleanupStatus(status) || "pending";
+  if (normalized === "pending") return "Cleanup pending";
+  if (normalized === "running") return "Cleanup running";
+  if (normalized === "succeeded") return "Cleanup complete";
+  if (normalized === "failed") return "Cleanup failed";
+  if (normalized === "cancelled") return "Cleanup cancelled";
+  return `Cleanup ${statusLabel(normalized)}`;
+}
+
+function cleanupStatusTone(status) {
+  const normalized = normalizeCleanupStatus(status);
+  if (normalized === "failed" || normalized === "cancelled") return "failed";
+  if (WORKER_CLEANUP_COMPLETE_STATUSES.has(normalized)) return "complete";
+  return "active";
+}
+
+function mergeWorkerRecords(worker, detailWorker) {
+  if (!detailWorker) return worker;
+  const merged = { ...detailWorker, ...worker };
+  if (!hasOwn(worker, "latest_command") && hasOwn(detailWorker, "latest_command")) {
+    merged.latest_command = detailWorker.latest_command;
+  }
+  return merged;
+}
+
 function timestampValue(value) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : 0;
 }
 
 function hasActiveWorkerCommand(worker) {
-  return ["pending", "running"].includes(textValue(worker?.latest_command?.status).toLowerCase());
+  return WORKER_COMMAND_ACTIVE_STATUSES.has(normalizeCleanupStatus(worker?.latest_command?.status));
+}
+
+function workerCleanupCommand(worker) {
+  const command = objectValue(worker?.latest_command);
+  return textValue(command?.command).toLowerCase() === "uninstall" ? command : null;
+}
+
+function workerCleanupLifecycle(worker) {
+  if (!worker) return null;
+  const command = workerCleanupCommand(worker);
+  const status = normalizeCleanupStatus(
+    worker.cleanup_status ||
+      worker.cleanupStatus ||
+      worker.lifecycle_state ||
+      worker.lifecycleState ||
+      command?.status ||
+      (worker.deleted_at ? "pending" : "")
+  );
+  if (!status && !command && !worker.deleted_at) return null;
+  const normalized = status || "pending";
+  const error = textValue(worker.cleanup_error || worker.cleanupError || command?.error);
+  const detail =
+    error ||
+    (normalized === "succeeded"
+      ? "Worker-host cleanup completed."
+      : "Worker-host cleanup is tracked by the instance watcher.");
+  return {
+    status: normalized,
+    label: cleanupStatusLabel(normalized),
+    tone: cleanupStatusTone(normalized),
+    detail,
+  };
+}
+
+function deleteResultCommand(result) {
+  return objectValue(result?.command) || objectValue(result?.worker?.latest_command);
+}
+
+function workerFromDeleteResult(result, workerId, currentWorker = {}) {
+  const workerPayload = objectValue(result?.worker);
+  const command = deleteResultCommand(result);
+  const cleanupStatus = normalizeCleanupStatus(
+    result?.cleanup_status || result?.cleanupStatus || result?.lifecycle_state || result?.lifecycleState
+  );
+  if (!workerPayload && !command && !cleanupStatus) return null;
+  const nextWorker = {
+    ...currentWorker,
+    ...(workerPayload || {}),
+    worker_id: textValue(workerPayload?.worker_id, workerId),
+  };
+  if (command && !objectValue(nextWorker.latest_command)) {
+    nextWorker.latest_command = command;
+  }
+  if (cleanupStatus) {
+    nextWorker.cleanup_status = cleanupStatus;
+  }
+  if (!hasOwn(nextWorker, "enabled") && (command || cleanupStatus)) {
+    nextWorker.enabled = false;
+  }
+  return nextWorker;
+}
+
+function cleanupLifecycleComplete(lifecycle) {
+  return WORKER_CLEANUP_COMPLETE_STATUSES.has(normalizeCleanupStatus(lifecycle?.status));
+}
+
+function upsertWorker(workers, nextWorker) {
+  const nextWorkerId = textValue(nextWorker?.worker_id);
+  if (!nextWorkerId) return workers;
+  let found = false;
+  const nextWorkers = workers.map((worker) => {
+    if (String(worker.worker_id) !== nextWorkerId) return worker;
+    found = true;
+    return { ...worker, ...nextWorker };
+  });
+  return found ? nextWorkers : [nextWorker, ...nextWorkers];
 }
 
 function nextPatchVersion(value) {
@@ -803,7 +926,8 @@ function WorkerDetail({ worker, onWorkerChange }) {
     };
   }, [onWorkerChange, worker.worker_id]);
 
-  const displayedWorker = detailWorker ? { ...worker, ...detailWorker } : worker;
+  const displayedWorker = mergeWorkerRecords(worker, detailWorker);
+  const cleanupLifecycle = workerCleanupLifecycle(displayedWorker);
 
   return (
     <div className="worker-detail">
@@ -828,6 +952,12 @@ function WorkerDetail({ worker, onWorkerChange }) {
               <dd>
                 {commandLabel(displayedWorker.latest_command.command)} · {statusLabel(displayedWorker.latest_command.status)}
               </dd>
+            </div>
+          )}
+          {cleanupLifecycle && (
+            <div>
+              <dt>Cleanup</dt>
+              <dd>{cleanupLifecycle.label}</dd>
             </div>
           )}
         </dl>
@@ -865,7 +995,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const [editRegion, setEditRegion] = useState(worker.region || "");
   const [editVersion, setEditVersion] = useState(worker.version || "");
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const displayedWorker = detailWorker ? { ...worker, ...detailWorker } : worker;
+  const displayedWorker = mergeWorkerRecords(worker, detailWorker);
 
   useEffect(() => {
     setDetailWorker(null);
@@ -883,6 +1013,8 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const pendingWorkerId = pendingAction ? pendingAction.replace(/^[^:]+:/, "") : "";
   const busy = pendingWorkerId === String(workerId);
   const hasActiveCommand = hasActiveWorkerCommand(displayedWorker);
+  const cleanupLifecycle = workerCleanupLifecycle(displayedWorker);
+  const actionsDisabled = busy || hasActiveCommand || Boolean(cleanupLifecycle);
 
   const save = async () => {
     const result = await onAction("save", workerId, {
@@ -893,40 +1025,67 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   };
 
   return (
-    <article className={"worker-row" + (isDisabled ? " is-disabled" : "")}>
+    <article
+      className={"worker-row" + (isDisabled ? " is-disabled" : "") + (cleanupLifecycle ? " is-cleanup" : "")}
+    >
       <button className="worker-row-main" type="button" onClick={() => setExpanded((open) => !open)}>
-        <span className={`status-dot status-${displayedWorker.status || "unknown"}`} />
+        <span
+          className={
+            cleanupLifecycle
+              ? `status-dot status-cleanup-${cleanupLifecycle.tone}`
+              : `status-dot status-${displayedWorker.status || "unknown"}`
+          }
+        />
         <span className="worker-title">
           <strong>{textValue(displayedWorker.name, displayedWorker.worker_id)}</strong>
           <small>
-            {statusLabel(displayedWorker.status)} · {displayedWorker.region || "No region"}
+            {cleanupLifecycle
+              ? `${cleanupLifecycle.label} - ${displayedWorker.region || "No region"}`
+              : `${statusLabel(displayedWorker.status)} - ${displayedWorker.region || "No region"}`}
           </small>
         </span>
         <I.ChevD size={16} className={expanded ? "rotate" : ""} />
       </button>
       {expanded && (
         <div className="worker-expanded">
+          {cleanupLifecycle && (
+            <div
+              className={`worker-cleanup-status ${cleanupLifecycle.tone}`}
+              role={cleanupLifecycle.tone === "failed" ? "alert" : "status"}
+            >
+              <I.Refresh size={14} className={cleanupLifecycle.tone === "active" ? "spin" : ""} />
+              <div>
+                <strong>{cleanupLifecycle.label}</strong>
+                <span>{cleanupLifecycle.detail}</span>
+              </div>
+            </div>
+          )}
           <div className="worker-actions">
             {isDisabled ? (
-              <button className="btn sm" type="button" disabled={busy || hasActiveCommand} onClick={() => onAction("enable", workerId)}>
+              <button className="btn sm" type="button" disabled={actionsDisabled} onClick={() => onAction("enable", workerId)}>
                 Enable
               </button>
             ) : (
-              <button className="btn sm" type="button" disabled={busy || hasActiveCommand} onClick={() => onAction("disable", workerId)}>
+              <button className="btn sm" type="button" disabled={actionsDisabled} onClick={() => onAction("disable", workerId)}>
                 Disable
               </button>
             )}
-            <button className="btn sm" type="button" disabled={busy || hasActiveCommand} onClick={() => onAction("rotate", workerId)}>
+            <button className="btn sm" type="button" disabled={actionsDisabled} onClick={() => onAction("rotate", workerId)}>
               Rotate token
             </button>
-            <button className="btn sm danger" type="button" disabled={busy || hasActiveCommand} onClick={() => {
-              if (confirmDelete) {
-                setConfirmDelete(false);
-                onAction("delete", workerId);
-              } else {
-                setConfirmDelete(true);
-              }
-            }}>
+            <button
+              className="btn sm danger"
+              type="button"
+              disabled={actionsDisabled}
+              onClick={() => {
+                if (confirmDelete) {
+                  setConfirmDelete(false);
+                  onAction("delete", workerId);
+                } else {
+                  setConfirmDelete(true);
+                }
+              }}
+            >
               <I.Trash size={13} /> {confirmDelete ? "Confirm delete instance" : "Delete instance"}
             </button>
           </div>
@@ -939,12 +1098,17 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
                   <button className="btn ghost sm" type="button" onClick={() => setEditing(false)}>
                     Cancel
                   </button>
-                  <button className="btn primary sm" type="button" disabled={busy} onClick={save}>
+                  <button className="btn primary sm" type="button" disabled={actionsDisabled} onClick={save}>
                     Save
                   </button>
                 </div>
               ) : (
-                <button className="btn ghost sm" type="button" onClick={() => setEditing(true)}>
+                <button
+                  className="btn ghost sm"
+                  type="button"
+                  disabled={Boolean(cleanupLifecycle)}
+                  onClick={() => setEditing(true)}
+                >
                   Edit
                 </button>
               )}
@@ -952,11 +1116,19 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
             <div className="form-grid compact">
               <label className="field">
                 <span>Region</span>
-                <input value={editRegion} onChange={(event) => setEditRegion(event.target.value)} disabled={!editing} />
+                <input
+                  value={editRegion}
+                  onChange={(event) => setEditRegion(event.target.value)}
+                  disabled={!editing || Boolean(cleanupLifecycle)}
+                />
               </label>
               <label className="field">
                 <span>Version</span>
-                <input value={editVersion} onChange={(event) => setEditVersion(event.target.value)} disabled={!editing} />
+                <input
+                  value={editVersion}
+                  onChange={(event) => setEditVersion(event.target.value)}
+                  disabled={!editing || Boolean(cleanupLifecycle)}
+                />
               </label>
             </div>
           </div>
@@ -980,12 +1152,47 @@ export function WorkersScreen() {
   const [releaseVersion, setReleaseVersion] = useState("");
   const [releaseBusy, setReleaseBusy] = useState(false);
   const latestReleaseRef = useRef("");
+  const retainedCleanupWorkerIdsRef = useRef(new Set());
 
   const loadWorkers = useCallback(async (options = {}) => {
     const preserveRotatedTokens = options?.preserveRotatedTokens === true;
     try {
       const payload = await pullwiseApi.system.listWorkers();
-      setWorkers(itemsFrom(payload, "workers", "items"));
+      const listedWorkers = itemsFrom(payload, "workers", "items");
+      const listedWorkerIds = new Set(listedWorkers.map((worker) => textValue(worker.worker_id)).filter(Boolean));
+      const retainedWorkerIds = Array.from(retainedCleanupWorkerIdsRef.current).filter((workerId) => !listedWorkerIds.has(workerId));
+      const retainedWorkers = await Promise.all(
+        retainedWorkerIds.map(async (workerId) => {
+          try {
+            const detail = await pullwiseApi.system.getWorker(workerId);
+            return objectValue(detail?.worker);
+          } catch {
+            retainedCleanupWorkerIdsRef.current.delete(workerId);
+            return null;
+          }
+        })
+      );
+      const nextWorkers = [...listedWorkers];
+      for (const worker of retainedWorkers) {
+        const workerId = textValue(worker?.worker_id);
+        const lifecycle = workerCleanupLifecycle(worker);
+        if (workerId && lifecycle && !cleanupLifecycleComplete(lifecycle)) {
+          nextWorkers.push(worker);
+        } else if (workerId) {
+          retainedCleanupWorkerIdsRef.current.delete(workerId);
+        }
+      }
+      for (const worker of listedWorkers) {
+        const workerId = textValue(worker.worker_id);
+        const lifecycle = workerCleanupLifecycle(worker);
+        if (!workerId) continue;
+        if (lifecycle && !cleanupLifecycleComplete(lifecycle)) {
+          retainedCleanupWorkerIdsRef.current.add(workerId);
+        } else {
+          retainedCleanupWorkerIdsRef.current.delete(workerId);
+        }
+      }
+      setWorkers(nextWorkers);
       setError("");
     } catch (err) {
       setWorkers([]);
@@ -1102,13 +1309,26 @@ export function WorkersScreen() {
         setActionMessage("Worker token rotated.");
       } else if (action === "delete") {
         result = await pullwiseApi.system.deleteWorker(workerId);
-        setWorkers((current) => current.filter((worker) => worker.worker_id !== workerId));
-        setRotatedTokens((current) => {
-          const next = { ...current };
-          delete next[workerId];
-          return next;
-        });
-        setActionMessage("Worker instance deleted.");
+        const retainedWorker = workerFromDeleteResult(
+          result,
+          workerId,
+          workers.find((worker) => String(worker.worker_id) === String(workerId))
+        );
+        const cleanupLifecycle = workerCleanupLifecycle(retainedWorker);
+        if (retainedWorker && cleanupLifecycle && !cleanupLifecycleComplete(cleanupLifecycle)) {
+          retainedCleanupWorkerIdsRef.current.add(String(workerId));
+          setWorkers((current) => upsertWorker(current, retainedWorker));
+          setActionMessage(`${cleanupLifecycle.label}.`);
+        } else {
+          retainedCleanupWorkerIdsRef.current.delete(String(workerId));
+          setWorkers((current) => current.filter((worker) => worker.worker_id !== workerId));
+          setRotatedTokens((current) => {
+            const next = { ...current };
+            delete next[workerId];
+            return next;
+          });
+          setActionMessage("Worker instance deleted.");
+        }
         return result;
       }
       await loadWorkers({ preserveRotatedTokens: action === "rotate" });

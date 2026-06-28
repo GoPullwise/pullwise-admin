@@ -665,6 +665,68 @@ describe("WorkersScreen", () => {
     expect(screen.getByText("Worker instance deleted.")).toBeInTheDocument();
   });
 
+  it("keeps a worker instance visible while delete cleanup is pending", async () => {
+    const user = userEvent.setup();
+    const command = { id: "cmd_uninstall", worker_id: "wk_1", command: "uninstall", status: "pending" };
+    pullwiseApi.system.deleteWorker.mockResolvedValue({
+      deleted: true,
+      worker: {
+        ...workers[0],
+        enabled: false,
+        deleted_at: 1782617027,
+        latest_command: command,
+      },
+      command,
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
+    expect(screen.getByText("US-East Worker")).toBeInTheDocument();
+    expect(screen.getByText("Cleanup pending.")).toBeInTheDocument();
+    expect(screen.getAllByText("Cleanup pending").length).toBeGreaterThan(0);
+    expect(screen.getByText("Worker-host cleanup is tracked by the instance watcher.")).toBeInTheDocument();
+    expect(screen.queryByText("Worker instance deleted.")).not.toBeInTheDocument();
+  });
+
+  it("surfaces failed worker cleanup without removing the instance", async () => {
+    const user = userEvent.setup();
+    const command = {
+      id: "cmd_uninstall",
+      worker_id: "wk_1",
+      command: "uninstall",
+      status: "failed",
+      error: "systemd cleanup failed",
+    };
+    pullwiseApi.system.deleteWorker.mockResolvedValue({
+      deleted: true,
+      worker: {
+        ...workers[0],
+        enabled: false,
+        deleted_at: 1782617027,
+        latest_command: command,
+      },
+      command,
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
+    expect(screen.getByText("US-East Worker")).toBeInTheDocument();
+    expect(screen.getByText("Cleanup failed.")).toBeInTheDocument();
+    expect(screen.getAllByText("Cleanup failed").length).toBeGreaterThan(0);
+    expect(screen.getByText("systemd cleanup failed")).toBeInTheDocument();
+    expect(screen.queryByText("Worker instance deleted.")).not.toBeInTheDocument();
+  });
+
   it("copies install commands when clipboard is available", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);

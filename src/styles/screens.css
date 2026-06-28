@@ -349,6 +349,10 @@
   opacity: 0.68;
 }
 
+.worker-row.is-cleanup {
+  opacity: 1;
+}
+
 .worker-row-main {
   width: 100%;
   display: grid;
@@ -397,6 +401,18 @@
   background: var(--muted);
 }
 
+.status-cleanup-active {
+  background: var(--warn);
+}
+
+.status-cleanup-failed {
+  background: var(--danger);
+}
+
+.status-cleanup-complete {
+  background: var(--ok);
+}
+
 .rotate {
   transform: rotate(180deg);
 }
@@ -412,6 +428,43 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.worker-cleanup-status {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--warn) 35%, var(--border));
+  background: color-mix(in srgb, var(--warn) 8%, var(--panel));
+  color: var(--text);
+  padding: 10px 12px;
+  margin-bottom: 12px;
+}
+
+.worker-cleanup-status.failed {
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--border));
+  background: color-mix(in srgb, var(--danger) 7%, var(--panel));
+}
+
+.worker-cleanup-status.complete {
+  border-color: color-mix(in srgb, var(--ok) 32%, var(--border));
+  background: color-mix(in srgb, var(--ok) 7%, var(--panel));
+}
+
+.worker-cleanup-status > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.worker-cleanup-status strong,
+.worker-cleanup-status span {
+  overflow-wrap: anywhere;
+}
+
+.worker-cleanup-status span {
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .edit-panel {

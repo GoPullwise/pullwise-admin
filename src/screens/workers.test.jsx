@@ -226,7 +226,13 @@ describe("WorkersScreen", () => {
         standard: "curl -fsSL https://api.example.com/install-worker.sh | bash",
       },
     });
-    pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
+    const uninstallCommand = { id: "cmd_uninstall", worker_id: "wk_1", command: "uninstall", status: "pending" };
+    pullwiseApi.system.deleteWorker.mockResolvedValue({
+      deleted: false,
+      deleteQueued: true,
+      worker: { ...workers[0], enabled: false, deleted_at: null, latest_command: uninstallCommand },
+      command: uninstallCommand,
+    });
 
     render(<WorkersScreen />);
 
@@ -251,7 +257,7 @@ describe("WorkersScreen", () => {
     expect(pullwiseApi.system.updateWorker).toHaveBeenCalledWith("wk_1", expect.objectContaining({ region: "eu-west" }));
     expect(pullwiseApi.system.rotateWorkerToken).toHaveBeenCalledWith("wk_1");
     expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1");
-    expect(await screen.findByText(/Worker instance deleted/i)).toBeInTheDocument();
+    expect(await screen.findByText("Cleanup pending.")).toBeInTheDocument();
     expect(screen.queryByText(/install-worker\.sh/)).not.toBeInTheDocument();
   });
 
@@ -650,9 +656,15 @@ describe("WorkersScreen", () => {
     expect(pullwiseApi.system.deleteWorker).not.toHaveBeenCalled();
   });
 
-  it("deletes a worker instance and removes it from the list", async () => {
+  it("removes a worker instance after cleanup is complete", async () => {
     const user = userEvent.setup();
-    pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
+    const command = { id: "cmd_uninstall", worker_id: "wk_1", command: "uninstall", status: "succeeded" };
+    pullwiseApi.system.deleteWorker.mockResolvedValue({
+      deleted: true,
+      deleteQueued: true,
+      worker: { ...workers[0], enabled: false, deleted_at: 1782617027, latest_command: command },
+      command,
+    });
 
     render(<WorkersScreen />);
 
@@ -669,11 +681,12 @@ describe("WorkersScreen", () => {
     const user = userEvent.setup();
     const command = { id: "cmd_uninstall", worker_id: "wk_1", command: "uninstall", status: "pending" };
     pullwiseApi.system.deleteWorker.mockResolvedValue({
-      deleted: true,
+      deleted: false,
+      deleteQueued: true,
       worker: {
         ...workers[0],
         enabled: false,
-        deleted_at: 1782617027,
+        deleted_at: null,
         latest_command: command,
       },
       command,
@@ -703,11 +716,12 @@ describe("WorkersScreen", () => {
       error: "systemd cleanup failed",
     };
     pullwiseApi.system.deleteWorker.mockResolvedValue({
-      deleted: true,
+      deleted: false,
+      deleteQueued: true,
       worker: {
         ...workers[0],
         enabled: false,
-        deleted_at: 1782617027,
+        deleted_at: null,
         latest_command: command,
       },
       command,

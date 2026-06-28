@@ -42,6 +42,10 @@ function hasOwn(record, key) {
   return Boolean(record && Object.prototype.hasOwnProperty.call(record, key));
 }
 
+function latestWorkerCommand(worker) {
+  return objectValue(worker?.latest_command) || objectValue(worker?.latestCommand);
+}
+
 function normalizeCleanupStatus(value) {
   const raw = textValue(value).toLowerCase().replaceAll("-", "_");
   if (!raw) return "";
@@ -73,8 +77,10 @@ function cleanupStatusTone(status) {
 function mergeWorkerRecords(worker, detailWorker) {
   if (!detailWorker) return worker;
   const merged = { ...detailWorker, ...worker };
-  if (!hasOwn(worker, "latest_command") && hasOwn(detailWorker, "latest_command")) {
-    merged.latest_command = detailWorker.latest_command;
+  const workerCommand = latestWorkerCommand(worker);
+  const detailCommand = latestWorkerCommand(detailWorker);
+  if (workerCommand || detailCommand) {
+    merged.latest_command = workerCommand || detailCommand;
   }
   return merged;
 }
@@ -85,11 +91,11 @@ function timestampValue(value) {
 }
 
 function hasActiveWorkerCommand(worker) {
-  return WORKER_COMMAND_ACTIVE_STATUSES.has(normalizeCleanupStatus(worker?.latest_command?.status));
+  return WORKER_COMMAND_ACTIVE_STATUSES.has(normalizeCleanupStatus(latestWorkerCommand(worker)?.status));
 }
 
 function workerCleanupCommand(worker) {
-  const command = objectValue(worker?.latest_command);
+  const command = latestWorkerCommand(worker);
   return textValue(command?.command).toLowerCase() === "uninstall" ? command : null;
 }
 
@@ -121,7 +127,7 @@ function workerCleanupLifecycle(worker) {
 }
 
 function deleteResultCommand(result) {
-  return objectValue(result?.command) || objectValue(result?.worker?.latest_command);
+  return objectValue(result?.command) || latestWorkerCommand(result?.worker);
 }
 
 function workerFromDeleteResult(result, workerId, currentWorker = {}) {

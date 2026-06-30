@@ -23,7 +23,7 @@ const proPlan = {
     plan: "pro",
     provider: "codex",
     codex: { cli: "codex", command: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
-    graphVerified: { maxRepro: 20, minScoreForRepro: 8, requireRedGreen: false },
+    graphVerified: { maxRepro: 20, minScoreForRepro: 8, requireRedGreen: false, finderTimeoutSeconds: 3600, reproTimeoutSeconds: 3600, simpleScanDeadlineSeconds: 14400 },
   },
 };
 
@@ -98,11 +98,14 @@ describe("PlansScreen", () => {
     expect(screen.getByLabelText("Pro Codex CLI")).toHaveValue("codex");
     expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Pro Codex effort")).toHaveValue("medium");
+    expect(screen.getByLabelText("Pro Finder turn timeout seconds")).toHaveValue("3600");
+    expect(screen.getByLabelText("Pro Repro turn timeout seconds")).toHaveValue("3600");
+    expect(screen.getByLabelText("Pro Scan deadline seconds")).toHaveValue("14400");
     expect(screen.queryByLabelText("Pro Enable graph verification")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Pro Graph verification max repro")).not.toBeInTheDocument();
   });
 
-  it("saves edited CLI, model, and reasoning effort for a plan", async () => {
+  it("saves edited CLI, model, reasoning effort, and timeouts for a plan", async () => {
     const user = userEvent.setup();
     const updatedPlan = {
       ...proPlan,
@@ -130,11 +133,18 @@ describe("PlansScreen", () => {
     await user.clear(screen.getByLabelText("Pro Codex model"));
     await user.type(screen.getByLabelText("Pro Codex model"), "gpt-pro");
     await user.selectOptions(screen.getByLabelText("Pro Codex effort"), "high");
+    await user.clear(screen.getByLabelText("Pro Finder turn timeout seconds"));
+    await user.type(screen.getByLabelText("Pro Finder turn timeout seconds"), "3600");
+    await user.clear(screen.getByLabelText("Pro Repro turn timeout seconds"));
+    await user.type(screen.getByLabelText("Pro Repro turn timeout seconds"), "3600");
+    await user.clear(screen.getByLabelText("Pro Scan deadline seconds"));
+    await user.type(screen.getByLabelText("Pro Scan deadline seconds"), "14400");
     await user.click(screen.getByRole("button", { name: /save pro/i }));
 
     await waitFor(() => expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalled());
     expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith("pro", {
       codex: { cli: "codex-pro", model: "gpt-pro", reasoningEffort: "high" },
+      graphVerified: { finderTimeoutSeconds: 3600, reproTimeoutSeconds: 3600, simpleScanDeadlineSeconds: 14400 },
     });
     expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();
   });

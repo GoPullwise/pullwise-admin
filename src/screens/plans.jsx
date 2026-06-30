@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
-import { cloneSettings, isPlanSettingGroup, SettingField, setValueAt, valueAt } from "./settings.jsx";
+import {
+  cloneSettings,
+  isPlanSettingGroup,
+  SettingField,
+  setValueAt,
+  valueAt,
+} from "./settings.jsx";
 
 const PLAN_ORDER = ["free", "pro", "max"];
 const EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
@@ -29,9 +35,20 @@ function effortValue(value) {
   return EFFORT_OPTIONS.includes(effort) ? effort : "medium";
 }
 
+function numberText(value, fallback) {
+  const number = Number(value);
+  return Number.isFinite(number) ? String(number) : String(fallback);
+}
+
+function integerPayload(value, fallback) {
+  const number = Number.parseInt(value, 10);
+  return Number.isFinite(number) ? number : fallback;
+}
+
 function formFromPlan(plan) {
   const agentConfig = plan?.agentConfig || {};
   const codex = agentConfig.codex || {};
+  const graphVerified = agentConfig.graphVerified || {};
   const id = textValue(plan?.id || agentConfig.plan, "free").toLowerCase();
   return {
     id,
@@ -40,6 +57,13 @@ function formFromPlan(plan) {
     codexCli: textValue(codex.cli || codex.command, "codex"),
     codexModel: textValue(codex.model, "gpt-5.5"),
     codexReasoningEffort: effortValue(codex.reasoningEffort),
+    finderTimeoutSeconds: numberText(graphVerified.finderTimeoutSeconds, 3600),
+    reproTimeoutSeconds: numberText(graphVerified.reproTimeoutSeconds, 3600),
+    simpleScanDeadlineSeconds: numberText(
+      graphVerified.simpleScanDeadlineSeconds ??
+        graphVerified.scanDeadlineSeconds,
+      14400,
+    ),
   };
 }
 
@@ -50,6 +74,14 @@ function payloadFromForm(form) {
       model: form.codexModel,
       reasoningEffort: form.codexReasoningEffort,
     },
+    graphVerified: {
+      finderTimeoutSeconds: integerPayload(form.finderTimeoutSeconds, 3600),
+      reproTimeoutSeconds: integerPayload(form.reproTimeoutSeconds, 3600),
+      simpleScanDeadlineSeconds: integerPayload(
+        form.simpleScanDeadlineSeconds,
+        14400,
+      ),
+    },
   };
 }
 
@@ -57,19 +89,35 @@ function sortPlans(plans) {
   return [...plans].sort((left, right) => {
     const leftIndex = PLAN_ORDER.indexOf(left.id);
     const rightIndex = PLAN_ORDER.indexOf(right.id);
-    return (leftIndex === -1 ? 99 : leftIndex) - (rightIndex === -1 ? 99 : rightIndex);
+    return (
+      (leftIndex === -1 ? 99 : leftIndex) -
+      (rightIndex === -1 ? 99 : rightIndex)
+    );
   });
 }
 
 function planSettingGroups(payload) {
-  return Array.isArray(payload?.groups) ? payload.groups.filter(isPlanSettingGroup) : [];
+  return Array.isArray(payload?.groups)
+    ? payload.groups.filter(isPlanSettingGroup)
+    : [];
 }
 
-function SelectField({ label, value, onChange, children, ariaLabel, description }) {
+function SelectField({
+  label,
+  value,
+  onChange,
+  children,
+  ariaLabel,
+  description,
+}) {
   return (
     <label className="field">
       <span>{label}</span>
-      <select aria-label={ariaLabel || label} value={value} onChange={(event) => onChange(event.target.value)}>
+      <select
+        aria-label={ariaLabel || label}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      >
         {children}
       </select>
       {description && <small className="field-help">{description}</small>}
@@ -81,7 +129,11 @@ function TextField({ label, value, onChange, ariaLabel, description }) {
   return (
     <label className="field">
       <span>{label}</span>
-      <input aria-label={ariaLabel || label} value={value} onChange={(event) => onChange(event.target.value)} />
+      <input
+        aria-label={ariaLabel || label}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+      />
       {description && <small className="field-help">{description}</small>}
     </label>
   );
@@ -107,7 +159,10 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
       <section className="plan-agent-config-section">
         <div className="plan-agent-config-head">
           <h3>Codex</h3>
-          <p>Plan-level CLI, model, and reasoning effort policy sent to worker jobs.</p>
+          <p>
+            Plan-level CLI, model, and reasoning effort policy sent to worker
+            jobs.
+          </p>
         </div>
         <div className="form-grid">
           <TextField
@@ -128,7 +183,9 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
             label="Reasoning effort"
             ariaLabel={`${form.name} Codex effort`}
             value={form.codexReasoningEffort}
-            onChange={(value) => onChange(form.id, "codexReasoningEffort", value)}
+            onChange={(value) =>
+              onChange(form.id, "codexReasoningEffort", value)
+            }
             description="Codex reasoning effort used for this plan."
           >
             {EFFORT_OPTIONS.map((option) => (
@@ -140,9 +197,56 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
         </div>
       </section>
 
+      <section className="plan-agent-config-section">
+        <div className="plan-agent-config-head">
+          <h3>GraphVerified Timeouts</h3>
+          <p>
+            Turn and scan deadline policy sent to worker jobs for this plan.
+          </p>
+        </div>
+        <div className="form-grid">
+          <TextField
+            label="Finder turn timeout seconds"
+            ariaLabel={`${form.name} Finder turn timeout seconds`}
+            value={form.finderTimeoutSeconds}
+            onChange={(value) =>
+              onChange(form.id, "finderTimeoutSeconds", value)
+            }
+            description="Maximum time for one finder turn."
+          />
+          <TextField
+            label="Repro turn timeout seconds"
+            ariaLabel={`${form.name} Repro turn timeout seconds`}
+            value={form.reproTimeoutSeconds}
+            onChange={(value) =>
+              onChange(form.id, "reproTimeoutSeconds", value)
+            }
+            description="Maximum time for one verification turn."
+          />
+          <TextField
+            label="Scan deadline seconds"
+            ariaLabel={`${form.name} Scan deadline seconds`}
+            value={form.simpleScanDeadlineSeconds}
+            onChange={(value) =>
+              onChange(form.id, "simpleScanDeadlineSeconds", value)
+            }
+            description="Total worker-side deadline for one scan job."
+          />
+        </div>
+      </section>
+
       <div className="plan-config-actions">
-        <button className="btn primary" type="button" onClick={() => onSave(form.id)} disabled={saving}>
-          {saving ? <I.Refresh size={14} className="spin" /> : <I.Save size={14} />}
+        <button
+          className="btn primary"
+          type="button"
+          onClick={() => onSave(form.id)}
+          disabled={saving}
+        >
+          {saving ? (
+            <I.Refresh size={14} className="spin" />
+          ) : (
+            <I.Save size={14} />
+          )}
           Save {form.name}
         </button>
       </div>
@@ -191,7 +295,10 @@ export function PlansScreen() {
   }, [loadPlans]);
 
   const plans = useMemo(() => sortPlans(Object.values(forms)), [forms]);
-  const groups = useMemo(() => planSettingGroups(systemPayload), [systemPayload]);
+  const groups = useMemo(
+    () => planSettingGroups(systemPayload),
+    [systemPayload],
+  );
 
   const updateField = (planId, field, value) => {
     setForms((current) => ({
@@ -209,7 +316,9 @@ export function PlansScreen() {
     setError("");
     setMessage("");
     try {
-      const nextPayload = await pullwiseApi.system.updateSystemConfig({ settings: planSettings });
+      const nextPayload = await pullwiseApi.system.updateSystemConfig({
+        settings: planSettings,
+      });
       setSystemPayload(nextPayload);
       setPlanSettings(cloneSettings(nextPayload?.settings));
       setMessage("Plan settings saved.");
@@ -227,8 +336,17 @@ export function PlansScreen() {
     setError("");
     setMessage("");
     try {
-      const payload = await pullwiseApi.system.updatePlanAgentConfig(planId, payloadFromForm(form));
-      const updated = formFromPlan(payload.plan || { id: planId, name: form.name, agentConfig: payload.agentConfig });
+      const payload = await pullwiseApi.system.updatePlanAgentConfig(
+        planId,
+        payloadFromForm(form),
+      );
+      const updated = formFromPlan(
+        payload.plan || {
+          id: planId,
+          name: form.name,
+          agentConfig: payload.agentConfig,
+        },
+      );
       setForms((current) => ({ ...current, [planId]: updated }));
       setMessage(`${updated.name} agent config saved.`);
     } catch (err) {
@@ -243,10 +361,18 @@ export function PlansScreen() {
       <div className="page-head">
         <div>
           <h1>Plans</h1>
-          <p>Plan quotas, billing catalog, and review agent policy for Free, Pro, and Max scan jobs.</p>
+          <p>
+            Plan quotas, billing catalog, and review agent policy for Free, Pro,
+            and Max scan jobs.
+          </p>
         </div>
         <div className="page-actions">
-          <button className="btn" type="button" onClick={loadPlans} disabled={loading}>
+          <button
+            className="btn"
+            type="button"
+            onClick={loadPlans}
+            disabled={loading}
+          >
             <I.Refresh size={14} className={loading ? "spin" : ""} /> Refresh
           </button>
         </div>
@@ -269,7 +395,10 @@ export function PlansScreen() {
           <div className="plan-settings-head">
             <div>
               <h2>Plan Settings</h2>
-              <p>Quota and billing fields live here because they change how plans behave and are sold.</p>
+              <p>
+                Quota and billing fields live here because they change how plans
+                behave and are sold.
+              </p>
             </div>
             <button
               className="btn primary"
@@ -277,27 +406,36 @@ export function PlansScreen() {
               onClick={savePlanSettings}
               disabled={savingPlanSettings || loading}
             >
-              {savingPlanSettings ? <I.Refresh size={14} className="spin" /> : <I.Save size={14} />}
+              {savingPlanSettings ? (
+                <I.Refresh size={14} className="spin" />
+              ) : (
+                <I.Save size={14} />
+              )}
               Save Plan Settings
             </button>
           </div>
           <div className="plan-settings-sections">
             {groups.map((group) => (
-              <section className="settings-section" key={group.id || group.title}>
+              <section
+                className="settings-section"
+                key={group.id || group.title}
+              >
                 <div className="settings-section-head">
                   <h2>{group.title}</h2>
                   <p>{group.description}</p>
                 </div>
                 <div className="settings-grid">
-                  {(Array.isArray(group.fields) ? group.fields : []).map((field) => (
-                    <SettingField
-                      key={field.path}
-                      field={field}
-                      value={valueAt(planSettings, field.path)}
-                      defaults={systemPayload?.defaults}
-                      onChange={updatePlanSetting}
-                    />
-                  ))}
+                  {(Array.isArray(group.fields) ? group.fields : []).map(
+                    (field) => (
+                      <SettingField
+                        key={field.path}
+                        field={field}
+                        value={valueAt(planSettings, field.path)}
+                        defaults={systemPayload?.defaults}
+                        onChange={updatePlanSetting}
+                      />
+                    ),
+                  )}
                 </div>
               </section>
             ))}
@@ -309,7 +447,10 @@ export function PlansScreen() {
           <div className="plan-settings-head">
             <div>
               <h2>Plan Agent Configs</h2>
-              <p>Codex CLI, model, and reasoning effort settings sent to workers for each plan.</p>
+              <p>
+                Codex CLI, model, and reasoning effort settings sent to workers
+                for each plan.
+              </p>
             </div>
           </div>
           <div className="plan-config-list">
@@ -325,7 +466,9 @@ export function PlansScreen() {
           </div>
         </section>
       )}
-      {!loading && !error && groups.length === 0 && plans.length === 0 && <div className="empty">No plan settings returned.</div>}
+      {!loading && !error && groups.length === 0 && plans.length === 0 && (
+        <div className="empty">No plan settings returned.</div>
+      )}
     </main>
   );
 }

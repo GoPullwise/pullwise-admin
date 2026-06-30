@@ -22,7 +22,11 @@ describe("SettingsScreen", () => {
       settings: {
         plans: { pro: { userReviewLimit: 60 } },
         billing: { creemProProductIds: ["prod_monthly"] },
-        scan: { maxQueuedScansGlobal: 1000, jobRetryAttempts: 1, jobLeaseSeconds: 14400 },
+        scan: {
+          maxQueuedScansGlobal: 1000,
+          jobRetryAttempts: 1,
+          jobLeaseSeconds: 14400,
+        },
         worker: { codexTimeoutSeconds: 3600 },
         alerts: {
           email: {
@@ -45,22 +49,48 @@ describe("SettingsScreen", () => {
           id: "plans",
           title: "Plan quotas",
           description: "Plan limits.",
-          fields: [{ path: "plans.pro.userReviewLimit", label: "Pro user review limit", type: "integer" }],
+          fields: [
+            {
+              path: "plans.pro.userReviewLimit",
+              label: "Pro user review limit",
+              type: "integer",
+            },
+          ],
         },
         {
           id: "billing",
           title: "Billing catalog",
           description: "Plan products.",
-          fields: [{ path: "billing.creemProProductIds", label: "Creem Pro product IDs", type: "stringList" }],
+          fields: [
+            {
+              path: "billing.creemProProductIds",
+              label: "Creem Pro product IDs",
+              type: "stringList",
+            },
+          ],
         },
         {
           id: "scan",
           title: "Scan scheduling",
           description: "Queue settings.",
           fields: [
-            { path: "scan.maxQueuedScansGlobal", label: "Max queued scans global", type: "integer" },
-            { path: "scan.jobRetryAttempts", label: "Scan job retry attempts", type: "integer", min: 0 },
-            { path: "scan.jobLeaseSeconds", label: "Scan job lease seconds", type: "integer", min: 60 },
+            {
+              path: "scan.maxQueuedScansGlobal",
+              label: "Max queued scans global",
+              type: "integer",
+            },
+            {
+              path: "scan.jobRetryAttempts",
+              label: "Scan job retry attempts",
+              type: "integer",
+              min: 0,
+            },
+            {
+              path: "scan.jobLeaseSeconds",
+              label: "Scan job lease seconds",
+              type: "integer",
+              min: 60,
+            },
           ],
         },
         {
@@ -81,12 +111,37 @@ describe("SettingsScreen", () => {
           title: "Operational alerts",
           description: "Alert email settings.",
           fields: [
-            { path: "alerts.email.enabled", label: "Alert email enabled", type: "boolean" },
-            { path: "alerts.email.to", label: "Alert recipients", type: "stringList" },
-            { path: "alerts.email.smtpHost", label: "SMTP host", type: "string" },
-            { path: "alerts.email.smtpPort", label: "SMTP port", type: "integer", min: 1 },
-            { path: "alerts.email.smtpUsername", label: "SMTP username", type: "string" },
-            { path: "alerts.email.smtpPassword", label: "SMTP password", type: "password" },
+            {
+              path: "alerts.email.enabled",
+              label: "Alert email enabled",
+              type: "boolean",
+            },
+            {
+              path: "alerts.email.to",
+              label: "Alert recipients",
+              type: "stringList",
+            },
+            {
+              path: "alerts.email.smtpHost",
+              label: "SMTP host",
+              type: "string",
+            },
+            {
+              path: "alerts.email.smtpPort",
+              label: "SMTP port",
+              type: "integer",
+              min: 1,
+            },
+            {
+              path: "alerts.email.smtpUsername",
+              label: "SMTP username",
+              type: "string",
+            },
+            {
+              path: "alerts.email.smtpPassword",
+              label: "SMTP password",
+              type: "password",
+            },
           ],
         },
       ],
@@ -149,7 +204,9 @@ describe("SettingsScreen", () => {
     expect(screen.queryByLabelText("Max claim jobs")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Scan job lease seconds")).toHaveValue(14400);
     expect(screen.getByLabelText("Codex timeout seconds")).toHaveValue(3600);
-    expect(screen.getByLabelText("Alert recipients")).toHaveValue("ops@example.com");
+    expect(screen.getByLabelText("Alert recipients")).toHaveValue(
+      "ops@example.com",
+    );
   });
 
   it("renders server machine metrics from the admin API", async () => {
@@ -159,9 +216,15 @@ describe("SettingsScreen", () => {
     expect(screen.getByText("RAM Usage")).toBeInTheDocument();
     expect(screen.getByText("Storage Usage")).toBeInTheDocument();
     expect(screen.getAllByText("25%").length).toBeGreaterThan(0);
-    expect(screen.getByRole("img", { name: /ram usage over time/i })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: /storage usage over time/i })).toBeInTheDocument();
-    expect(document.querySelectorAll(".server-machine-chart-svg")).toHaveLength(2);
+    expect(
+      screen.getByRole("img", { name: /ram usage over time/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("img", { name: /storage usage over time/i }),
+    ).toBeInTheDocument();
+    expect(document.querySelectorAll(".server-machine-chart-svg")).toHaveLength(
+      2,
+    );
     expect(screen.getByText("api-1")).toBeInTheDocument();
     expect(screen.queryByText(/CPU usage/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/logical cores/i)).not.toBeInTheDocument();
@@ -175,54 +238,75 @@ describe("SettingsScreen", () => {
 
     expect(password).toHaveAttribute("type", "password");
     expect(password).toHaveValue("");
-    expect(password).toHaveAttribute("placeholder", "Saved password configured");
-    expect(screen.getByText(/Saved password configured; leave blank to keep it\./)).toBeInTheDocument();
+    expect(password).toHaveAttribute(
+      "placeholder",
+      "Saved password configured",
+    );
+    expect(
+      screen.getByText(/Saved password configured; leave blank to keep it\./),
+    ).toBeInTheDocument();
   });
 
   it("requires confirmation before restarting the Pullwise server", async () => {
     const user = userEvent.setup();
     render(<SettingsScreen />);
 
-    const restart = await screen.findByRole("button", { name: /restart server/i });
+    const restart = await screen.findByRole("button", {
+      name: /restart server/i,
+    });
     await user.click(restart);
 
     expect(pullwiseApi.system.restartServer).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: /confirm restart/i }));
 
     expect(pullwiseApi.system.restartServer).toHaveBeenCalledTimes(1);
-    expect(await screen.findByText("Pullwise server restart started.")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Pullwise server restart started."),
+    ).toBeInTheDocument();
   });
 
   it("expires restart confirmation before dispatching a restart", async () => {
     render(<SettingsScreen />);
-    const restart = await screen.findByRole("button", { name: /restart server/i });
+    const restart = await screen.findByRole("button", {
+      name: /restart server/i,
+    });
 
     vi.useFakeTimers();
     try {
       fireEvent.click(restart);
-      expect(screen.getByRole("button", { name: /confirm restart/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /confirm restart/i }),
+      ).toBeInTheDocument();
 
       act(() => {
         vi.advanceTimersByTime(10001);
       });
 
-      const expiredRestart = screen.getByRole("button", { name: /restart server/i });
+      const expiredRestart = screen.getByRole("button", {
+        name: /restart server/i,
+      });
       fireEvent.click(expiredRestart);
 
       expect(pullwiseApi.system.restartServer).not.toHaveBeenCalled();
-      expect(screen.getByRole("button", { name: /confirm restart/i })).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: /confirm restart/i }),
+      ).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }
   });
 
   it("does not show empty config metadata when system config loading fails", async () => {
-    pullwiseApi.system.getSystemConfig.mockRejectedValueOnce(new Error("config down"));
+    pullwiseApi.system.getSystemConfig.mockRejectedValueOnce(
+      new Error("config down"),
+    );
 
     render(<SettingsScreen />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("config down");
-    expect(screen.queryByText("No system config metadata returned.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("No system config metadata returned."),
+    ).not.toBeInTheDocument();
   });
 
   it("normalizes invalid numeric system setting edits to an empty value", () => {

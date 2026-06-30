@@ -24,6 +24,21 @@ describe("SettingsScreen", () => {
         billing: { creemProProductIds: ["prod_monthly"] },
         scan: { maxQueuedScansGlobal: 1000, jobRetryAttempts: 1 },
         worker: { codexTimeoutSeconds: 1800 },
+        alerts: {
+          email: {
+            enabled: false,
+            to: ["ops@example.com"],
+            smtpHost: "smtp.example.com",
+            smtpPort: 465,
+            smtpUsername: "mailer",
+            smtpPassword: "",
+            smtpSsl: true,
+            smtpStarttls: false,
+          },
+        },
+      },
+      secrets: {
+        "alerts.email.smtpPassword": { hasValue: true },
       },
       groups: [
         {
@@ -58,6 +73,19 @@ describe("SettingsScreen", () => {
               type: "integer",
               min: 60,
             },
+          ],
+        },
+        {
+          id: "alerts",
+          title: "Operational alerts",
+          description: "Alert email settings.",
+          fields: [
+            { path: "alerts.email.enabled", label: "Alert email enabled", type: "boolean" },
+            { path: "alerts.email.to", label: "Alert recipients", type: "stringList" },
+            { path: "alerts.email.smtpHost", label: "SMTP host", type: "string" },
+            { path: "alerts.email.smtpPort", label: "SMTP port", type: "integer", min: 1 },
+            { path: "alerts.email.smtpUsername", label: "SMTP username", type: "string" },
+            { path: "alerts.email.smtpPassword", label: "SMTP password", type: "password" },
           ],
         },
       ],
@@ -115,9 +143,11 @@ describe("SettingsScreen", () => {
     expect(screen.queryByText("Billing catalog")).not.toBeInTheDocument();
     expect(screen.getByText("Scan scheduling")).toBeInTheDocument();
     expect(screen.getByText("Worker control plane")).toBeInTheDocument();
+    expect(screen.getByText("Operational alerts")).toBeInTheDocument();
     expect(screen.getByLabelText("Scan job retry attempts")).toHaveValue(1);
     expect(screen.queryByLabelText("Max claim jobs")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Codex timeout seconds")).toHaveValue(1800);
+    expect(screen.getByLabelText("Alert recipients")).toHaveValue("ops@example.com");
   });
 
   it("renders server machine metrics from the admin API", async () => {
@@ -134,6 +164,17 @@ describe("SettingsScreen", () => {
     expect(screen.queryByText(/CPU usage/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/logical cores/i)).not.toBeInTheDocument();
     expect(pullwiseApi.system.getServerMetrics).toHaveBeenCalled();
+  });
+
+  it("renders saved SMTP password state without exposing the password", async () => {
+    render(<SettingsScreen />);
+
+    const password = await screen.findByLabelText(/SMTP password/);
+
+    expect(password).toHaveAttribute("type", "password");
+    expect(password).toHaveValue("");
+    expect(password).toHaveAttribute("placeholder", "Saved password configured");
+    expect(screen.getByText(/Saved password configured; leave blank to keep it\./)).toBeInTheDocument();
   });
 
   it("requires confirmation before restarting the Pullwise server", async () => {

@@ -303,6 +303,7 @@ export function recommendedValueForField(field, defaults) {
 
 export function parseFieldValue(field, value) {
   if (field.type === "boolean") return Boolean(value);
+  if (field.type === "password") return String(value || "");
   if (field.type === "integer") {
     if (value === "") return "";
     const parsed = Number.parseInt(value, 10);
@@ -322,10 +323,12 @@ export function parseFieldValue(field, value) {
   return value;
 }
 
-export function SettingField({ field, value, defaults, onChange }) {
+export function SettingField({ field, value, defaults, secret, onChange }) {
   const id = `setting-${field.path.replace(/[^A-Za-z0-9_-]/g, "-")}`;
   const update = (nextValue) => onChange(field.path, parseFieldValue(field, nextValue));
-  const suggestion = textValue(value) === "" ? recommendedValueForField(field, defaults) : "";
+  const isPassword = field.type === "password";
+  const savedSecret = isPassword && secret?.hasValue === true;
+  const suggestion = !isPassword && textValue(value) === "" ? recommendedValueForField(field, defaults) : "";
   const enabled = value === true;
   return (
     <label className="setting-field" htmlFor={id}>
@@ -351,15 +354,18 @@ export function SettingField({ field, value, defaults, onChange }) {
       ) : (
         <input
           id={id}
-          type={field.type === "integer" || field.type === "number" ? "number" : "text"}
+          type={field.type === "integer" || field.type === "number" ? "number" : isPassword ? "password" : "text"}
           min={field.min ?? undefined}
           value={textValue(value)}
+          placeholder={savedSecret ? "Saved password configured" : undefined}
+          autoComplete={isPassword ? "new-password" : undefined}
           onChange={(event) => update(event.target.value)}
         />
       )}
       <small>
         {field.description}
         {suggestion ? <span className="setting-suggestion"> Suggested: {suggestion}</span> : null}
+        {savedSecret ? <span className="setting-suggestion"> Saved password configured; leave blank to keep it.</span> : null}
       </small>
     </label>
   );
@@ -480,7 +486,7 @@ export function SettingsScreen() {
       <div className="page-head">
         <div>
           <h1>System Settings</h1>
-          <p>Database-backed server settings for scan scheduling, worker claims, rate limits, and calibration.</p>
+          <p>Database-backed server settings for scan scheduling, worker claims, rate limits, alerts, and calibration.</p>
         </div>
         <div className="page-actions">
           <button className="btn" type="button" onClick={loadSettings} disabled={loading || saving || restarting}>
@@ -527,6 +533,7 @@ export function SettingsScreen() {
                     field={field}
                     value={valueAt(settings, field.path)}
                     defaults={payload?.defaults}
+                    secret={payload?.secrets?.[field.path]}
                     onChange={updateField}
                   />
                 ))}

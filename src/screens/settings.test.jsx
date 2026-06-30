@@ -22,8 +22,8 @@ describe("SettingsScreen", () => {
       settings: {
         plans: { pro: { userReviewLimit: 60 } },
         billing: { creemProProductIds: ["prod_monthly"] },
-        scan: { maxQueuedScansGlobal: 1000, jobRetryAttempts: 1 },
-        worker: { codexTimeoutSeconds: 1800 },
+        scan: { maxQueuedScansGlobal: 1000, jobRetryAttempts: 1, jobLeaseSeconds: 14400 },
+        worker: { codexTimeoutSeconds: 3600 },
         alerts: {
           email: {
             enabled: false,
@@ -60,6 +60,7 @@ describe("SettingsScreen", () => {
           fields: [
             { path: "scan.maxQueuedScansGlobal", label: "Max queued scans global", type: "integer" },
             { path: "scan.jobRetryAttempts", label: "Scan job retry attempts", type: "integer", min: 0 },
+            { path: "scan.jobLeaseSeconds", label: "Scan job lease seconds", type: "integer", min: 60 },
           ],
         },
         {
@@ -146,7 +147,8 @@ describe("SettingsScreen", () => {
     expect(screen.getByText("Operational alerts")).toBeInTheDocument();
     expect(screen.getByLabelText("Scan job retry attempts")).toHaveValue(1);
     expect(screen.queryByLabelText("Max claim jobs")).not.toBeInTheDocument();
-    expect(screen.getByLabelText("Codex timeout seconds")).toHaveValue(1800);
+    expect(screen.getByLabelText("Scan job lease seconds")).toHaveValue(14400);
+    expect(screen.getByLabelText("Codex timeout seconds")).toHaveValue(3600);
     expect(screen.getByLabelText("Alert recipients")).toHaveValue("ops@example.com");
   });
 

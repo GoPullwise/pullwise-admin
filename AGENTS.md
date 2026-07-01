@@ -68,14 +68,16 @@ admin flows.
 ## Review Worker Protocol And Copy
 
 Admin worker screens, plan policy, installer payloads, and status views must
-follow `../worker-design.md` and `review-worker-protocol/v1` terminology. Do not
-add extra derived-report requirements, worker-side
-queue controls, or per-worker parallel job settings.
+follow `../codex_full_repo_review_worker_spec_v1_2_FULL_SELF_CONTAINED.md` and
+`review-worker-protocol/v1` terminology. Do not add extra derived-report
+requirements, worker-side queue controls, or per-worker parallel job settings.
 
 Admin copy should describe the worker as a Codex full-repository review worker
-that submits a stable envelope plus versioned artifacts. Plan policy remains the
-source of truth for model, timeout, repository limits, and core reasoning effort;
-non-core worker phases use the same model with medium effort.
+that submits a stable envelope plus versioned artifacts. Intent-test validation
+is dynamic evidence for selected P0/P1 candidates, not an automatic finding
+source. Plan policy remains the source of truth for model, timeout, repository
+limits, and core reasoning effort; non-core worker phases use the same model
+with medium effort.
 
 ## Admin Scale And Worker Status
 

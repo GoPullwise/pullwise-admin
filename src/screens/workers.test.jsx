@@ -420,6 +420,62 @@ describe("WorkersScreen", () => {
     expect(screen.getByRole("img", { name: /worker storage usage over time/i })).toBeInTheDocument();
   });
 
+  it("renders worker Codex quota windows", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.getWorker.mockResolvedValue({
+      worker: {
+        ...workers[0],
+        codexQuota: {
+          provider: "codex",
+          limitId: "codex",
+          planType: "pro",
+          status: "ok",
+          ready: true,
+          remainingPercent: 78,
+          checkedAt: 1782900000,
+          rateLimitResetCredits: { availableCount: 1 },
+          windows: [
+            {
+              name: "primary",
+              windowKind: "five_hour",
+              label: "5 hour",
+              usedPercent: 8,
+              remainingPercent: 92,
+              windowDurationMins: 300,
+              resetsAt: 1782918371,
+            },
+            {
+              name: "secondary",
+              windowKind: "weekly",
+              label: "weekly",
+              usedPercent: 22,
+              remainingPercent: 78,
+              windowDurationMins: 10080,
+              resetsAt: 1783419385,
+            },
+          ],
+        },
+      },
+      auditEvents: [],
+      taskActivity: [],
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    const quotaSection = (await screen.findByText("Codex quota")).closest(".worker-codex-quota");
+    expect(quotaSection).toBeTruthy();
+    expect(within(quotaSection).getByText("Ok")).toBeInTheDocument();
+    expect(within(quotaSection).getByText("pro")).toBeInTheDocument();
+    expect(within(quotaSection).getByText("1")).toBeInTheDocument();
+    expect(within(quotaSection).getByText("5 hour")).toBeInTheDocument();
+    expect(within(quotaSection).getByText("Weekly")).toBeInTheDocument();
+    expect(within(quotaSection).getByText("92% remaining")).toBeInTheDocument();
+    expect(within(quotaSection).getByText("78% remaining")).toBeInTheDocument();
+    expect(within(quotaSection).getByText("8% used")).toBeInTheDocument();
+    expect(within(quotaSection).getByText("22% used")).toBeInTheDocument();
+  });
   it("shows worker detail errors instead of empty audit and activity states", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.getWorker.mockRejectedValueOnce(new Error("detail down"));

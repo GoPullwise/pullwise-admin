@@ -79,6 +79,11 @@ source. Plan policy remains the source of truth for model, timeout, repository
 limits, and core reasoning effort; non-core worker phases use the same model
 with medium effort.
 
+Admin worker status should preserve server-sanitized Codex app-server quota
+telemetry (`codexQuota` / `codex_quota`) from v1 heartbeats. Keep quota-exhausted
+or quota-low states distinct from offline, auth-missing, and generic
+misconfigured worker states when editing worker detail/list/status UI.
+
 ## Admin Scale And Worker Status
 
 Admin worker/status views must handle large worker and scan counts.

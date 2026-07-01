@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
 
@@ -206,6 +206,36 @@ function metricNumberValue(value) {
 function formatMetricPercent(value) {
   const number = metricNumberValue(value);
   return number === null ? "Unavailable" : `${number.toFixed(number % 1 === 0 ? 0 : 1)}%`;
+}
+
+
+function quotaPercentValue(value) {
+  const number = metricNumberValue(value);
+  return number === null ? null : Math.max(0, Math.min(100, number));
+}
+
+function formatQuotaPercent(value) {
+  const number = quotaPercentValue(value);
+  return number === null ? "Unavailable" : `${number.toFixed(number % 1 === 0 ? 0 : 1)}%`;
+}
+
+function quotaWindowLabel(window) {
+  const kind = textValue(window?.windowKind).toLowerCase();
+  if (kind === "five_hour") return "5 hour";
+  if (kind === "weekly") return "Weekly";
+  return statusLabel(window?.label || window?.name || "Window");
+}
+
+function quotaResetLabel(value) {
+  const timestamp = timestampValue(value);
+  return timestamp ? formatTimestamp(timestamp) : "Unavailable";
+}
+
+function quotaStatusClass(status) {
+  const normalized = textValue(status, "unknown").toLowerCase();
+  if (["low", "exhausted"].includes(normalized)) return normalized;
+  if (normalized === "ok") return "ok";
+  return "unknown";
 }
 
 function formatBytes(value) {
@@ -425,6 +455,73 @@ function MachineMetric({ icon, title, value, detail, points, metric, color }) {
         <MachineMetricChart points={points} metric={metric} color={color} label={title} />
       </div>
     </div>
+  );
+}
+
+function WorkerCodexQuota({ quota }) {
+  const windows = Array.isArray(quota?.windows) ? quota.windows.filter(Boolean) : [];
+  const resetCredits = objectValue(quota?.rateLimitResetCredits)?.availableCount;
+  const status = textValue(quota?.status, quota?.ready === false ? "not ready" : "unknown");
+  const statusClass = quotaStatusClass(status);
+
+  return (
+    <section className="worker-codex-quota">
+      <div className="worker-codex-head">
+        <h3>Codex quota</h3>
+        {quota && <span className={`worker-quota-status ${statusClass}`}>{statusLabel(status)}</span>}
+      </div>
+      {!quota ? (
+        <p className="muted">No Codex quota reported yet.</p>
+      ) : (
+        <>
+          <div className="server-machine-facts worker-quota-facts">
+            <div>
+              <span>Plan</span>
+              <b>{textValue(quota.planType, "Unavailable")}</b>
+            </div>
+            <div>
+              <span>Remaining</span>
+              <b>{formatQuotaPercent(quota.remainingPercent)}</b>
+            </div>
+            <div>
+              <span>Reset credits</span>
+              <b>{resetCredits ?? "Unavailable"}</b>
+            </div>
+            <div>
+              <span>Checked</span>
+              <b>{quotaResetLabel(quota.checkedAt)}</b>
+            </div>
+          </div>
+          {quota.rateLimitReachedType && (
+            <p className="worker-quota-note">Rate limit reached: {textValue(quota.rateLimitReachedType)}</p>
+          )}
+          <div className="worker-quota-windows">
+            {windows.length ? (
+              windows.map((window, index) => {
+                const remaining = quotaPercentValue(window.remainingPercent);
+                return (
+                  <div className="worker-quota-window" key={`${window.windowKind || window.name || "window"}-${index}`}>
+                    <div className="worker-quota-window-head">
+                      <strong>{quotaWindowLabel(window)}</strong>
+                      <span>{formatQuotaPercent(window.remainingPercent)} remaining</span>
+                    </div>
+                    <div className="worker-quota-meter" aria-hidden="true">
+                      <span style={{ width: `${remaining ?? 0}%` }} />
+                    </div>
+                    <div className="worker-quota-window-meta">
+                      <span>{formatQuotaPercent(window.usedPercent)} used</span>
+                      <span>Resets {quotaResetLabel(window.resetsAt)}</span>
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <p className="muted">No quota windows reported.</p>
+            )}
+          </div>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -934,6 +1031,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
 
   const displayedWorker = mergeWorkerRecords(worker, detailWorker);
   const cleanupLifecycle = workerCleanupLifecycle(displayedWorker);
+  const codexQuota = objectValue(displayedWorker.codexQuota) || objectValue(displayedWorker.codex_quota);
 
   return (
     <div className="worker-detail">
@@ -956,7 +1054,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
             <div>
               <dt>Command</dt>
               <dd>
-                {commandLabel(displayedWorker.latest_command.command)} · {statusLabel(displayedWorker.latest_command.status)}
+                {commandLabel(displayedWorker.latest_command.command)} 路 {statusLabel(displayedWorker.latest_command.status)}
               </dd>
             </div>
           )}
@@ -987,6 +1085,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
           <p className="muted">No audit events.</p>
         )}
       </section>
+      <WorkerCodexQuota quota={codexQuota} />
       <WorkerMachineMetrics metrics={displayedWorker.machineMetrics} />
       <WorkerActivity activity={taskActivity} error={detailError} />
       <LogStreamPanel source="worker" workerId={displayedWorker.worker_id} title="Worker logs" />
@@ -1422,3 +1521,5 @@ export function WorkersScreen() {
     </main>
   );
 }
+
+

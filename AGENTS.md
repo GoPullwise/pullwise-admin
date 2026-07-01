@@ -69,7 +69,7 @@ admin flows.
 
 Admin worker screens, plan policy, installer payloads, and status views must
 follow `../worker-design.md` and `review-worker-protocol/v1` terminology. Do not
-add graph-generation requirements, graph-specific worker settings, worker-side
+add extra derived-report requirements, worker-side
 queue controls, or per-worker parallel job settings.
 
 Admin copy should describe the worker as a Codex full-repository review worker

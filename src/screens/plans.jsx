@@ -57,13 +57,9 @@ function formFromPlan(plan) {
     codexCli: textValue(codex.cli || codex.command, "codex"),
     codexModel: textValue(codex.model, "gpt-5.5"),
     codexReasoningEffort: effortValue(codex.reasoningEffort),
-    finderTimeoutSeconds: numberText(reviewWorker.finderTimeoutSeconds, 3600),
-    reproTimeoutSeconds: numberText(reviewWorker.reproTimeoutSeconds, 3600),
-    simpleScanDeadlineSeconds: numberText(
-      reviewWorker.simpleScanDeadlineSeconds ??
-        reviewWorker.scanDeadlineSeconds,
-      14400,
-    ),
+    turnTimeoutSeconds: numberText(reviewWorker.turnTimeoutSeconds, 3600),
+
+    scanDeadlineSeconds: numberText(reviewWorker.scanDeadlineSeconds, 14400),
   };
 }
 
@@ -75,12 +71,8 @@ function payloadFromForm(form) {
       reasoningEffort: form.codexReasoningEffort,
     },
     reviewWorker: {
-      finderTimeoutSeconds: integerPayload(form.finderTimeoutSeconds, 3600),
-      reproTimeoutSeconds: integerPayload(form.reproTimeoutSeconds, 3600),
-      simpleScanDeadlineSeconds: integerPayload(
-        form.simpleScanDeadlineSeconds,
-        14400,
-      ),
+      turnTimeoutSeconds: integerPayload(form.turnTimeoutSeconds, 3600),
+      scanDeadlineSeconds: integerPayload(form.scanDeadlineSeconds, 14400),
     },
   };
 }
@@ -199,36 +191,28 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
 
       <section className="plan-agent-config-section">
         <div className="plan-agent-config-head">
-          <h3>Review Worker Timeouts</h3>
+          <h3>Review Worker Policy</h3>
           <p>
-            Turn and scan deadline policy sent to worker jobs for this plan.
+            Codex turn timeout and scan deadline policy sent to worker jobs for this plan.
           </p>
         </div>
         <div className="form-grid">
           <TextField
-            label="Reviewer turn timeout seconds"
-            ariaLabel={`${form.name} Reviewer turn timeout seconds`}
-            value={form.finderTimeoutSeconds}
+            label="Codex turn timeout seconds"
+            ariaLabel={`${form.name} Codex turn timeout seconds`}
+            value={form.turnTimeoutSeconds}
             onChange={(value) =>
-              onChange(form.id, "finderTimeoutSeconds", value)
+              onChange(form.id, "turnTimeoutSeconds", value)
             }
-            description="Maximum time for one reviewer turn."
+            description="Maximum time for one Codex turn."
           />
-          <TextField
-            label="Repro turn timeout seconds"
-            ariaLabel={`${form.name} Repro turn timeout seconds`}
-            value={form.reproTimeoutSeconds}
-            onChange={(value) =>
-              onChange(form.id, "reproTimeoutSeconds", value)
-            }
-            description="Maximum time for one verification turn."
-          />
+
           <TextField
             label="Scan deadline seconds"
             ariaLabel={`${form.name} Scan deadline seconds`}
-            value={form.simpleScanDeadlineSeconds}
+            value={form.scanDeadlineSeconds}
             onChange={(value) =>
-              onChange(form.id, "simpleScanDeadlineSeconds", value)
+              onChange(form.id, "scanDeadlineSeconds", value)
             }
             description="Total worker-side deadline for one scan job."
           />

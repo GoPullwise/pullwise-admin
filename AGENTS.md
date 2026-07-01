@@ -65,11 +65,17 @@ admin flows.
 - Admin worker install payloads should preserve provider chain order and should
   not imply that global Codex config is shared across workers.
 
-## Graph-Verified Review Copy
+## Review Worker Protocol And Copy
 
-Admin UI/API copy for GraphVerified must describe it as a full-repository
-snapshot review of the current checkout. Report surfaces should expect
-review-unit coverage data even when there are zero confirmed findings.
+Admin worker screens, plan policy, installer payloads, and status views must
+follow `../worker-design.md` and `review-worker-protocol/v1` terminology. Do not
+add graph-generation requirements, graph-specific worker settings, worker-side
+queue controls, or per-worker parallel job settings.
+
+Admin copy should describe the worker as a Codex full-repository review worker
+that submits a stable envelope plus versioned artifacts. Plan policy remains the
+source of truth for model, timeout, repository limits, and core reasoning effort;
+non-core worker phases use the same model with medium effort.
 
 ## Admin Scale And Worker Status
 

@@ -48,7 +48,7 @@ function integerPayload(value, fallback) {
 function formFromPlan(plan) {
   const agentConfig = plan?.agentConfig || {};
   const codex = agentConfig.codex || {};
-  const graphVerified = agentConfig.graphVerified || {};
+  const reviewWorker = agentConfig.reviewWorker || {};
   const id = textValue(plan?.id || agentConfig.plan, "free").toLowerCase();
   return {
     id,
@@ -57,11 +57,11 @@ function formFromPlan(plan) {
     codexCli: textValue(codex.cli || codex.command, "codex"),
     codexModel: textValue(codex.model, "gpt-5.5"),
     codexReasoningEffort: effortValue(codex.reasoningEffort),
-    finderTimeoutSeconds: numberText(graphVerified.finderTimeoutSeconds, 3600),
-    reproTimeoutSeconds: numberText(graphVerified.reproTimeoutSeconds, 3600),
+    finderTimeoutSeconds: numberText(reviewWorker.finderTimeoutSeconds, 3600),
+    reproTimeoutSeconds: numberText(reviewWorker.reproTimeoutSeconds, 3600),
     simpleScanDeadlineSeconds: numberText(
-      graphVerified.simpleScanDeadlineSeconds ??
-        graphVerified.scanDeadlineSeconds,
+      reviewWorker.simpleScanDeadlineSeconds ??
+        reviewWorker.scanDeadlineSeconds,
       14400,
     ),
   };
@@ -74,7 +74,7 @@ function payloadFromForm(form) {
       model: form.codexModel,
       reasoningEffort: form.codexReasoningEffort,
     },
-    graphVerified: {
+    reviewWorker: {
       finderTimeoutSeconds: integerPayload(form.finderTimeoutSeconds, 3600),
       reproTimeoutSeconds: integerPayload(form.reproTimeoutSeconds, 3600),
       simpleScanDeadlineSeconds: integerPayload(
@@ -199,20 +199,20 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
 
       <section className="plan-agent-config-section">
         <div className="plan-agent-config-head">
-          <h3>GraphVerified Timeouts</h3>
+          <h3>Review Worker Timeouts</h3>
           <p>
             Turn and scan deadline policy sent to worker jobs for this plan.
           </p>
         </div>
         <div className="form-grid">
           <TextField
-            label="Finder turn timeout seconds"
-            ariaLabel={`${form.name} Finder turn timeout seconds`}
+            label="Reviewer turn timeout seconds"
+            ariaLabel={`${form.name} Reviewer turn timeout seconds`}
             value={form.finderTimeoutSeconds}
             onChange={(value) =>
               onChange(form.id, "finderTimeoutSeconds", value)
             }
-            description="Maximum time for one finder turn."
+            description="Maximum time for one reviewer turn."
           />
           <TextField
             label="Repro turn timeout seconds"

@@ -476,6 +476,57 @@ describe("WorkersScreen", () => {
     expect(within(quotaSection).getByText("8% used")).toBeInTheDocument();
     expect(within(quotaSection).getByText("22% used")).toBeInTheDocument();
   });
+
+  it("keeps quota-exhausted workers distinct from offline workers", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.getWorker.mockResolvedValue({
+      worker: {
+        ...workers[0],
+        status: "degraded",
+        codex_ready: false,
+        readyProviders: [],
+        codexQuota: {
+          provider: "codex",
+          planType: "max",
+          status: "exhausted",
+          ready: false,
+          reason: "codex_quota_exhausted",
+          remainingPercent: 0,
+          rateLimitReachedType: "weekly",
+          windows: [
+            {
+              windowKind: "five_hour",
+              usedPercent: 100,
+              remainingPercent: 0,
+              resetsAt: 1782918371,
+            },
+            {
+              windowKind: "weekly",
+              usedPercent: 100,
+              remainingPercent: 0,
+              resetsAt: 1783419385,
+            },
+          ],
+        },
+      },
+      auditEvents: [],
+      taskActivity: [],
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    const quotaSection = (await screen.findByText("Codex quota")).closest(".worker-codex-quota");
+    expect(quotaSection).toBeTruthy();
+    expect(within(quotaSection).getByText("Exhausted")).toBeInTheDocument();
+    expect(within(quotaSection).getByText("max")).toBeInTheDocument();
+    expect(within(quotaSection).getAllByText("0% remaining")).toHaveLength(2);
+    expect(within(quotaSection).getAllByText("100% used")).toHaveLength(2);
+    expect(within(quotaSection).getByText("Rate limit reached: weekly")).toBeInTheDocument();
+    expect(within(quotaSection).queryByText("No Codex quota reported yet.")).not.toBeInTheDocument();
+  });
+
   it("shows worker detail errors instead of empty audit and activity states", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.getWorker.mockRejectedValueOnce(new Error("detail down"));

@@ -1,4 +1,4 @@
-﻿.app {
+.app {
   min-height: 100vh;
 }
 
@@ -227,6 +227,15 @@
 .worker-list {
   display: grid;
   gap: 8px;
+}
+
+.worker-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
 .user-list {

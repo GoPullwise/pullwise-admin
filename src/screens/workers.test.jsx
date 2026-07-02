@@ -77,6 +77,26 @@ describe("WorkersScreen", () => {
     );
   });
 
+  it("uses server worker totals for summary and pagination", async () => {
+    pullwiseApi.system.listWorkers.mockResolvedValueOnce({
+      workers: [workers[0]],
+      items: [workers[0]],
+      total: 7,
+      limit: 1,
+      offset: 0,
+      hasMore: true,
+      summary: { total: 7, active: 4, degraded: 2, disabled: 1 },
+    });
+
+    render(<WorkersScreen />);
+
+    const summary = await screen.findByLabelText("Worker summary");
+    expect(within(summary).getByText("7")).toBeInTheDocument();
+    expect(within(summary).getByText("4")).toBeInTheDocument();
+    expect(within(summary).getByText("2")).toBeInTheDocument();
+    expect(within(summary).getByText("1")).toBeInTheDocument();
+    expect(screen.getByLabelText("Worker pagination")).toHaveTextContent("1-1 of 7");
+  });
   it("does not show an empty worker state when loading workers fails", async () => {
     pullwiseApi.system.listWorkers.mockRejectedValueOnce(new Error("workers down"));
 
@@ -529,6 +549,7 @@ describe("WorkersScreen", () => {
 
     const quotaSection = (await screen.findByText("Codex quota")).closest(".worker-codex-quota");
     expect(quotaSection).toBeTruthy();
+    expect(await screen.findByText("Codex quota exhausted")).toBeInTheDocument();
     expect(within(quotaSection).getByText("Exhausted")).toBeInTheDocument();
     expect(within(quotaSection).getByText("max")).toBeInTheDocument();
     expect(within(quotaSection).getAllByText("0% remaining")).toHaveLength(2);

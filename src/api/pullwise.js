@@ -22,7 +22,7 @@ export const pullwiseApi = {
       request(withSearchParams("/auth/github/authorize", params), { signal: options.signal }),
   },
   system: {
-    listWorkers: () => request("/admin/workers"),
+    listWorkers: (params = {}) => request(withSearchParams("/admin/workers", params)),
     getWorkerDefaults: (params = {}) => request(withSearchParams("/admin/workers/defaults", params)),
     releaseWorker: (payload = {}) => request("/admin/workers/releases", { method: "POST", body: payload }),
     createWorker: (payload = {}) => request("/admin/workers", { method: "POST", body: payload }),

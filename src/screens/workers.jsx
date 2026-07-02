@@ -1,8 +1,9 @@
-﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
 
 const REFRESH_MS = 15000;
+const WORKER_PAGE_SIZE = 50;
 const LOG_STREAM_POLL_MS = 1000;
 const LOG_STREAM_CLIENT_LINE_LIMIT = 500;
 const DEFAULT_WORKER_PROVIDER_CHAIN = ["codex"];
@@ -36,6 +37,33 @@ function commandLabel(command) {
 
 function objectValue(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : null;
+}
+
+function countValue(value, fallback = 0) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.floor(number) : fallback;
+}
+
+function workerReadinessDetail(worker) {
+  const quota = objectValue(worker?.codexQuota) || objectValue(worker?.codex_quota);
+  const status = textValue(worker?.status).toLowerCase();
+  const doctorStatus = textValue(worker?.doctor_status || worker?.doctorStatus).toLowerCase();
+  const quotaStatus = textValue(quota?.status || quota?.reason).toLowerCase();
+  const lastError = textValue(worker?.last_error || worker?.lastError);
+  if (worker?.enabled === false) return "Disabled";
+  if (status === "offline") return "Offline: no recent heartbeat";
+  if (quota && (quota.ready === false || ["exhausted", "low", "blocked"].includes(quotaStatus))) {
+    if (quotaStatus.includes("exhaust")) return "Codex quota exhausted";
+    if (quotaStatus === "low") return "Codex quota low";
+    return `Codex quota ${statusLabel(quotaStatus || "not ready")}`;
+  }
+  if (worker?.codex_ready === false || worker?.codexReady === false) return "Codex auth not ready";
+  if (status === "degraded" || ["failed", "error", "misconfigured", "needs_attention"].includes(doctorStatus)) {
+    return lastError ? `Misconfigured: ${lastError}` : "Worker misconfigured";
+  }
+  if (lastError) return `Needs attention: ${lastError}`;
+  if (["idle", "busy"].includes(status)) return "Ready";
+  return "Readiness unknown";
 }
 
 function hasOwn(record, key) {
@@ -1032,6 +1060,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
   const displayedWorker = mergeWorkerRecords(worker, detailWorker);
   const cleanupLifecycle = workerCleanupLifecycle(displayedWorker);
   const codexQuota = objectValue(displayedWorker.codexQuota) || objectValue(displayedWorker.codex_quota);
+  const readiness = workerReadinessDetail(displayedWorker);
 
   return (
     <div className="worker-detail">
@@ -1043,6 +1072,10 @@ function WorkerDetail({ worker, onWorkerChange }) {
             <dd>{displayedWorker.provider || "codex"}</dd>
           </div>
           <div>
+            <dt>Readiness</dt>
+            <dd>{readiness}</dd>
+          </div>
+          <div>
             <dt>Last heartbeat</dt>
             <dd>{formatTimestamp(displayedWorker.last_heartbeat_at)}</dd>
           </div>
@@ -1050,6 +1083,18 @@ function WorkerDetail({ worker, onWorkerChange }) {
             <dt>Hostname</dt>
             <dd>{displayedWorker.hostname || "-"}</dd>
           </div>
+          {(displayedWorker.doctor_status || displayedWorker.doctorStatus) && (
+            <div>
+              <dt>Doctor status</dt>
+              <dd>{statusLabel(displayedWorker.doctor_status || displayedWorker.doctorStatus)}</dd>
+            </div>
+          )}
+          {(displayedWorker.last_error || displayedWorker.lastError) && (
+            <div>
+              <dt>Last error</dt>
+              <dd>{textValue(displayedWorker.last_error || displayedWorker.lastError)}</dd>
+            </div>
+          )}
           {displayedWorker.latest_command && (
             <div>
               <dt>Command</dt>
@@ -1119,6 +1164,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const busy = pendingWorkerId === String(workerId);
   const hasActiveCommand = hasActiveWorkerCommand(displayedWorker);
   const cleanupLifecycle = workerCleanupLifecycle(displayedWorker);
+  const readiness = workerReadinessDetail(displayedWorker);
   const actionsDisabled = busy || hasActiveCommand || Boolean(cleanupLifecycle);
 
   const save = async () => {
@@ -1146,7 +1192,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
           <small>
             {cleanupLifecycle
               ? `${cleanupLifecycle.label} - ${displayedWorker.region || "No region"}`
-              : `${statusLabel(displayedWorker.status)} - ${displayedWorker.region || "No region"}`}
+              : `${statusLabel(displayedWorker.status)} - ${readiness} - ${displayedWorker.region || "No region"}`}
           </small>
         </span>
         <I.ChevD size={16} className={expanded ? "rotate" : ""} />
@@ -1256,14 +1302,36 @@ export function WorkersScreen() {
   const [releaseInfo, setReleaseInfo] = useState({ latestVersion: "", loading: true });
   const [releaseVersion, setReleaseVersion] = useState("");
   const [releaseBusy, setReleaseBusy] = useState(false);
+  const [workerPage, setWorkerPage] = useState({
+    limit: WORKER_PAGE_SIZE,
+    offset: 0,
+    total: 0,
+    hasMore: false,
+    nextOffset: null,
+  });
+  const [workerSummary, setWorkerSummary] = useState(null);
   const latestReleaseRef = useRef("");
   const retainedCleanupWorkerIdsRef = useRef(new Set());
 
   const loadWorkers = useCallback(async (options = {}) => {
     const preserveRotatedTokens = options?.preserveRotatedTokens === true;
+    const requestPage = { limit: workerPage.limit, offset: workerPage.offset };
     try {
-      const payload = await pullwiseApi.system.listWorkers();
+      const payload = await pullwiseApi.system.listWorkers(requestPage);
       const listedWorkers = itemsFrom(payload, "workers", "items");
+      const pagePayload = objectValue(payload?.pagination) || {};
+      const total = countValue(payload?.total ?? pagePayload.total, listedWorkers.length);
+      const limit = Math.max(1, countValue(payload?.limit ?? pagePayload.limit, requestPage.limit) || requestPage.limit);
+      const offset = countValue(payload?.offset ?? pagePayload.offset, requestPage.offset);
+      const rawNextOffset = payload?.nextOffset ?? payload?.next_offset ?? pagePayload.nextOffset ?? pagePayload.next_offset;
+      const nextOffset = rawNextOffset === undefined || rawNextOffset === null ? null : countValue(rawNextOffset, offset + limit);
+      const hasMore = Boolean(
+        payload?.hasMore ??
+          payload?.has_more ??
+          pagePayload.hasMore ??
+          pagePayload.has_more ??
+          (nextOffset !== null || offset + listedWorkers.length < total)
+      );
       const listedWorkerIds = new Set(listedWorkers.map((worker) => textValue(worker.worker_id)).filter(Boolean));
       const retainedWorkerIds = Array.from(retainedCleanupWorkerIdsRef.current).filter((workerId) => !listedWorkerIds.has(workerId));
       const retainedWorkers = await Promise.all(
@@ -1297,10 +1365,14 @@ export function WorkersScreen() {
           retainedCleanupWorkerIdsRef.current.delete(workerId);
         }
       }
+      setWorkerPage({ limit, offset, total, hasMore, nextOffset: hasMore ? nextOffset ?? offset + limit : null });
+      setWorkerSummary(objectValue(payload?.summary) || objectValue(payload?.workerSummary) || objectValue(payload?.fleetSummary));
       setWorkers(nextWorkers);
       setError("");
     } catch (err) {
       setWorkers([]);
+      setWorkerSummary(null);
+      setWorkerPage((current) => ({ ...current, total: 0, hasMore: false, nextOffset: null }));
       setError(err?.message || "Unable to load workers.");
     } finally {
       if (!preserveRotatedTokens) {
@@ -1308,7 +1380,7 @@ export function WorkersScreen() {
       }
       setLoading(false);
     }
-  }, []);
+  }, [workerPage.limit, workerPage.offset]);
 
   const loadWorkerDefaults = useCallback(async (options = {}) => {
     setReleaseInfo((current) => ({ ...current, loading: true }));
@@ -1355,15 +1427,27 @@ export function WorkersScreen() {
     return () => clearInterval(id);
   }, [loadWorkerDefaults, loadWorkers]);
 
+  const goToWorkerPage = useCallback((offset) => {
+    setLoading(true);
+    setWorkerPage((current) => ({ ...current, offset: Math.max(0, countValue(offset, 0)) }));
+  }, []);
+
+  const pageStart = workers.length ? workerPage.offset + 1 : 0;
+  const pageEnd = workers.length ? workerPage.offset + workers.length : 0;
+  const hasPagination = workerPage.offset > 0 || workerPage.hasMore || workerPage.total > workers.length;
+
   const summary = useMemo(() => {
+    const serverSummary = objectValue(workerSummary) || {};
     const active = workers.filter((worker) => worker.enabled !== false && ["idle", "busy"].includes(worker.status)).length;
+    const degraded = workers.filter((worker) => worker.status === "degraded").length;
+    const disabled = workers.filter((worker) => worker.enabled === false).length;
     return {
-      total: workers.length,
-      active,
-      degraded: workers.filter((worker) => worker.status === "degraded").length,
-      disabled: workers.filter((worker) => worker.enabled === false).length,
+      total: countValue(serverSummary.total ?? serverSummary.totalWorkers ?? serverSummary.workers_total ?? workerPage.total, workers.length),
+      active: countValue(serverSummary.active ?? serverSummary.activeWorkers ?? serverSummary.active_workers, active),
+      degraded: countValue(serverSummary.degraded ?? serverSummary.degradedWorkers ?? serverSummary.degraded_workers, degraded),
+      disabled: countValue(serverSummary.disabled ?? serverSummary.disabledWorkers ?? serverSummary.disabled_workers, disabled),
     };
-  }, [workers]);
+  }, [workerPage.total, workers, workerSummary]);
 
   const handleReleaseWorker = async (event) => {
     event.preventDefault();
@@ -1414,16 +1498,16 @@ export function WorkersScreen() {
         setActionMessage("Worker token rotated.");
       } else if (action === "delete") {
         result = await pullwiseApi.system.deleteWorker(workerId);
-        const retainedWorker = workerFromDeleteResult(
-          result,
-          workerId,
-          workers.find((worker) => String(worker.worker_id) === String(workerId))
-        );
+        const currentWorker = workers.find((worker) => String(worker.worker_id) === String(workerId));
+        const retainedWorker = workerFromDeleteResult(result, workerId, currentWorker);
         const cleanupLifecycle = workerCleanupLifecycle(retainedWorker);
         if (retainedWorker && cleanupLifecycle && !cleanupLifecycleComplete(cleanupLifecycle)) {
           retainedCleanupWorkerIdsRef.current.add(String(workerId));
           setWorkers((current) => upsertWorker(current, retainedWorker));
           setActionMessage(`${cleanupLifecycle.label}.`);
+        } else if (!retainedWorker && result?.deleted === true && currentWorker) {
+          setWorkers((current) => upsertWorker(current, currentWorker));
+          setActionMessage("Worker deletion requested.");
         } else {
           retainedCleanupWorkerIdsRef.current.delete(String(workerId));
           setWorkers((current) => current.filter((worker) => worker.worker_id !== workerId));
@@ -1516,6 +1600,30 @@ export function WorkersScreen() {
           ))
         )}
       </section>
+
+      {hasPagination && (
+        <div className="worker-pagination" aria-label="Worker pagination">
+          <span>{pageStart ? `${pageStart}-${pageEnd} of ${summary.total || pageEnd}` : "0 workers"}</span>
+          <div className="page-actions">
+            <button
+              className="btn ghost sm"
+              type="button"
+              disabled={loading || workerPage.offset <= 0}
+              onClick={() => goToWorkerPage(workerPage.offset - workerPage.limit)}
+            >
+              Previous
+            </button>
+            <button
+              className="btn ghost sm"
+              type="button"
+              disabled={loading || !workerPage.hasMore}
+              onClick={() => goToWorkerPage(workerPage.nextOffset ?? workerPage.offset + workerPage.limit)}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       {showCreate && <CreateWorkerModal onClose={() => setShowCreate(false)} onCreated={loadWorkers} />}
     </main>

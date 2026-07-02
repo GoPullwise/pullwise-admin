@@ -928,6 +928,8 @@ function CreateWorkerModal({ onClose, onCreated }) {
   const [name, setName] = useState("");
   const [region, setRegion] = useState("");
   const [version, setVersion] = useState("");
+  const [codexUseLatest, setCodexUseLatest] = useState(true);
+  const [codexVersion, setCodexVersion] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
@@ -963,6 +965,8 @@ function CreateWorkerModal({ onClose, onCreated }) {
         providerChain: DEFAULT_WORKER_PROVIDER_CHAIN,
         region: region.trim(),
         version: version.trim(),
+        codexUseLatest,
+        codexVersion: codexUseLatest ? "" : codexVersion.trim(),
       });
       setResult(payload);
       onCreated?.();
@@ -996,6 +1000,26 @@ function CreateWorkerModal({ onClose, onCreated }) {
               <span>Version</span>
               <input value={version} onChange={(event) => setVersion(event.target.value)} placeholder="0.1.0" />
             </label>
+            <label className="field checkbox-field">
+              <span>
+                <input
+                  type="checkbox"
+                  checked={codexUseLatest}
+                  onChange={(event) => setCodexUseLatest(event.target.checked)}
+                />
+                Use latest Codex CLI
+              </span>
+            </label>
+            {!codexUseLatest && (
+              <label className="field">
+                <span>Codex CLI version</span>
+                <input
+                  value={codexVersion}
+                  onChange={(event) => setCodexVersion(event.target.value)}
+                  placeholder="0.13.0"
+                />
+              </label>
+            )}
           </div>
           {error && (
             <div className="auth-error" role="alert">

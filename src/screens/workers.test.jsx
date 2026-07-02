@@ -67,6 +67,16 @@ describe("WorkersScreen", () => {
     expect(screen.getByText(/us-east/)).toBeInTheDocument();
   });
 
+  it("requests workers through a paginated admin API contract", async () => {
+    render(<WorkersScreen />);
+
+    await waitFor(() =>
+      expect(pullwiseApi.system.listWorkers).toHaveBeenCalledWith(
+        expect.objectContaining({ limit: expect.any(Number), offset: expect.any(Number) })
+      )
+    );
+  });
+
   it("does not show an empty worker state when loading workers fails", async () => {
     pullwiseApi.system.listWorkers.mockRejectedValueOnce(new Error("workers down"));
 
@@ -810,6 +820,21 @@ describe("WorkersScreen", () => {
     expect(screen.getByText("Cleanup pending.")).toBeInTheDocument();
     expect(screen.getAllByText("Cleanup pending").length).toBeGreaterThan(0);
     expect(screen.getByText("Worker-host cleanup is tracked by the instance watcher.")).toBeInTheDocument();
+    expect(screen.queryByText("Worker instance deleted.")).not.toBeInTheDocument();
+  });
+
+  it("keeps a worker visible when delete returns no cleanup lifecycle metadata", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
+    expect(screen.getByText("US-East Worker")).toBeInTheDocument();
     expect(screen.queryByText("Worker instance deleted.")).not.toBeInTheDocument();
   });
 

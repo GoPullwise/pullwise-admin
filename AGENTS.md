@@ -50,6 +50,17 @@ worker instance and its watcher as a one-to-one pair; never imply that a watcher
 worker process, service user, config, home, log directory, or lifecycle state is
 shared between instances.
 
+The watcher is the host-local control role for its paired worker instance. Admin
+delete/status semantics should assume the watcher service is reliable, starts
+before the worker service, and can stop or remove the worker service plus
+instance-owned resources as part of cleanup.
+
+Admin UI/API flows must not imply that watchers are normally stopped or
+uninstalled. Once a watcher service has successfully started, non-delete flows
+must preserve it. Watcher self-removal is reserved for an administrator actively
+choosing Delete instance. In that flow, the worker instance must be successfully
+uninstalled first, and only then may the paired watcher remove itself.
+
 ## Plans, Providers, And Quota
 
 Admin screens configure plan policy for Pullwise accounts and repositories. Do

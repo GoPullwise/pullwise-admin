@@ -891,6 +891,14 @@
   padding-top: 14px;
 }
 
+.worker-detail-head {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
 .worker-detail dl {
   margin: 8px 0 0;
 }

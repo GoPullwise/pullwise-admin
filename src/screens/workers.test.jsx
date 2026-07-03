@@ -530,6 +530,81 @@ describe("WorkersScreen", () => {
     expect(within(quotaSection).getByText("22% used")).toBeInTheDocument();
   });
 
+  it("refreshes quota and machine metrics for the expanded worker", async () => {
+    const user = userEvent.setup();
+    const staleListWorker = {
+      ...workers[0],
+      codexQuota: {
+        planType: "pro",
+        status: "ok",
+        ready: true,
+        remainingPercent: 12,
+        windows: [{ windowKind: "five_hour", usedPercent: 88, remainingPercent: 12 }],
+      },
+      machineMetrics: {
+        collectedAt: 1781200000,
+        memory: { totalBytes: 8589934592, usedBytes: 858993459, usedPercent: 10 },
+        storage: { totalBytes: 107374182400, usedBytes: 10737418240, usedPercent: 10 },
+      },
+    };
+    pullwiseApi.system.listWorkers.mockResolvedValueOnce({ workers: [staleListWorker], items: [staleListWorker] });
+    pullwiseApi.system.getWorker
+      .mockResolvedValueOnce({
+        worker: {
+          ...workers[0],
+          codexQuota: {
+            planType: "pro",
+            status: "ok",
+            ready: true,
+            remainingPercent: 78,
+            windows: [{ windowKind: "five_hour", usedPercent: 22, remainingPercent: 78 }],
+          },
+          machineMetrics: {
+            collectedAt: 1781200060,
+            worker: { platform: "Linux-6.8", machine: "x86_64", pythonVersion: "3.10.12" },
+            memory: { totalBytes: 8589934592, usedBytes: 5368709120, usedPercent: 62.5 },
+            storage: { totalBytes: 107374182400, usedBytes: 42949672960, usedPercent: 40.0 },
+          },
+        },
+        auditEvents: [],
+        taskActivity: [],
+      })
+      .mockResolvedValueOnce({
+        worker: {
+          ...workers[0],
+          codexQuota: {
+            planType: "pro",
+            status: "low",
+            ready: false,
+            remainingPercent: 41,
+            windows: [{ windowKind: "five_hour", usedPercent: 59, remainingPercent: 41 }],
+          },
+          machineMetrics: {
+            collectedAt: 1781200120,
+            worker: { platform: "Linux-6.8", machine: "x86_64", pythonVersion: "3.10.12" },
+            memory: { totalBytes: 8589934592, usedBytes: 6131804569, usedPercent: 71.4 },
+            storage: { totalBytes: 107374182400, usedBytes: 51539607552, usedPercent: 48.0 },
+          },
+        },
+        auditEvents: [],
+        taskActivity: [],
+      });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    const quotaSection = (await screen.findByText("Codex quota")).closest(".worker-codex-quota");
+    expect(within(quotaSection).getByText("78% remaining")).toBeInTheDocument();
+    expect(screen.getByText("62.5%")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /refresh worker details/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.getWorker).toHaveBeenCalledTimes(2));
+    expect(within(quotaSection).getByText("41% remaining")).toBeInTheDocument();
+    expect(screen.getByText("71.4%")).toBeInTheDocument();
+    expect(within(quotaSection).queryByText("78% remaining")).not.toBeInTheDocument();
+  });
   it("keeps quota-exhausted workers distinct from offline workers", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.getWorker.mockResolvedValue({

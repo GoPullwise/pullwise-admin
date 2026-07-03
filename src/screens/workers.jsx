@@ -105,6 +105,11 @@ function cleanupStatusTone(status) {
 function mergeWorkerRecords(worker, detailWorker) {
   if (!detailWorker) return worker;
   const merged = { ...detailWorker, ...worker };
+  for (const key of ["codexQuota", "codex_quota", "machineMetrics", "machine_metrics"]) {
+    if (hasOwn(detailWorker, key)) {
+      merged[key] = detailWorker[key];
+    }
+  }
   const workerCommand = latestWorkerCommand(worker);
   const detailCommand = latestWorkerCommand(detailWorker);
   if (workerCommand || detailCommand) {
@@ -1054,40 +1059,80 @@ function WorkerDetail({ worker, onWorkerChange }) {
   const [auditEvents, setAuditEvents] = useState([]);
   const [taskActivity, setTaskActivity] = useState([]);
   const [detailError, setDetailError] = useState("");
+  const [detailLoading, setDetailLoading] = useState(true);
+  const [detailRefreshing, setDetailRefreshing] = useState(false);
+  const detailRequestRef = useRef(0);
+
+  const loadWorkerDetail = useCallback(
+    async (options = {}) => {
+      const manual = options?.manual === true;
+      const requestId = detailRequestRef.current + 1;
+      detailRequestRef.current = requestId;
+      setDetailError("");
+      if (manual) {
+        setDetailRefreshing(true);
+      } else {
+        setDetailLoading(true);
+      }
+
+      try {
+        const payload = await pullwiseApi.system.getWorker(worker.worker_id);
+        if (detailRequestRef.current !== requestId) return;
+        const nextWorker = payload?.worker || null;
+        setDetailWorker(nextWorker);
+        onWorkerChange?.(nextWorker);
+        setAuditEvents(Array.isArray(payload?.auditEvents) ? payload.auditEvents : []);
+        setTaskActivity(itemsFrom(payload, "taskActivity", "activityEvents", "activity"));
+      } catch (err) {
+        if (detailRequestRef.current !== requestId) return;
+        setDetailError(err?.message || "Unable to load worker details.");
+        setAuditEvents([]);
+        setTaskActivity([]);
+      } finally {
+        if (detailRequestRef.current === requestId) {
+          if (manual) {
+            setDetailRefreshing(false);
+          } else {
+            setDetailLoading(false);
+          }
+        }
+      }
+    },
+    [onWorkerChange, worker.worker_id]
+  );
 
   useEffect(() => {
-    let disposed = false;
+    setDetailWorker(null);
+    setAuditEvents([]);
+    setTaskActivity([]);
     setDetailError("");
-    pullwiseApi.system
-      .getWorker(worker.worker_id)
-      .then((payload) => {
-        if (!disposed) {
-          const nextWorker = payload?.worker || null;
-          setDetailWorker(nextWorker);
-          onWorkerChange?.(nextWorker);
-          setAuditEvents(Array.isArray(payload?.auditEvents) ? payload.auditEvents : []);
-          setTaskActivity(itemsFrom(payload, "taskActivity", "activityEvents", "activity"));
-        }
-      })
-      .catch((err) => {
-        if (!disposed) {
-          setDetailError(err?.message || "Unable to load worker details.");
-          setAuditEvents([]);
-          setTaskActivity([]);
-        }
-      });
+    loadWorkerDetail();
     return () => {
-      disposed = true;
+      detailRequestRef.current += 1;
     };
-  }, [onWorkerChange, worker.worker_id]);
+  }, [loadWorkerDetail]);
 
   const displayedWorker = mergeWorkerRecords(worker, detailWorker);
   const cleanupLifecycle = workerCleanupLifecycle(displayedWorker);
   const codexQuota = objectValue(displayedWorker.codexQuota) || objectValue(displayedWorker.codex_quota);
   const readiness = workerReadinessDetail(displayedWorker);
+  const detailBusy = detailLoading || detailRefreshing;
 
   return (
     <div className="worker-detail">
+      <div className="worker-detail-head">
+        <h3>Instance details</h3>
+        <button
+          className="btn ghost sm"
+          type="button"
+          onClick={() => loadWorkerDetail({ manual: true })}
+          disabled={detailBusy}
+          aria-label="Refresh worker details"
+        >
+          <I.Refresh size={13} className={detailRefreshing ? "spin" : ""} />
+          {detailRefreshing ? "Refreshing..." : detailLoading ? "Loading..." : "Refresh"}
+        </button>
+      </div>
       <section>
         <h3>Health</h3>
         <dl>

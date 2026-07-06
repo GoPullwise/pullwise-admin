@@ -5,6 +5,7 @@ import {
   cloneSettings,
   isPlanSettingGroup,
   SettingField,
+  settingsPayloadForGroups,
   setValueAt,
   valueAt,
 } from "./settings.jsx";
@@ -301,7 +302,7 @@ export function PlansScreen() {
     setMessage("");
     try {
       const nextPayload = await pullwiseApi.system.updateSystemConfig({
-        settings: planSettings,
+        settings: settingsPayloadForGroups(planSettings, groups),
       });
       setSystemPayload(nextPayload);
       setPlanSettings(cloneSettings(nextPayload?.settings));

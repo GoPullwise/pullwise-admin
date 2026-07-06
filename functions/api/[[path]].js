@@ -69,7 +69,17 @@ function apiOrigin(origin) {
 
 function isLoopbackHost(hostname) {
   const normalized = hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  return ["localhost", "127.0.0.1", "::1"].includes(normalized);
+  if (normalized === "localhost" || normalized === "::1") return true;
+  const parts = normalized.split(".");
+  return (
+    parts.length === 4 &&
+    parts[0] === "127" &&
+    parts.every((part) => {
+      if (!/^\d+$/.test(part)) return false;
+      const value = Number(part);
+      return value >= 0 && value <= 255;
+    })
+  );
 }
 
 async function shouldRetryCloudflare1003(response, upstreamOrigin, env) {

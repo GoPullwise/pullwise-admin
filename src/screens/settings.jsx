@@ -30,6 +30,7 @@ export function valueAt(settings, path) {
 export function setValueAt(settings, path, value) {
   const next = cloneSettings(settings);
   const segments = String(path || "").split(".").filter(Boolean);
+  if (segments.length === 0) return next;
   let current = next;
   for (const segment of segments.slice(0, -1)) {
     if (!current[segment] || typeof current[segment] !== "object" || Array.isArray(current[segment])) {
@@ -41,6 +42,22 @@ export function setValueAt(settings, path, value) {
   return next;
 }
 
+export function settingsPayloadForGroups(settings, groups, options = {}) {
+  const secrets = options.secrets || {};
+  let next = {};
+  for (const group of Array.isArray(groups) ? groups : []) {
+    for (const field of Array.isArray(group?.fields) ? group.fields : []) {
+      const path = field?.path;
+      if (!path) continue;
+      const value = valueAt(settings, path);
+      if (value === undefined) continue;
+      const savedSecret = field.type === "password" && secrets[path]?.hasValue === true;
+      if (savedSecret && textValue(value) === "") continue;
+      next = setValueAt(next, path, value);
+    }
+  }
+  return next;
+}
 export function textValue(value) {
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "boolean") return value ? "true" : "false";
@@ -442,7 +459,9 @@ export function SettingsScreen() {
     setError("");
     setMessage("");
     try {
-      const nextPayload = await pullwiseApi.system.updateSystemConfig({ settings });
+      const nextPayload = await pullwiseApi.system.updateSystemConfig({
+        settings: settingsPayloadForGroups(settings, groups, { secrets: payload?.secrets }),
+      });
       setPayload(nextPayload);
       setSettings(cloneSettings(nextPayload?.settings));
       setMessage("System config saved.");

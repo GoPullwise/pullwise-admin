@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
@@ -247,6 +247,55 @@ describe("SettingsScreen", () => {
     ).toBeInTheDocument();
   });
 
+  it("saves only visible system settings and preserves untouched saved secrets", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.updateSystemConfig.mockResolvedValue({
+      settings: {
+        scan: { maxQueuedScansGlobal: 1000, jobRetryAttempts: 2, jobLeaseSeconds: 14400 },
+        worker: { codexTimeoutSeconds: 3600 },
+        alerts: {
+          email: {
+            enabled: false,
+            to: ["ops@example.com"],
+            smtpHost: "smtp.example.com",
+            smtpPort: 465,
+            smtpUsername: "mailer",
+            smtpSsl: true,
+            smtpStarttls: false,
+          },
+        },
+      },
+      groups: [],
+    });
+
+    render(<SettingsScreen />);
+
+    await screen.findByText("System Settings");
+    await user.clear(screen.getByLabelText("Scan job retry attempts"));
+    await user.type(screen.getByLabelText("Scan job retry attempts"), "2");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.updateSystemConfig).toHaveBeenCalledTimes(1));
+    const submitted = pullwiseApi.system.updateSystemConfig.mock.calls[0][0].settings;
+    expect(submitted).toEqual({
+      scan: { maxQueuedScansGlobal: 1000, jobRetryAttempts: 2, jobLeaseSeconds: 14400 },
+      worker: { codexTimeoutSeconds: 3600 },
+      alerts: {
+        email: {
+          enabled: false,
+          to: ["ops@example.com"],
+          smtpHost: "smtp.example.com",
+          smtpPort: 465,
+          smtpUsername: "mailer",
+          smtpSsl: true,
+          smtpStarttls: false,
+        },
+      },
+    });
+    expect(submitted).not.toHaveProperty("plans");
+    expect(submitted).not.toHaveProperty("billing");
+    expect(submitted.alerts.email).not.toHaveProperty("smtpPassword");
+  });
   it("requires confirmation before restarting the Pullwise server", async () => {
     const user = userEvent.setup();
     render(<SettingsScreen />);

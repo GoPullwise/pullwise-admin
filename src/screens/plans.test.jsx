@@ -196,6 +196,19 @@ describe("PlansScreen", () => {
         })
       )
     );
+    const submitted = pullwiseApi.system.updateSystemConfig.mock.calls[0][0].settings;
+    expect(submitted).not.toHaveProperty("scan");
+    expect(submitted).not.toHaveProperty("worker");
+    expect(submitted).not.toHaveProperty("alerts");
+    expect(submitted.plans.pro).toEqual(
+      expect.objectContaining({ userReviewLimit: 75, maxRepoFiles: 1200 })
+    );
+    expect(submitted.plans.pro).not.toHaveProperty("repositoryReviewLimit");
+    expect(submitted.billing).toEqual({
+      creemProProductIds: ["prod_monthly"],
+      creemMaxProductIds: [],
+    });
+    expect(submitted.billing).not.toHaveProperty("creemTestMode");
     expect(await screen.findByText("Plan settings saved.")).toBeInTheDocument();
   });
 });

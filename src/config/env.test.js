@@ -19,6 +19,9 @@ describe("parseEnv", () => {
     expect(parseEnv({ VITE_API_BASE_URL: "http://127.0.0.1:8080" }).VITE_API_BASE_URL).toBe(
       "http://127.0.0.1:8080"
     );
+    expect(parseEnv({ VITE_API_BASE_URL: "http://127.0.0.2:8080" }).VITE_API_BASE_URL).toBe(
+      "http://127.0.0.2:8080"
+    );
   });
 
   it("rejects plaintext non-localhost API base URLs", () => {

@@ -287,8 +287,6 @@ describe("SettingsScreen", () => {
           smtpHost: "smtp.example.com",
           smtpPort: 465,
           smtpUsername: "mailer",
-          smtpSsl: true,
-          smtpStarttls: false,
         },
       },
     });

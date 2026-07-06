@@ -942,8 +942,19 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText("Worker instance deleted.")).not.toBeInTheDocument();
   });
 
-  it("keeps a worker visible when delete returns no cleanup lifecycle metadata", async () => {
+  it("keeps a worker visible across refresh when delete returns no cleanup lifecycle metadata", async () => {
     const user = userEvent.setup();
+    const command = { id: "cmd_uninstall", worker_id: "wk_1", command: "uninstall", status: "pending" };
+    pullwiseApi.system.listWorkers
+      .mockResolvedValueOnce({ workers, items: workers })
+      .mockResolvedValueOnce({ workers: [], items: [] });
+    pullwiseApi.system.getWorker
+      .mockResolvedValueOnce({ worker: workers[0], auditEvents: [], taskActivity: [] })
+      .mockResolvedValueOnce({
+        worker: { ...workers[0], enabled: false, deleted_at: null, latest_command: command },
+        auditEvents: [],
+        taskActivity: [],
+      });
     pullwiseApi.system.deleteWorker.mockResolvedValue({ deleted: true });
 
     render(<WorkersScreen />);
@@ -954,6 +965,14 @@ describe("WorkersScreen", () => {
 
     await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1"));
     expect(screen.getByText("US-East Worker")).toBeInTheDocument();
+    expect(screen.queryByText("Worker instance deleted.")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.listWorkers).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(pullwiseApi.system.getWorker).toHaveBeenCalledWith("wk_1"));
+    expect(screen.getByText("US-East Worker")).toBeInTheDocument();
+    expect(screen.getByText("Cleanup pending.")).toBeInTheDocument();
     expect(screen.queryByText("Worker instance deleted.")).not.toBeInTheDocument();
   });
 

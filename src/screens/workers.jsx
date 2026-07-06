@@ -1575,8 +1575,15 @@ export function WorkersScreen() {
           setWorkers((current) => upsertWorker(current, retainedWorker));
           setActionMessage(`${cleanupLifecycle.label}.`);
         } else if (!retainedWorker && result?.deleted === true && currentWorker) {
-          setWorkers((current) => upsertWorker(current, currentWorker));
-          setActionMessage("Worker deletion requested.");
+          const pendingWorker = {
+            ...currentWorker,
+            enabled: false,
+            cleanup_status: "pending",
+            latest_command: objectValue(currentWorker.latest_command) || { command: "uninstall", status: "pending" },
+          };
+          retainedCleanupWorkerIdsRef.current.add(String(workerId));
+          setWorkers((current) => upsertWorker(current, pendingWorker));
+          setActionMessage("Cleanup pending.");
         } else {
           retainedCleanupWorkerIdsRef.current.delete(String(workerId));
           setWorkers((current) => current.filter((worker) => worker.worker_id !== workerId));

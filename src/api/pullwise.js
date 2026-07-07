@@ -51,6 +51,8 @@ export const pullwiseApi = {
     updatePlanAgentConfig: (planId, payload = {}) =>
       request(`/admin/subscription-plans/agent-configs/${pathSegment(planId)}`, { method: "PATCH", body: payload }),
     listUsers: () => request("/admin/users"),
+    resetUserQuota: (userId) =>
+      request(`/admin/users/${pathSegment(userId)}/quota/reset`, { method: "POST", body: {} }),
     deleteUser: (userId) =>
       request(`/admin/users/${pathSegment(userId)}`, { method: "DELETE" }),
   },

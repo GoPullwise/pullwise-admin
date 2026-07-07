@@ -84,14 +84,27 @@ function subscriptionView(subscription) {
   return { label, detail: detail.join(" - "), tone };
 }
 
-function UserRow({ user, pending, onDelete }) {
+function quotaLabel(quota) {
+  if (!quota || typeof quota !== "object") return "Quota unavailable";
+  const used = Number(quota.used || 0);
+  const reserved = Number(quota.reserved || 0);
+  const limit = Number(quota.limit || 0);
+  if (!Number.isFinite(limit) || limit <= 0) return "Quota unavailable";
+  const usedText = `${Number.isFinite(used) ? used : 0}/${limit} used`;
+  return reserved > 0 && Number.isFinite(reserved) ? `Quota ${usedText}, ${reserved} reserved` : `Quota ${usedText}`;
+}
+
+function UserRow({ user, pendingDelete, pendingReset, onDelete, onReset }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const userId = textValue(user.id);
   const name = textValue(user.name, user.githubLogin || user.email || userId);
   const email = textValue(user.email);
   const githubLogin = textValue(user.githubLogin);
   const subscription = subscriptionView(user.subscription);
-  const busy = pending === userId;
+  const quota = quotaLabel(user.quota);
+  const deleting = pendingDelete === userId;
+  const resetting = pendingReset === userId;
+  const busy = deleting || resetting;
 
   return (
     <article className="user-row">
@@ -114,6 +127,7 @@ function UserRow({ user, pending, onDelete }) {
       <div className="user-meta">
         <span className={`subscription-pill ${subscription.tone}`}>{subscription.label}</span>
         {subscription.detail && <span>{subscription.detail}</span>}
+        <span>{quota}</span>
         <span>{user.repositoryCount || 0} repos</span>
         <span>{user.scanCount || 0} scans</span>
         <span>{user.issueCount || 0} issues</span>
@@ -122,6 +136,14 @@ function UserRow({ user, pending, onDelete }) {
       <div className="user-actions">
         {user.admin && <span className="pill">Admin</span>}
         {user.current && <span className="pill">Current</span>}
+        <button
+          className="btn sm"
+          type="button"
+          disabled={busy}
+          onClick={() => onReset(userId)}
+        >
+          <I.Refresh size={13} /> {resetting ? "Resetting..." : "Reset quota"}
+        </button>
         <button
           className="btn sm danger"
           type="button"
@@ -147,6 +169,7 @@ export function UsersScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [pendingDelete, setPendingDelete] = useState("");
+  const [pendingReset, setPendingReset] = useState("");
   const [actionMessage, setActionMessage] = useState("");
 
   const loadUsers = useCallback(async () => {
@@ -177,6 +200,25 @@ export function UsersScreen() {
     [users]
   );
 
+  const resetUserQuota = async (userId) => {
+    setPendingReset(userId);
+    setActionMessage("");
+    try {
+      const payload = await pullwiseApi.system.resetUserQuota(userId);
+      setUsers((current) =>
+        current.map((user) => {
+          if (user.id !== userId) return user;
+          if (payload?.user) return payload.user;
+          return { ...user, quota: payload?.quota || user.quota };
+        })
+      );
+      setActionMessage("User quota was reset.");
+    } catch (err) {
+      setActionMessage(err?.message || "Quota reset failed.");
+    } finally {
+      setPendingReset("");
+    }
+  };
   const deleteUser = async (userId) => {
     setPendingDelete(userId);
     setActionMessage("");
@@ -238,7 +280,14 @@ export function UsersScreen() {
           <div className="empty">No authorized users found.</div>
         ) : (
           users.map((user) => (
-            <UserRow key={user.id} user={user} pending={pendingDelete} onDelete={deleteUser} />
+            <UserRow
+              key={user.id}
+              user={user}
+              pendingDelete={pendingDelete}
+              pendingReset={pendingReset}
+              onDelete={deleteUser}
+              onReset={resetUserQuota}
+            />
           ))
         )}
       </section>

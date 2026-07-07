@@ -8,6 +8,7 @@ vi.mock("../api/pullwise.js", () => ({
   pullwiseApi: {
     system: {
       listUsers: vi.fn(),
+      resetUserQuota: vi.fn(),
       deleteUser: vi.fn(),
     },
   },
@@ -27,6 +28,7 @@ describe("UsersScreen", () => {
           repositoryCount: 1,
           scanCount: 3,
           issueCount: 2,
+          quota: { scope: "user", used: 1, reserved: 0, limit: 70, remaining: 69 },
           subscription: {
             provider: "creem",
             status: "active",
@@ -44,6 +46,7 @@ describe("UsersScreen", () => {
           repositoryCount: 2,
           scanCount: 4,
           issueCount: 5,
+          quota: { scope: "user", used: 4, reserved: 1, limit: 90, remaining: 85 },
           subscription: {
             provider: "creem",
             status: "active",
@@ -54,6 +57,28 @@ describe("UsersScreen", () => {
           },
         },
       ],
+    });
+    pullwiseApi.system.resetUserQuota.mockResolvedValue({
+      reset: true,
+      quota: { scope: "user", used: 0, reserved: 0, limit: 90, remaining: 90 },
+      user: {
+        id: "usr_user",
+        name: "Authorized User",
+        email: "user@example.com",
+        githubLogin: "authorized",
+        repositoryCount: 2,
+        scanCount: 4,
+        issueCount: 5,
+        quota: { scope: "user", used: 0, reserved: 0, limit: 90, remaining: 90 },
+        subscription: {
+          provider: "creem",
+          status: "active",
+          plan: "max",
+          effectivePlan: "max",
+          interval: "month",
+          currentPeriodEnd: 4102444800,
+        },
+      },
     });
     pullwiseApi.system.deleteUser.mockResolvedValue({ deleted: true });
   });
@@ -67,6 +92,7 @@ describe("UsersScreen", () => {
     expect(screen.getByText("Max Active")).toBeInTheDocument();
     expect(screen.getByText(/Yearly/)).toBeInTheDocument();
     expect(screen.getByText(/Monthly/)).toBeInTheDocument();
+    expect(screen.getByText("Quota 4/90 used, 1 reserved")).toBeInTheDocument();
     expect(screen.getByText("2 repos")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /delete user/i })[0]).toBeDisabled();
   });
@@ -78,6 +104,19 @@ describe("UsersScreen", () => {
 
     expect(await screen.findByRole("alert")).toHaveTextContent("users down");
     expect(screen.queryByText("No authorized users found.")).not.toBeInTheDocument();
+  });
+
+  it("resets a user quota from the row action", async () => {
+    const user = userEvent.setup();
+    render(<UsersScreen />);
+
+    await screen.findByText("Authorized User");
+    await user.click(screen.getAllByRole("button", { name: /reset quota/i })[1]);
+
+    await waitFor(() => expect(pullwiseApi.system.resetUserQuota).toHaveBeenCalledWith("usr_user"));
+    expect(screen.getByText("Quota 0/90 used")).toBeInTheDocument();
+    expect(screen.queryByText("Quota 4/90 used, 1 reserved")).not.toBeInTheDocument();
+    expect(screen.getByText(/user quota was reset/i)).toBeInTheDocument();
   });
 
   it("deletes a user after confirmation", async () => {

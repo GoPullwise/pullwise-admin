@@ -1,16 +1,16 @@
 # pullwise-admin
 
-Separate Pullwise admin frontend for worker management.
+Separate Pullwise admin frontend for Pullwise operations.
 
-The admin app has one flow:
+The admin app signs in through the Pullwise server, reads `/auth/session`, and
+only enters the console when the session is authenticated with `admin: true`.
+It currently includes worker management, worker release/defaults, plan and agent
+policy settings, general system configuration, user administration, server
+metrics, server restart, and server/worker log streams through existing
+`/admin/*` server endpoints.
 
-1. Sign in with GitHub through the Pullwise server.
-2. Read `/auth/session`.
-3. Enter the workers dashboard only when the session is authenticated and `admin: true`.
-4. Manage workers through the existing `/admin/workers*` server endpoints.
-
-The app does not store GitHub OAuth secrets or the admin allowlist. Those stay on
-`pullwise-server`.
+The app does not store GitHub OAuth secrets, billing secrets, SMTP passwords, or
+the admin allowlist. Those stay on `pullwise-server`.
 
 ## Local Development
 
@@ -46,6 +46,9 @@ Cloudflare Worker variable:
 
 ```bash
 PULLWISE_API_ORIGIN=https://api.pull-wise.com
+# Optional read-only fallback for Cloudflare 1003 responses on GET/HEAD requests
+# without cookies, Authorization, or X-Pullwise-Api-Key.
+PULLWISE_API_FALLBACK_ORIGIN=https://api-fallback.pull-wise.com
 ```
 
 For this proxy mode, keep `/api` as a browser-facing admin Worker prefix only.
@@ -72,8 +75,10 @@ Cloudflare challenge failures on the OAuth start request. The admin Worker
 strips the browser `/api` prefix before forwarding to `PULLWISE_API_ORIGIN` and
 does not forward `X-Forwarded-Prefix`.
 
-`PULLWISE_API_ORIGIN` is read by `worker.js` or `functions/api/[[path]].js` at
-runtime. It is not browser-exposed Vite config.
+`PULLWISE_API_ORIGIN` and optional `PULLWISE_API_FALLBACK_ORIGIN` are read by
+`worker.js` or `functions/api/[[path]].js` at runtime. They are not
+browser-exposed Vite config. The fallback is only used for unauthenticated
+GET/HEAD requests when the primary upstream returns a Cloudflare 1003 page.
 
 ## Server Configuration
 

@@ -26,7 +26,7 @@ export async function onRequest(context) {
     redirect: "manual",
   };
   let response = await fetchUpstream(targetUrl, init);
-  if (await shouldRetryCloudflare1003(response, upstreamOrigin, context.env)) {
+  if (await shouldRetryCloudflare1003(response, upstreamOrigin, context.env, context.request)) {
     const fallbackOrigin = apiOrigin(context.env.PULLWISE_API_FALLBACK_ORIGIN || "");
     response = await fetchUpstream(new URL(backendPathWithSearch, fallbackOrigin), init);
   }
@@ -82,10 +82,11 @@ function isLoopbackHost(hostname) {
   );
 }
 
-async function shouldRetryCloudflare1003(response, upstreamOrigin, env) {
+async function shouldRetryCloudflare1003(response, upstreamOrigin, env, request) {
   if (response.status !== 403) return false;
   const fallbackOrigin = apiOrigin(env.PULLWISE_API_FALLBACK_ORIGIN || "");
   if (!fallbackOrigin || fallbackOrigin.origin === upstreamOrigin.origin) return false;
+  if (!canRetryFallback(request)) return false;
   const contentType = response.headers.get("content-type") || "";
   if (!contentType.includes("text/html") && !contentType.includes("text/plain")) return false;
   try {
@@ -93,6 +94,15 @@ async function shouldRetryCloudflare1003(response, upstreamOrigin, env) {
   } catch {
     return false;
   }
+}
+
+function canRetryFallback(request) {
+  if (!["GET", "HEAD"].includes(request.method.toUpperCase())) return false;
+  return !hasCredentialHeaders(request.headers);
+}
+
+function hasCredentialHeaders(headers) {
+  return ["authorization", "cookie", "x-pullwise-api-key"].some((name) => headers.has(name));
 }
 
 function hasBody(method) {

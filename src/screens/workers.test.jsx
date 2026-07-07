@@ -408,6 +408,7 @@ describe("WorkersScreen", () => {
 
   it("renders fresher health fields from the worker detail endpoint", async () => {
     const user = userEvent.setup();
+    const staleHeartbeatSeconds = Date.UTC(2026, 5, 8, 10, 0, 0) / 1000;
     const heartbeatSeconds = Date.UTC(2026, 5, 9, 10, 0, 0) / 1000;
     const formattedHeartbeat = new Date(heartbeatSeconds * 1000).toLocaleString(undefined, {
       month: "short",
@@ -415,11 +416,23 @@ describe("WorkersScreen", () => {
       hour: "2-digit",
       minute: "2-digit",
     });
+    const staleListWorker = {
+      ...workers[0],
+      status: "idle",
+      hostname: "list-host",
+      last_heartbeat_at: staleHeartbeatSeconds,
+      latest_command: { command: "uninstall", status: "pending" },
+    };
+    pullwiseApi.system.listWorkers.mockResolvedValueOnce({ workers: [staleListWorker], items: [staleListWorker] });
     pullwiseApi.system.getWorker.mockResolvedValue({
       worker: {
         ...workers[0],
+        status: "degraded",
+        doctor_status: "failed",
+        last_error: "Missing Codex token",
         hostname: "detail-host",
         last_heartbeat_at: heartbeatSeconds,
+        latest_command: { command: "uninstall", status: "failed" },
       },
       auditEvents: [],
       taskActivity: [],
@@ -430,7 +443,10 @@ describe("WorkersScreen", () => {
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
 
     expect(await screen.findByText("detail-host")).toBeInTheDocument();
+    expect(screen.queryByText("list-host")).not.toBeInTheDocument();
     expect(screen.getByText(formattedHeartbeat)).toBeInTheDocument();
+    expect(screen.getByText("Missing Codex token")).toBeInTheDocument();
+    expect(screen.getByText(/Delete instance.*Failed/)).toBeInTheDocument();
     expect(screen.queryByText(String(heartbeatSeconds))).not.toBeInTheDocument();
   });
 

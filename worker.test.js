@@ -112,6 +112,30 @@ describe("admin Cloudflare worker proxy", () => {
     expect(fetchMock).toHaveBeenNthCalledWith(2, new URL("https://fallback.example.com/auth/session"), expect.any(Object));
   });
 
+  it("does not retry Worker fallback origins for credentialed Cloudflare 1003 requests", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("<html>error code: 1003</html>", {
+        status: 403,
+        headers: { "content-type": "text/html" },
+      })
+    );
+    globalThis.fetch = fetchMock;
+
+    const response = await proxyApiRequest(
+      new Request("https://admin.pull-wise.com/api/auth/session", {
+        headers: { cookie: "pw_session=secret", authorization: "Bearer secret" },
+      }),
+      {
+        PULLWISE_API_ORIGIN: "https://198.51.100.10",
+        PULLWISE_API_FALLBACK_ORIGIN: "https://fallback.example.com",
+      },
+      new URL("https://admin.pull-wise.com/api/auth/session")
+    );
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("does not retry Cloudflare 1003 without a fallback API origin", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response("error code: 1003", {
@@ -173,6 +197,29 @@ describe("admin Cloudflare worker proxy", () => {
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenNthCalledWith(1, new URL("https://198.51.100.10/auth/session"), expect.any(Object));
     expect(fetchMock).toHaveBeenNthCalledWith(2, new URL("https://fallback.example.com/auth/session"), expect.any(Object));
+  });
+
+  it("does not retry Pages fallback origins for credentialed Cloudflare 1003 requests", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response("error code: 1003", {
+        status: 403,
+        headers: { "content-type": "text/plain" },
+      })
+    );
+    globalThis.fetch = fetchMock;
+
+    const response = await pagesApiOnRequest({
+      request: new Request("https://admin.pull-wise.com/api/auth/session", {
+        headers: { cookie: "pw_session=secret", "x-pullwise-api-key": "pwk_secret" },
+      }),
+      env: {
+        PULLWISE_API_ORIGIN: "https://198.51.100.10",
+        PULLWISE_API_FALLBACK_ORIGIN: "https://fallback.example.com",
+      },
+    });
+
+    expect(response.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("allows loopback HTTP upstreams for local Worker preview", async () => {

@@ -104,7 +104,7 @@ function cleanupStatusTone(status) {
 
 function mergeWorkerRecords(worker, detailWorker) {
   if (!detailWorker) return worker;
-  const merged = { ...detailWorker, ...worker };
+  const merged = { ...worker, ...detailWorker };
   for (const key of ["codexQuota", "codex_quota", "machineMetrics", "machine_metrics"]) {
     if (hasOwn(detailWorker, key)) {
       merged[key] = detailWorker[key];
@@ -113,7 +113,7 @@ function mergeWorkerRecords(worker, detailWorker) {
   const workerCommand = latestWorkerCommand(worker);
   const detailCommand = latestWorkerCommand(detailWorker);
   if (workerCommand || detailCommand) {
-    merged.latest_command = workerCommand || detailCommand;
+    merged.latest_command = detailCommand || workerCommand;
   }
   return merged;
 }

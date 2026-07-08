@@ -68,8 +68,10 @@ not introduce a workspace concept when editing plan, quota, worker, or provider
 admin flows.
 
 - Plans are `free`, `pro`, and `max`.
-- Plan quota fields represent account/user scan quota and repository scan
-  quota, not workspace quota.
+- Plan quota fields represent account/user scan quota, not workspace quota.
+- Repository scan quota is configured once as a global monthly quota, not per
+  subscription plan. Keep it in the plan/business settings area, but do not add
+  admin actions that reset repository quota.
 - Review agent policy is plan-scoped and should preserve a single provider plus
   Codex-specific settings:
   - Codex: model and reasoning effort.

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
 
-const PLAN_SETTING_GROUP_IDS = new Set(["plans", "billing"]);
+const PLAN_SETTING_GROUP_IDS = new Set(["plans", "quota", "billing"]);
 const RESTART_CONFIRM_TIMEOUT_MS = 10000;
 
 const SUGGESTED_DEFAULTS = {

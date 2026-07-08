@@ -22,6 +22,7 @@ describe("SettingsScreen", () => {
       settings: {
         plans: { pro: { userReviewLimit: 60 } },
         billing: { creemProProductIds: ["prod_monthly"] },
+        quota: { repositoryReviewLimit: 1000 },
         scan: {
           maxQueuedScansGlobal: 1000,
           jobRetryAttempts: 1,
@@ -58,6 +59,17 @@ describe("SettingsScreen", () => {
           ],
         },
         {
+          id: "quota",
+          title: "Repository quota",
+          description: "Global repository quota.",
+          fields: [
+            {
+              path: "quota.repositoryReviewLimit",
+              label: "Repository monthly review limit",
+              type: "integer",
+            },
+          ],
+        },        {
           id: "billing",
           title: "Billing catalog",
           description: "Plan products.",
@@ -197,6 +209,7 @@ describe("SettingsScreen", () => {
     expect(await screen.findByText("System Settings")).toBeInTheDocument();
     expect(screen.queryByText("Plan quotas")).not.toBeInTheDocument();
     expect(screen.queryByText("Billing catalog")).not.toBeInTheDocument();
+    expect(screen.queryByText("Repository quota")).not.toBeInTheDocument();
     expect(screen.getByText("Scan scheduling")).toBeInTheDocument();
     expect(screen.getByText("Worker control plane")).toBeInTheDocument();
     expect(screen.getByText("Operational alerts")).toBeInTheDocument();

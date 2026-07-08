@@ -30,9 +30,9 @@ const proPlan = {
 const systemConfigPayload = {
   settings: {
     plans: {
-      free: { userReviewLimit: 5, repositoryReviewLimit: 5, maxRepoFiles: 200, maxRepoBytes: 5 * 1024 * 1024 },
-      pro: { userReviewLimit: 60, repositoryReviewLimit: 60, maxRepoFiles: 1000, maxRepoBytes: 20 * 1024 * 1024 },
-      max: { userReviewLimit: 90, repositoryReviewLimit: 90, maxRepoFiles: 2000, maxRepoBytes: 50 * 1024 * 1024 },
+      free: { userReviewLimit: 5, maxRepoFiles: 200, maxRepoBytes: 5 * 1024 * 1024 },
+      pro: { userReviewLimit: 60, maxRepoFiles: 1000, maxRepoBytes: 20 * 1024 * 1024 },
+      max: { userReviewLimit: 90, maxRepoFiles: 2000, maxRepoBytes: 50 * 1024 * 1024 },
     },
     billing: {
       creemProProductIds: ["prod_monthly"],
@@ -40,6 +40,7 @@ const systemConfigPayload = {
       creemTestMode: false,
       creemUpgradeBehavior: "proration-charge-immediately",
     },
+    quota: { repositoryReviewLimit: 1000 },
     scan: { maxQueuedScansGlobal: 1000 },
   },
   defaults: {
@@ -62,6 +63,14 @@ const systemConfigPayload = {
         { path: "plans.pro.maxRepoBytes", label: "Pro repository byte limit", type: "integer", min: 1 },
         { path: "plans.max.maxRepoFiles", label: "Max repository file limit", type: "integer", min: 1 },
         { path: "plans.max.maxRepoBytes", label: "Max repository byte limit", type: "integer", min: 1 },
+      ],
+    },
+    {
+      id: "quota",
+      title: "Repository quota",
+      description: "Global monthly repository scan quota.",
+      fields: [
+        { path: "quota.repositoryReviewLimit", label: "Repository monthly review limit", type: "integer", min: 0 },
       ],
     },
     {
@@ -171,18 +180,22 @@ describe("PlansScreen", () => {
     expect(await screen.findByText("Plan Settings")).toBeInTheDocument();
     expect(screen.getByText("Plan quotas")).toBeInTheDocument();
     expect(screen.getByText("Billing catalog")).toBeInTheDocument();
+    expect(screen.getByText("Repository quota")).toBeInTheDocument();
     expect(screen.queryByText("Scan scheduling")).not.toBeInTheDocument();
     expect(screen.getByText("Plan Agent Configs")).toBeInTheDocument();
     expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Pro user review limit")).toHaveValue(60);
     expect(screen.getByLabelText("Pro repository file limit")).toHaveValue(1000);
     expect(screen.getByLabelText("Pro repository byte limit")).toHaveValue(20 * 1024 * 1024);
+    expect(screen.getByLabelText("Repository monthly review limit")).toHaveValue(1000);
     expect(screen.getByLabelText("Creem Pro product IDs")).toHaveValue("prod_monthly");
 
     await user.clear(screen.getByLabelText("Pro user review limit"));
     await user.type(screen.getByLabelText("Pro user review limit"), "75");
     await user.clear(screen.getByLabelText("Pro repository file limit"));
     await user.type(screen.getByLabelText("Pro repository file limit"), "1200");
+    await user.clear(screen.getByLabelText("Repository monthly review limit"));
+    await user.type(screen.getByLabelText("Repository monthly review limit"), "1500");
     await user.click(screen.getByRole("button", { name: /save plan settings/i }));
 
     await waitFor(() =>
@@ -204,6 +217,7 @@ describe("PlansScreen", () => {
       expect.objectContaining({ userReviewLimit: 75, maxRepoFiles: 1200 })
     );
     expect(submitted.plans.pro).not.toHaveProperty("repositoryReviewLimit");
+    expect(submitted.quota).toEqual({ repositoryReviewLimit: 1500 });
     expect(submitted.billing).toEqual({
       creemProProductIds: ["prod_monthly"],
       creemMaxProductIds: [],

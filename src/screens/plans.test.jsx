@@ -216,7 +216,7 @@ describe("PlansScreen", () => {
     expect(submitted.plans.pro).toEqual(
       expect.objectContaining({ userReviewLimit: 75, maxRepoFiles: 1200 })
     );
-    expect(submitted.plans.pro).not.toHaveProperty("repositoryReviewLimit");
+    expect(Object.keys(submitted.plans.pro).some((key) => key.toLowerCase().includes("repository") && key.toLowerCase().includes("reviewlimit"))).toBe(false);
     expect(submitted.quota).toEqual({ repositoryReviewLimit: 1500 });
     expect(submitted.billing).toEqual({
       creemProProductIds: ["prod_monthly"],

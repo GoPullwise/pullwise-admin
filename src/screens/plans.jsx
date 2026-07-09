@@ -55,7 +55,6 @@ function formFromPlan(plan) {
     id,
     name: textValue(plan?.name, titleCase(id)),
     reviewLimit: plan?.reviewLimit ?? "",
-    codexCli: textValue(codex.cli || codex.command, "codex"),
     codexModel: textValue(codex.model, "gpt-5.5"),
     codexReasoningEffort: effortValue(codex.reasoningEffort),
     turnTimeoutSeconds: numberText(reviewWorker.turnTimeoutSeconds, 3600),
@@ -67,7 +66,6 @@ function formFromPlan(plan) {
 function payloadFromForm(form) {
   return {
     codex: {
-      cli: form.codexCli,
       model: form.codexModel,
       reasoningEffort: form.codexReasoningEffort,
     },
@@ -153,18 +151,10 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
         <div className="plan-agent-config-head">
           <h3>Codex</h3>
           <p>
-            Plan-level CLI, model, and reasoning effort policy sent to worker
-            jobs.
+            Plan-level model and reasoning effort policy sent to worker jobs.
           </p>
         </div>
         <div className="form-grid">
-          <TextField
-            label="CLI"
-            ariaLabel={`${form.name} Codex CLI`}
-            value={form.codexCli}
-            onChange={(value) => onChange(form.id, "codexCli", value)}
-            description="Codex CLI label for this plan."
-          />
           <TextField
             label="Model"
             ariaLabel={`${form.name} Codex model`}
@@ -433,8 +423,7 @@ export function PlansScreen() {
             <div>
               <h2>Plan Agent Configs</h2>
               <p>
-                Codex CLI, model, and reasoning effort settings sent to workers
-                for each plan.
+                Codex model and reasoning effort settings sent to workers for each plan.
               </p>
             </div>
           </div>

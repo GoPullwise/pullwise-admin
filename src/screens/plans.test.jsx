@@ -104,14 +104,14 @@ describe("PlansScreen", () => {
     expect(await screen.findByText("Plan Agent Configs")).toBeInTheDocument();
     const card = (await screen.findByText("Pro")).closest(".plan-config-card");
     expect(within(card).getByText("60 scans")).toBeInTheDocument();
-    expect(screen.getByLabelText("Pro Codex CLI")).toHaveValue("codex");
+    expect(screen.queryByLabelText("Pro Codex CLI")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Pro Codex effort")).toHaveValue("medium");
     expect(screen.getByLabelText("Pro Codex turn timeout seconds")).toHaveValue("3600");
     expect(screen.getByLabelText("Pro Scan deadline seconds")).toHaveValue("14400");
   });
 
-  it("saves edited CLI, model, reasoning effort, and timeouts for a plan", async () => {
+  it("saves edited model, reasoning effort, and timeouts for a plan", async () => {
     const user = userEvent.setup();
     const updatedPlan = {
       ...proPlan,
@@ -119,8 +119,6 @@ describe("PlansScreen", () => {
         ...proPlan.agentConfig,
         codex: {
           ...proPlan.agentConfig.codex,
-          cli: "codex-pro",
-          command: "codex-pro",
           model: "gpt-pro",
           reasoningEffort: "high",
         },
@@ -134,8 +132,6 @@ describe("PlansScreen", () => {
     render(<PlansScreen />);
 
     await screen.findByText("Pro");
-    await user.clear(screen.getByLabelText("Pro Codex CLI"));
-    await user.type(screen.getByLabelText("Pro Codex CLI"), "codex-pro");
     await user.clear(screen.getByLabelText("Pro Codex model"));
     await user.type(screen.getByLabelText("Pro Codex model"), "gpt-pro");
     await user.selectOptions(screen.getByLabelText("Pro Codex effort"), "high");
@@ -147,7 +143,7 @@ describe("PlansScreen", () => {
 
     await waitFor(() => expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalled());
     expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith("pro", {
-      codex: { cli: "codex-pro", model: "gpt-pro", reasoningEffort: "high" },
+      codex: { model: "gpt-pro", reasoningEffort: "high" },
       reviewWorker: { turnTimeoutSeconds: 3600, scanDeadlineSeconds: 14400 },
     });
     expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();

@@ -1,4 +1,4 @@
-﻿# Pullwise Admin Agent Notes
+# Pullwise Admin Agent Notes
 
 ## Worker Deployment Assumptions
 
@@ -77,7 +77,7 @@ admin flows.
   - Codex: model and reasoning effort.
 - Admin worker install payloads should preserve provider chain order and should
   not imply that global Codex config is shared across workers.
-- Do not expose Codex CLI release/version pinning in the worker registration UI or payload; worker installers use their server-owned default path and SDK-based device login.
+- Do not expose Codex CLI command/release/version pinning in worker registration UI, plan policy UI, or payloads; default worker automation uses the `openai-codex` SDK pinned runtime and SDK-based device login.
 - Do not expose old Codex app-server lifecycle controls in worker registration UI or payloads. SDK-based workers should not receive `PULLWISE_CODEX_APP_SERVER_MAX_AGE_SECONDS` or `PULLWISE_CODEX_APP_SERVER_MAX_TURNS` from admin flows.
 
 ## Review Worker Protocol And Copy

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+﻿import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
@@ -190,8 +190,6 @@ describe("WorkersScreen", () => {
       provider: "codex",
       providerChain: ["codex"],
       region: "eu-west",
-      codexUseLatest: true,
-      codexVersion: "",
     });
     expect(payload).not.toHaveProperty("max_concurrent_jobs");
     expect(payload).not.toHaveProperty("provider_chain");
@@ -213,28 +211,8 @@ describe("WorkersScreen", () => {
 
     await user.click(await screen.findByRole("button", { name: /register worker/i }));
     expect(screen.queryByText("Agent CLI")).not.toBeInTheDocument();
-    expect(screen.getByText("Use latest Codex CLI")).toBeInTheDocument();
-  });
-
-  it("can pin the Codex CLI release when creating a worker", async () => {
-    const user = userEvent.setup();
-    pullwiseApi.system.createWorker.mockResolvedValue({
-      worker: { worker_id: "wk_new", name: "Pinned Worker" },
-      worker_token: "pwk_once",
-    });
-
-    render(<WorkersScreen />);
-
-    await user.click(await screen.findByRole("button", { name: /register worker/i }));
-    await user.click(screen.getByRole("checkbox", { name: /use latest codex cli/i }));
-    await user.type(screen.getByLabelText(/codex cli version/i), "0.13.0");
-    await user.click(screen.getByRole("button", { name: /^create worker$/i }));
-
-    await waitFor(() =>
-      expect(pullwiseApi.system.createWorker).toHaveBeenCalledWith(
-        expect.objectContaining({ codexUseLatest: false, codexVersion: "0.13.0" })
-      )
-    );
+    expect(screen.queryByText("Use latest Codex CLI")).not.toBeInTheDocument();
+    expect(screen.queryByText("Codex CLI version")).not.toBeInTheDocument();
   });
 
   it("defaults the create worker version to the latest release while keeping it editable", async () => {
@@ -1074,3 +1052,6 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText(/unsupported\.sh/)).not.toBeInTheDocument();
   });
 });
+
+
+

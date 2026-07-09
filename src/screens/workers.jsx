@@ -110,6 +110,12 @@ function mergeWorkerRecords(worker, detailWorker) {
       merged[key] = detailWorker[key];
     }
   }
+  if (!hasOwn(merged, "machineMetrics") && hasOwn(merged, "machine_metrics")) {
+    merged.machineMetrics = merged.machine_metrics;
+  }
+  if (!hasOwn(merged, "codexQuota") && hasOwn(merged, "codex_quota")) {
+    merged.codexQuota = merged.codex_quota;
+  }
   const workerCommand = latestWorkerCommand(worker);
   const detailCommand = latestWorkerCommand(detailWorker);
   if (workerCommand || detailCommand) {
@@ -1144,7 +1150,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
             <div>
               <dt>Command</dt>
               <dd>
-                {commandLabel(displayedWorker.latest_command.command)} 璺?{statusLabel(displayedWorker.latest_command.status)}
+                {commandLabel(displayedWorker.latest_command.command)} / {statusLabel(displayedWorker.latest_command.status)}
               </dd>
             </div>
           )}
@@ -1176,7 +1182,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
         )}
       </section>
       <WorkerCodexQuota quota={codexQuota} />
-      <WorkerMachineMetrics metrics={displayedWorker.machineMetrics} />
+      <WorkerMachineMetrics metrics={displayedWorker.machineMetrics || displayedWorker.machine_metrics} />
       <WorkerActivity activity={taskActivity} error={detailError} />
       <LogStreamPanel source="worker" workerId={displayedWorker.worker_id} title="Worker logs" />
     </div>

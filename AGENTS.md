@@ -99,6 +99,10 @@ telemetry (`codexQuota` / `codex_quota`) from v1 heartbeats. Keep quota-exhauste
 or quota-low states distinct from offline, auth-missing, and generic
 misconfigured worker states when editing worker detail/list/status UI.
 
+Worker detail APIs may return canonical camelCase fields or server/DB snake_case
+fields such as `machineMetrics` / `machine_metrics` and `codexQuota` /
+`codex_quota`. Normalize or preserve both shapes before rendering detail panels.
+
 ## Admin Scale And Worker Status
 
 Admin worker/status views must handle large worker and scan counts.

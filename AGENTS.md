@@ -78,6 +78,7 @@ admin flows.
 - Admin worker install payloads should preserve provider chain order and should
   not imply that global Codex config is shared across workers.
 - Do not expose Codex CLI release/version pinning in the worker registration UI or payload; worker installers use their server-owned default path and SDK-based device login.
+- Do not expose old Codex app-server lifecycle controls in worker registration UI or payloads. SDK-based workers should not receive `PULLWISE_CODEX_APP_SERVER_MAX_AGE_SECONDS` or `PULLWISE_CODEX_APP_SERVER_MAX_TURNS` from admin flows.
 
 ## Review Worker Protocol And Copy
 

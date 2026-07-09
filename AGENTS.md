@@ -1,4 +1,4 @@
-# Pullwise Admin Agent Notes
+﻿# Pullwise Admin Agent Notes
 
 ## Worker Deployment Assumptions
 
@@ -77,6 +77,7 @@ admin flows.
   - Codex: model and reasoning effort.
 - Admin worker install payloads should preserve provider chain order and should
   not imply that global Codex config is shared across workers.
+- Do not expose Codex CLI release/version pinning in the worker registration UI or payload; worker installers use their server-owned default path and SDK-based device login.
 
 ## Review Worker Protocol And Copy
 
@@ -116,3 +117,4 @@ Admin worker/status views must handle large worker and scan counts.
 - Do not expose worker host internals, last errors, or machine metrics in
   non-admin/public status surfaces. Admin pages may display them only from
   authenticated admin endpoints.
+

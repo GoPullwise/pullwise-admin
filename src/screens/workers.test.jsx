@@ -424,7 +424,8 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText("list-host")).not.toBeInTheDocument();
     expect(screen.getByText(formattedHeartbeat)).toBeInTheDocument();
     expect(screen.getByText("Missing Codex token")).toBeInTheDocument();
-    expect(screen.getByText(/Delete instance.*Failed/)).toBeInTheDocument();
+    expect(screen.getByText("Delete instance / Failed")).toBeInTheDocument();
+    expect(screen.queryByText("璺?")).not.toBeInTheDocument();
     expect(screen.queryByText(String(heartbeatSeconds))).not.toBeInTheDocument();
   });
 
@@ -467,6 +468,29 @@ describe("WorkersScreen", () => {
     expect(screen.getByRole("img", { name: /worker storage usage over time/i })).toBeInTheDocument();
   });
 
+  it("renders worker machine metrics from snake_case detail payloads", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.getWorker.mockResolvedValue({
+      worker: {
+        ...workers[0],
+        machine_metrics: {
+          collectedAt: 1781200060,
+          memory: { totalBytes: 8589934592, usedBytes: 5368709120, usedPercent: 62.5 },
+          storage: { totalBytes: 107374182400, usedBytes: 42949672960, usedPercent: 40.0 },
+        },
+      },
+      auditEvents: [],
+      taskActivity: [],
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    expect(await screen.findByText("Machine metrics")).toBeInTheDocument();
+    expect(screen.getByText("62.5%")).toBeInTheDocument();
+    expect(screen.getByText("40%")).toBeInTheDocument();
+  });
   it("renders worker Codex quota windows", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.getWorker.mockResolvedValue({
@@ -1052,6 +1076,7 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText(/unsupported\.sh/)).not.toBeInTheDocument();
   });
 });
+
 
 
 

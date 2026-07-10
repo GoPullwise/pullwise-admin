@@ -1361,6 +1361,7 @@ export function WorkersScreen() {
     nextOffset: null,
   });
   const [workerSummary, setWorkerSummary] = useState(null);
+  const refreshingRef = useRef(false);
   const latestReleaseRef = useRef("");
   const retainedCleanupWorkerIdsRef = useRef(new Set());
 
@@ -1463,10 +1464,13 @@ export function WorkersScreen() {
   }, []);
 
   const refreshWorkers = useCallback(async () => {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
     setRefreshing(true);
     try {
       await Promise.all([loadWorkers(), loadWorkerDefaults({ refresh: true })]);
     } finally {
+      refreshingRef.current = false;
       setRefreshing(false);
     }
   }, [loadWorkerDefaults, loadWorkers]);
@@ -1623,22 +1627,22 @@ export function WorkersScreen() {
       <LogStreamPanel source="server" title="Server logs" />
 
       <section className="kpis" aria-label="Worker summary">
-        <div className="kpi">
+        <article className="kpi">
           <strong>{summary.total}</strong>
           <span>Total workers</span>
-        </div>
-        <div className="kpi">
+        </article>
+        <article className="kpi">
           <strong>{summary.active}</strong>
           <span>Active</span>
-        </div>
-        <div className="kpi">
+        </article>
+        <article className="kpi">
           <strong>{summary.degraded}</strong>
           <span>Degraded</span>
-        </div>
-        <div className="kpi">
+        </article>
+        <article className="kpi">
           <strong>{summary.disabled}</strong>
           <span>Disabled</span>
-        </div>
+        </article>
       </section>
 
       <section className="worker-list">

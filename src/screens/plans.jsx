@@ -41,9 +41,31 @@ function numberText(value, fallback) {
   return Number.isFinite(number) ? String(number) : String(fallback);
 }
 
-function integerPayload(value, fallback) {
-  const number = Number.parseInt(value, 10);
-  return Number.isFinite(number) ? number : fallback;
+function integerFieldValue(value) {
+  const raw = String(value ?? "").trim();
+  if (!/^-?\d+$/.test(raw)) return null;
+  const number = Number(raw);
+  return Number.isSafeInteger(number) ? number : null;
+}
+
+function planFormValidationError(form) {
+  const turnTimeoutSeconds = integerFieldValue(form.turnTimeoutSeconds);
+  if (
+    turnTimeoutSeconds === null ||
+    turnTimeoutSeconds < 60 ||
+    turnTimeoutSeconds > 3600
+  ) {
+    return "Codex turn timeout must be an integer between 60 and 3600 seconds.";
+  }
+  const scanDeadlineSeconds = integerFieldValue(form.scanDeadlineSeconds);
+  if (
+    scanDeadlineSeconds === null ||
+    scanDeadlineSeconds < 0 ||
+    scanDeadlineSeconds > 21600
+  ) {
+    return "Scan deadline must be an integer between 0 and 21600 seconds.";
+  }
+  return "";
 }
 
 function formFromPlan(plan) {
@@ -70,8 +92,8 @@ function payloadFromForm(form) {
       reasoningEffort: form.codexReasoningEffort,
     },
     reviewWorker: {
-      turnTimeoutSeconds: integerPayload(form.turnTimeoutSeconds, 3600),
-      scanDeadlineSeconds: integerPayload(form.scanDeadlineSeconds, 14400),
+      turnTimeoutSeconds: integerFieldValue(form.turnTimeoutSeconds),
+      scanDeadlineSeconds: integerFieldValue(form.scanDeadlineSeconds),
     },
   };
 }
@@ -307,6 +329,12 @@ export function PlansScreen() {
   const savePlan = async (planId) => {
     const form = forms[planId];
     if (!form) return;
+    const validationError = planFormValidationError(form);
+    if (validationError) {
+      setError(validationError);
+      setMessage("");
+      return;
+    }
     setSavingPlan(planId);
     setError("");
     setMessage("");

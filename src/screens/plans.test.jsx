@@ -149,6 +149,20 @@ describe("PlansScreen", () => {
     expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();
   });
 
+  it("blocks saving when a plan timeout is blank instead of sending a default", async () => {
+    const user = userEvent.setup();
+    render(<PlansScreen />);
+
+    await screen.findByText("Pro");
+    await user.clear(screen.getByLabelText("Pro Codex turn timeout seconds"));
+    await user.click(screen.getByRole("button", { name: /save pro/i }));
+
+    expect(pullwiseApi.system.updatePlanAgentConfig).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Codex turn timeout must be an integer between 60 and 3600 seconds."
+    );
+  });
+
   it("does not show an empty plan state when loading plans fails", async () => {
     pullwiseApi.system.listPlanAgentConfigs.mockRejectedValueOnce(new Error("plans down"));
 

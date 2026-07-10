@@ -1,4 +1,4 @@
-﻿import { render, screen, waitFor, within } from "@testing-library/react";
+﻿import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
@@ -95,6 +95,7 @@ describe("WorkersScreen", () => {
     expect(within(summary).getByText("4")).toBeInTheDocument();
     expect(within(summary).getByText("2")).toBeInTheDocument();
     expect(within(summary).getByText("1")).toBeInTheDocument();
+    expect(within(summary).getAllByRole("article")).toHaveLength(4);
     expect(screen.getByLabelText("Worker pagination")).toHaveTextContent("1-1 of 7");
   });
   it("does not show an empty worker state when loading workers fails", async () => {
@@ -164,6 +165,35 @@ describe("WorkersScreen", () => {
     expect(screen.getByRole("button", { name: /refreshing/i })).toBeDisabled();
     resolveDefaults({ workerVersion: "0.5.5", latestWorkerVersion: "0.5.5" });
     expect(await screen.findByText("0.5.5")).toBeInTheDocument();
+  });
+
+  it("coalesces rapid manual refresh clicks into one request", async () => {
+    let resolveWorkers;
+    let resolveDefaults;
+
+    render(<WorkersScreen />);
+    expect(await screen.findByText("0.4.2")).toBeInTheDocument();
+
+    pullwiseApi.system.listWorkers.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveWorkers = resolve; })
+    );
+    pullwiseApi.system.getWorkerDefaults.mockImplementationOnce(
+      () => new Promise((resolve) => { resolveDefaults = resolve; })
+    );
+
+    const refresh = screen.getByRole("button", { name: /^refresh$/i });
+    act(() => {
+      refresh.click();
+      refresh.click();
+    });
+
+    expect(pullwiseApi.system.listWorkers).toHaveBeenCalledTimes(2);
+    expect(pullwiseApi.system.getWorkerDefaults).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      resolveWorkers({ workers, items: workers });
+      resolveDefaults({ workerVersion: "0.4.2", latestWorkerVersion: "0.4.2" });
+    });
   });
 
   it("creates a worker and shows the one-time token", async () => {

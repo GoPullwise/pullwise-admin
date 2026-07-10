@@ -45,6 +45,21 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+}
+
+.topbar-actions .muted {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: min(32vw, 360px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar-actions .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .topbar-nav {
@@ -204,14 +219,21 @@
 .kpis {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
+  border: 1px solid var(--border);
+  gap: 0;
   margin-bottom: 14px;
+  background: var(--panel);
 }
 
 .kpi {
+  min-width: 0;
   background: var(--panel);
-  border: 1px solid var(--border);
+  border: 0;
   padding: 14px;
+}
+
+.kpi + .kpi {
+  border-left: 1px solid var(--border);
 }
 
 .kpi strong {
@@ -1237,6 +1259,22 @@
     padding: 12px 16px;
   }
 
+  .topbar-nav {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .topbar-actions {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .topbar-actions .muted {
+    max-width: 100%;
+  }
+
   .topbar-actions,
   .topbar-nav,
   .page-actions {
@@ -1271,6 +1309,11 @@
   .plan-config-columns,
   .worker-detail {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .kpi + .kpi {
+    border-top: 1px solid var(--border);
+    border-left: 0;
   }
 
   .plan-config-head {

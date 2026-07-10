@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "./api/pullwise.js";
@@ -174,5 +176,15 @@ describe("Admin App", () => {
     expect(await screen.findByText("Plan Settings")).toBeInTheDocument();
     expect(await screen.findByText("Plan quotas")).toBeInTheDocument();
     expect(await screen.findByText("Plan Agent Configs")).toBeInTheDocument();
+  });
+
+  it("keeps the Admin data band continuous and the mobile topbar overflow-safe", () => {
+    const styles = readFileSync(resolve(process.cwd(), "src/styles/screens.css"), "utf8");
+
+    expect(styles).toMatch(/\.kpis\s*\{[^}]*border:\s*1px solid var\(--border\);[^}]*gap:\s*0;/s);
+    expect(styles).toMatch(/\.kpi \+ \.kpi\s*\{[^}]*border-left:\s*1px solid var\(--border\);/s);
+    expect(styles).toMatch(/\.topbar-actions \.muted\s*\{[^}]*min-width:\s*0;[^}]*text-overflow:\s*ellipsis;/s);
+    expect(styles).toMatch(/\.topbar-actions \.btn\s*\{[^}]*flex:\s*0 0 auto;[^}]*white-space:\s*nowrap;/s);
+    expect(styles).toMatch(/@media \(max-width:\s*760px\)[\s\S]*\.topbar-nav\s*\{[^}]*max-width:\s*100%;[^}]*overflow-x:\s*auto;/s);
   });
 });

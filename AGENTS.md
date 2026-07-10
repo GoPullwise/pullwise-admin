@@ -77,7 +77,7 @@ admin flows.
   - Codex: model and reasoning effort.
 - Admin worker install payloads should preserve provider chain order and should
   not imply that global Codex config is shared across workers.
-- Do not expose Codex CLI command/release/version pinning in worker registration UI, plan policy UI, or payloads; default worker automation uses the `openai-codex` SDK pinned runtime and SDK-based device login.
+- Do not expose Codex CLI command/release/version pinning in worker registration UI, plan policy UI, or payloads; server-managed installs use the `openai-codex` SDK with the latest official worker-local standalone CLI and SDK-based device login.
 - Do not expose old Codex app-server lifecycle controls in worker registration UI or payloads. SDK-based workers should not receive `PULLWISE_CODEX_APP_SERVER_MAX_AGE_SECONDS` or `PULLWISE_CODEX_APP_SERVER_MAX_TURNS` from admin flows.
 
 ## Review Worker Protocol And Copy
@@ -93,6 +93,12 @@ is dynamic evidence for selected P0/P1 candidates, not an automatic finding
 source. Plan policy remains the source of truth for model, timeout, repository
 limits, and core reasoning effort; non-core worker phases use the same model
 with medium effort.
+
+Plan timeout editors must use native numeric inputs and reject blank, fractional,
+non-finite, or out-of-range values before saving. `turnTimeoutSeconds` is an
+integer from 60 through 3600; `scanDeadlineSeconds` is an integer from 0
+through 21600, where 0 disables the deadline. Never silently replace invalid
+operator input with a default.
 
 Admin worker status should preserve server-sanitized Codex app-server quota
 telemetry (`codexQuota` / `codex_quota`) from v1 heartbeats. Keep quota-exhausted

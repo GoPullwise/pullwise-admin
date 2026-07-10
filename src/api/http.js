@@ -35,6 +35,9 @@ export async function request(path, options = {}) {
 }
 
 async function fetchRequest(config = {}) {
+  if (config.signal?.aborted) {
+    throw new ApiError("Request canceled.", { payload: { code: REQUEST_CANCELED_CODE } });
+  }
   const headers = { ...(config.headers || {}) };
   const body = requestBody(config.data, headers);
   const controller = new AbortController();

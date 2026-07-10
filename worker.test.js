@@ -55,6 +55,36 @@ describe("admin Cloudflare worker proxy", () => {
     expect(response.headers.has("connection")).toBe(false);
   });
 
+  it("streams body-bearing requests without cloning and buffering them", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true })));
+    globalThis.fetch = fetchMock;
+    const workerRequest = new Request("https://admin.example.com/api/admin/workers", {
+      method: "POST",
+      body: JSON.stringify({ name: "Streamed worker" }),
+    });
+    const pagesRequest = new Request("https://admin.example.com/api/admin/workers", {
+      method: "POST",
+      body: JSON.stringify({ name: "Streamed worker" }),
+    });
+    const workerClone = vi.spyOn(workerRequest, "clone");
+    const pagesClone = vi.spyOn(pagesRequest, "clone");
+
+    await proxyApiRequest(
+      workerRequest,
+      { PULLWISE_API_ORIGIN: "https://api.example.com" },
+      new URL(workerRequest.url)
+    );
+    await pagesApiOnRequest({
+      request: pagesRequest,
+      env: { PULLWISE_API_ORIGIN: "https://api.example.com" },
+    });
+
+    expect(workerClone).not.toHaveBeenCalled();
+    expect(pagesClone).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls[0][1].body).toBe(workerRequest.body);
+    expect(fetchMock.mock.calls[1][1].body).toBe(pagesRequest.body);
+  });
+
   it("returns a controlled 502 when the Worker upstream fetch rejects", async () => {
     const fetchMock = vi.fn().mockRejectedValue(new Error("TLS failed"));
     globalThis.fetch = fetchMock;

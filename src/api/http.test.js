@@ -125,4 +125,18 @@ describe("request", () => {
     controller.abort();
     await assertion;
   });
+
+  it("does not start fetch when the caller signal is already aborted", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const fetchMock = vi.fn();
+    globalThis.fetch = fetchMock;
+
+    await expect(request("/admin/workers", { signal: controller.signal })).rejects.toMatchObject({
+      name: "ApiError",
+      message: "Request canceled.",
+      code: "REQUEST_CANCELED",
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });

@@ -30,11 +30,10 @@ export async function proxyApiRequest(request, env, incomingUrl = new URL(reques
   headers.set("X-Forwarded-Host", incomingUrl.host);
 
   const methodHasBody = hasBody(request.method);
-  const bufferedBody = methodHasBody ? await request.clone().arrayBuffer() : undefined;
   const init = {
     method: request.method,
     headers,
-    body: bufferedBody,
+    body: methodHasBody ? request.body : undefined,
     redirect: "manual",
   };
   if (methodHasBody) {

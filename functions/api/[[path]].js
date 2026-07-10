@@ -16,12 +16,11 @@ export async function onRequest(context) {
   headers.set("X-Forwarded-Proto", incomingUrl.protocol.replace(":", ""));
   headers.set("X-Forwarded-Host", incomingUrl.host);
   const methodHasBody = hasBody(context.request.method);
-  const bufferedBody = methodHasBody ? await context.request.clone().arrayBuffer() : undefined;
 
   const init = {
     method: context.request.method,
     headers,
-    body: bufferedBody,
+    body: methodHasBody ? context.request.body : undefined,
     duplex: methodHasBody ? "half" : undefined,
     redirect: "manual",
   };

@@ -151,3 +151,4 @@ Admin worker/status views must handle large worker and scan counts.
 - Serialize all mutations per worker id, while still allowing independent workers to act concurrently. Rendering busy state from only the most recently started action is insufficient.
 - Schema-driven numeric inputs must render `min`, `max`, and integer `step`, preserve fractional edits long enough to report them, and reject blank, non-finite, fractional integer, or out-of-range values before saving.
 - Keep `scripts/check-mobile-overflow.mjs` in the normal check path. It must load an authenticated production Admin shell in a real headless Chrome 390px viewport and assert `document.documentElement.scrollWidth === clientWidth`.
+- API helpers must reject an already-aborted caller signal before starting `fetch`. Cloudflare Worker and Pages proxies must stream body-bearing requests to the authenticated upstream instead of cloning and materializing the full client body at the edge.

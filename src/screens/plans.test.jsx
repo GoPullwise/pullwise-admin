@@ -107,8 +107,18 @@ describe("PlansScreen", () => {
     expect(screen.queryByLabelText("Pro Codex CLI")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Pro Codex effort")).toHaveValue("medium");
-    expect(screen.getByLabelText("Pro Codex turn timeout seconds")).toHaveValue("3600");
-    expect(screen.getByLabelText("Pro Scan deadline seconds")).toHaveValue("14400");
+    const turnTimeout = screen.getByLabelText("Pro Codex turn timeout seconds");
+    const scanDeadline = screen.getByLabelText("Pro Scan deadline seconds");
+    expect(turnTimeout).toHaveValue(3600);
+    expect(turnTimeout).toHaveAttribute("type", "number");
+    expect(turnTimeout).toHaveAttribute("min", "60");
+    expect(turnTimeout).toHaveAttribute("max", "3600");
+    expect(turnTimeout).toHaveAttribute("step", "1");
+    expect(scanDeadline).toHaveValue(14400);
+    expect(scanDeadline).toHaveAttribute("type", "number");
+    expect(scanDeadline).toHaveAttribute("min", "0");
+    expect(scanDeadline).toHaveAttribute("max", "21600");
+    expect(scanDeadline).toHaveAttribute("step", "1");
   });
 
   it("saves edited model, reasoning effort, and timeouts for a plan", async () => {

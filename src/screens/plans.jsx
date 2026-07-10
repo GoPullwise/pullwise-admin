@@ -138,12 +138,28 @@ function SelectField({
   );
 }
 
-function TextField({ label, value, onChange, ariaLabel, description }) {
+function TextField({
+  label,
+  value,
+  onChange,
+  ariaLabel,
+  description,
+  type = "text",
+  min,
+  max,
+  step,
+  inputMode,
+}) {
   return (
     <label className="field">
       <span>{label}</span>
       <input
         aria-label={ariaLabel || label}
+        type={type}
+        min={min}
+        max={max}
+        step={step}
+        inputMode={inputMode}
         value={value}
         onChange={(event) => onChange(event.target.value)}
       />
@@ -213,21 +229,31 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
           <TextField
             label="Codex turn timeout seconds"
             ariaLabel={`${form.name} Codex turn timeout seconds`}
+            type="number"
+            min={60}
+            max={3600}
+            step={1}
+            inputMode="numeric"
             value={form.turnTimeoutSeconds}
             onChange={(value) =>
               onChange(form.id, "turnTimeoutSeconds", value)
             }
-            description="Maximum time for one Codex turn."
+            description="Maximum time for one Codex turn (60–3600 seconds)."
           />
 
           <TextField
             label="Scan deadline seconds"
             ariaLabel={`${form.name} Scan deadline seconds`}
+            type="number"
+            min={0}
+            max={21600}
+            step={1}
+            inputMode="numeric"
             value={form.scanDeadlineSeconds}
             onChange={(value) =>
               onChange(form.id, "scanDeadlineSeconds", value)
             }
-            description="Total worker-side deadline for one scan job."
+            description="Total worker-side deadline for one scan job (0–21600 seconds; 0 disables it)."
           />
         </div>
       </section>

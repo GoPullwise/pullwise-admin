@@ -232,7 +232,7 @@ describe("SettingsScreen", () => {
   });
 
   it("renders server machine metrics from the admin API", async () => {
-    render(<SettingsScreen />);
+    const { container } = render(<SettingsScreen />);
 
     expect(await screen.findByText("Server Machine")).toBeInTheDocument();
     expect(screen.getByText("RAM Usage")).toBeInTheDocument();
@@ -247,6 +247,8 @@ describe("SettingsScreen", () => {
     expect(document.querySelectorAll(".server-machine-chart-svg")).toHaveLength(
       2,
     );
+    expect(container.querySelector('.server-machine-metric[data-metric="memory"] .lucide-memory-stick')).toBeInTheDocument();
+    expect(container.querySelector('.server-machine-metric[data-metric="storage"] .lucide-hard-drive')).toBeInTheDocument();
     expect(screen.getByText("api-1")).toBeInTheDocument();
     expect(screen.queryByText(/CPU usage/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/logical cores/i)).not.toBeInTheDocument();

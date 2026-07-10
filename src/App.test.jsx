@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "./api/pullwise.js";
 import { App } from "./App.jsx";
@@ -120,6 +120,27 @@ describe("Admin App", () => {
 
     expect(await screen.findByText("Worker Registry")).toBeInTheDocument();
     expect(await screen.findByText("Admin Worker")).toBeInTheDocument();
+  });
+
+  it("presents the admin area as a clear navigation and content workspace", async () => {
+    pullwiseApi.auth.getSession.mockResolvedValueOnce({
+      authenticated: true,
+      admin: true,
+      user: { email: "admin@example.com" },
+    });
+
+    const { container } = render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "Worker Registry" })).toBeInTheDocument();
+    const navigation = screen.getByRole("navigation", { name: "Admin navigation" });
+    const workersLink = within(navigation).getByRole("link", { name: /Workers/i });
+    expect(workersLink).toHaveAttribute("aria-current", "page");
+    expect(within(navigation).getByRole("link", { name: /Users/i })).toBeInTheDocument();
+    expect(within(navigation).getByRole("link", { name: /Plans/i })).toBeInTheDocument();
+    expect(within(navigation).getByRole("link", { name: /Settings/i })).toBeInTheDocument();
+    expect(container.querySelector(".admin-shell")).toBeInTheDocument();
+    expect(container.querySelector(".admin-view main.main")).toBeInTheDocument();
+    expect(screen.getByText("Operations console")).toBeInTheDocument();
   });
 
   it("renders user management for authenticated admins on the users route", async () => {

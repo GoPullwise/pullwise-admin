@@ -145,17 +145,19 @@ export function App() {
   if (!session?.admin) return <AccessDenied session={session} />;
 
   return (
-    <div className="app">
+    <div className="app admin-shell">
       <Topbar user={session.user} screen={screen} />
-      {screen === "users" ? (
-        <UsersScreen />
-      ) : screen === "plans" ? (
-        <PlansScreen />
-      ) : screen === "settings" ? (
-        <SettingsScreen />
-      ) : (
-        <WorkersScreen />
-      )}
+      <div className="admin-view">
+        {screen === "users" ? (
+          <UsersScreen />
+        ) : screen === "plans" ? (
+          <PlansScreen />
+        ) : screen === "settings" ? (
+          <SettingsScreen />
+        ) : (
+          <WorkersScreen />
+        )}
+      </div>
     </div>
   );
 }

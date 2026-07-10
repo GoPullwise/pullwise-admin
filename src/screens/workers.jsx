@@ -482,7 +482,7 @@ function MachineMetricChart({ points, metric, color, label }) {
 
 function MachineMetric({ icon, title, value, detail, points, metric, color }) {
   return (
-    <div className="server-machine-metric">
+    <div className="server-machine-metric" data-metric={metric}>
       <div className="server-machine-metric-h">
         <span className="server-machine-metric-icon">{icon}</span>
         <span>{title}</span>
@@ -572,7 +572,12 @@ function WorkerMachineMetrics({ metrics }) {
 
   return (
     <section className="worker-machine-metrics">
-      <h3>Machine metrics</h3>
+      <div className="machine-metrics-head">
+        <h3>
+          <I.Gauge size={15} aria-hidden="true" /> Machine metrics
+        </h3>
+        <span>Live telemetry</span>
+      </div>
       {!metrics ? (
         <p className="muted">No machine metrics reported yet.</p>
       ) : (
@@ -597,22 +602,22 @@ function WorkerMachineMetrics({ metrics }) {
           </div>
           <div className="server-machine-grid">
             <MachineMetric
-              icon={<I.Activity size={14} />}
+              icon={<I.MemoryStick size={16} />}
               title="RAM Usage"
               value={formatMetricPercent(memory.usedPercent)}
               detail={`${formatBytes(memory.usedBytes)} used / ${formatBytes(memory.totalBytes)} total`}
               points={points}
               metric="memory"
-              color="var(--accent)"
+              color="var(--metric-memory)"
             />
             <MachineMetric
-              icon={<I.Server size={14} />}
+              icon={<I.HardDrive size={16} />}
               title="Storage Usage"
               value={formatMetricPercent(storage.usedPercent)}
               detail={`${formatBytes(storage.usedBytes)} used / ${formatBytes(storage.totalBytes)} total`}
               points={points}
               metric="storage"
-              color="var(--warn)"
+              color="var(--metric-storage)"
             />
           </div>
         </div>
@@ -1698,6 +1703,5 @@ export function WorkersScreen() {
     </main>
   );
 }
-
 
 

@@ -239,7 +239,7 @@ function ServerFact({ label, value }) {
 
 function ServerMachineMetric({ icon, title, value, detail, points, metric, color }) {
   return (
-    <div className="server-machine-metric">
+    <div className="server-machine-metric" data-metric={metric}>
       <div className="server-machine-metric-h">
         <span className="server-machine-metric-icon">{icon}</span>
         <span>{title}</span>
@@ -266,8 +266,15 @@ function ServerMetricsPanel({ metrics, loading, error }) {
   return (
     <section className="settings-section server-overview">
       <div className="settings-section-head">
-        <h2>Server Machine</h2>
-        <p>{platformText || "Runtime host metrics"}</p>
+        <div className="section-title-with-icon">
+          <span className="section-heading-icon" aria-hidden="true">
+            <I.Gauge size={18} />
+          </span>
+          <div>
+            <h2>Server Machine</h2>
+            <p>{platformText || "Runtime host metrics"}</p>
+          </div>
+        </div>
       </div>
       {error ? (
         <div className="auth-error" role="alert">
@@ -288,22 +295,22 @@ function ServerMetricsPanel({ metrics, loading, error }) {
           </div>
           <div className="server-machine-grid">
             <ServerMachineMetric
-              icon={<I.Activity size={14} />}
+              icon={<I.MemoryStick size={16} />}
               title="RAM Usage"
               value={formatPercent(memory.usedPercent)}
               detail={`${formatBytes(memory.usedBytes)} used / ${formatBytes(memory.totalBytes)} total`}
               points={points}
               metric="memory"
-              color="var(--accent)"
+              color="var(--metric-memory)"
             />
             <ServerMachineMetric
-              icon={<I.Server size={14} />}
+              icon={<I.HardDrive size={16} />}
               title="Storage Usage"
               value={formatPercent(storage.usedPercent)}
               detail={`${formatBytes(storage.usedBytes)} used / ${formatBytes(storage.totalBytes)} total`}
               points={points}
               metric="storage"
-              color="var(--warn)"
+              color="var(--metric-storage)"
             />
           </div>
         </div>

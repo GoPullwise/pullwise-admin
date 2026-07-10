@@ -532,7 +532,7 @@ describe("WorkersScreen", () => {
       taskActivity: [],
     });
 
-    render(<WorkersScreen />);
+    const { container } = render(<WorkersScreen />);
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
 
@@ -541,6 +541,8 @@ describe("WorkersScreen", () => {
     expect(screen.getByText("40%")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /worker ram usage over time/i })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /worker storage usage over time/i })).toBeInTheDocument();
+    expect(container.querySelector('.server-machine-metric[data-metric="memory"] .lucide-memory-stick')).toBeInTheDocument();
+    expect(container.querySelector('.server-machine-metric[data-metric="storage"] .lucide-hard-drive')).toBeInTheDocument();
   });
 
   it("renders worker machine metrics from snake_case detail payloads", async () => {
@@ -1220,5 +1222,3 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText(/unsupported\.sh/)).not.toBeInTheDocument();
   });
 });
-
-

@@ -163,6 +163,23 @@ describe("PlansScreen", () => {
     );
   });
 
+  it.each([
+    ["Pro Codex turn timeout seconds", "60.5", "Codex turn timeout must be an integer between 60 and 3600 seconds."],
+    ["Pro Scan deadline seconds", "21601", "Scan deadline must be an integer between 0 and 21600 seconds."],
+  ])("blocks saving an invalid timeout in %s", async (label, value, expectedMessage) => {
+    const user = userEvent.setup();
+    render(<PlansScreen />);
+
+    await screen.findByText("Pro");
+    const input = screen.getByLabelText(label);
+    await user.clear(input);
+    await user.type(input, value);
+    await user.click(screen.getByRole("button", { name: /save pro/i }));
+
+    expect(pullwiseApi.system.updatePlanAgentConfig).not.toHaveBeenCalled();
+    expect(await screen.findByRole("alert")).toHaveTextContent(expectedMessage);
+  });
+
   it("does not show an empty plan state when loading plans fails", async () => {
     pullwiseApi.system.listPlanAgentConfigs.mockRejectedValueOnce(new Error("plans down"));
 

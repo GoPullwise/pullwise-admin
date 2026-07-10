@@ -124,6 +124,26 @@ describe("WorkersScreen", () => {
     expect(versionInput).toHaveValue("0.4.4");
   });
 
+  it("coalesces same-frame worker release requests", async () => {
+    let resolveRelease;
+    pullwiseApi.system.releaseWorker.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRelease = resolve;
+      })
+    );
+    render(<WorkersScreen />);
+
+    expect(await screen.findByText("0.4.2")).toBeInTheDocument();
+    const release = screen.getByRole("button", { name: /release worker/i });
+    act(() => {
+      release.click();
+      release.click();
+    });
+
+    expect(pullwiseApi.system.releaseWorker).toHaveBeenCalledTimes(1);
+    await act(async () => resolveRelease({ version: "0.4.3", tag: "v0.4.3" }));
+  });
+
   it("refreshes the latest worker release without using the server cache", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.getWorkerDefaults
@@ -232,6 +252,29 @@ describe("WorkersScreen", () => {
     expect(footer).toBeTruthy();
     expect(within(footer).getByRole("button", { name: /^close$/i })).toBeInTheDocument();
     expect(pullwiseApi.system.createWorker).toHaveBeenCalledTimes(1);
+  });
+
+  it("coalesces same-frame worker registration requests", async () => {
+    const user = userEvent.setup();
+    let resolveCreate;
+    pullwiseApi.system.createWorker.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      })
+    );
+    render(<WorkersScreen />);
+
+    await user.click(await screen.findByRole("button", { name: /register worker/i }));
+    const create = screen.getByRole("button", { name: /^create worker$/i });
+    act(() => {
+      create.click();
+      create.click();
+    });
+
+    expect(pullwiseApi.system.createWorker).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      resolveCreate({ worker: { worker_id: "wk_new", name: "Worker" }, worker_token: "pwk_once" })
+    );
   });
 
   it("does not show Agent CLI copy in the register worker modal", async () => {
@@ -755,6 +798,44 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(pullwiseApi.system.pauseLogStream).toHaveBeenCalledWith("log_server"));
   });
 
+  it("coalesces same-frame log stream start and pause requests", async () => {
+    let resolveStart;
+    let resolvePause;
+    pullwiseApi.system.createLogStream.mockReturnValue(
+      new Promise((resolve) => {
+        resolveStart = resolve;
+      })
+    );
+    render(<WorkersScreen />);
+
+    const panel = (await screen.findByRole("log", { name: "Server logs" })).closest(".log-stream-panel");
+    const enable = within(panel).getByRole("button", { name: /enable listening/i });
+    act(() => {
+      enable.click();
+      enable.click();
+    });
+    expect(pullwiseApi.system.createLogStream).toHaveBeenCalledTimes(1);
+
+    await act(async () =>
+      resolveStart({ session: { id: "log_server", source: "server", status: "active", nextSequence: 1 } })
+    );
+    const pause = await within(panel).findByRole("button", { name: /pause listening/i });
+    pullwiseApi.system.pauseLogStream.mockReturnValue(
+      new Promise((resolve) => {
+        resolvePause = resolve;
+      })
+    );
+    act(() => {
+      pause.click();
+      pause.click();
+    });
+    expect(pullwiseApi.system.pauseLogStream).toHaveBeenCalledTimes(1);
+
+    await act(async () =>
+      resolvePause({ session: { id: "log_server", source: "server", status: "paused", nextSequence: 1 } })
+    );
+  });
+
   it("keeps log listening active when pausing the stream fails", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.createLogStream.mockResolvedValueOnce({
@@ -1139,6 +1220,5 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText(/unsupported\.sh/)).not.toBeInTheDocument();
   });
 });
-
 
 

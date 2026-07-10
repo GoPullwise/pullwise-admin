@@ -400,6 +400,8 @@ export function SettingsScreen() {
   const [metricsError, setMetricsError] = useState("");
   const [message, setMessage] = useState("");
   const restartConfirmTimerRef = useRef(null);
+  const savingRef = useRef(false);
+  const restartingRef = useRef(false);
 
   const clearRestartConfirmTimer = useCallback(() => {
     if (restartConfirmTimerRef.current) {
@@ -463,6 +465,8 @@ export function SettingsScreen() {
   };
 
   const saveSettings = async () => {
+    if (savingRef.current) return;
+    savingRef.current = true;
     setSaving(true);
     setError("");
     setMessage("");
@@ -476,6 +480,7 @@ export function SettingsScreen() {
     } catch (err) {
       setError(err?.message || "Unable to save system config.");
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -492,6 +497,8 @@ export function SettingsScreen() {
       }, RESTART_CONFIRM_TIMEOUT_MS);
       return;
     }
+    if (restartingRef.current) return;
+    restartingRef.current = true;
     clearRestartConfirmTimer();
     setRestartConfirm(false);
     setRestarting(true);
@@ -504,6 +511,7 @@ export function SettingsScreen() {
     } catch (err) {
       setError(err?.message || "Unable to restart Pullwise server.");
     } finally {
+      restartingRef.current = false;
       setRestarting(false);
     }
   };

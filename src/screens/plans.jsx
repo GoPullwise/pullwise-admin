@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
 import {
@@ -286,6 +286,7 @@ export function PlansScreen() {
   const [message, setMessage] = useState("");
   const [savingPlan, setSavingPlan] = useState("");
   const [savingPlanSettings, setSavingPlanSettings] = useState(false);
+  const savesInFlightRef = useRef(new Set());
 
   const loadPlans = useCallback(async () => {
     setLoading(true);
@@ -335,6 +336,9 @@ export function PlansScreen() {
   };
 
   const savePlanSettings = async () => {
+    const saveKey = "plan-settings";
+    if (savesInFlightRef.current.has(saveKey)) return;
+    savesInFlightRef.current.add(saveKey);
     setSavingPlanSettings(true);
     setError("");
     setMessage("");
@@ -348,6 +352,7 @@ export function PlansScreen() {
     } catch (err) {
       setError(err?.message || "Unable to save plan settings.");
     } finally {
+      savesInFlightRef.current.delete(saveKey);
       setSavingPlanSettings(false);
     }
   };
@@ -361,6 +366,9 @@ export function PlansScreen() {
       setMessage("");
       return;
     }
+    const saveKey = `plan:${planId}`;
+    if (savesInFlightRef.current.has(saveKey)) return;
+    savesInFlightRef.current.add(saveKey);
     setSavingPlan(planId);
     setError("");
     setMessage("");
@@ -381,7 +389,8 @@ export function PlansScreen() {
     } catch (err) {
       setError(err?.message || "Unable to save plan agent config.");
     } finally {
-      setSavingPlan("");
+      savesInFlightRef.current.delete(saveKey);
+      setSavingPlan((current) => (current === planId ? "" : current));
     }
   };
 

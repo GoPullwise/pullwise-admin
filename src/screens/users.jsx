@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
 
@@ -171,6 +171,7 @@ export function UsersScreen() {
   const [pendingDelete, setPendingDelete] = useState("");
   const [pendingReset, setPendingReset] = useState("");
   const [actionMessage, setActionMessage] = useState("");
+  const mutationsInFlightRef = useRef(new Set());
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -201,6 +202,9 @@ export function UsersScreen() {
   );
 
   const resetUserQuota = async (userId) => {
+    const mutationKey = `reset:${userId}`;
+    if (mutationsInFlightRef.current.has(mutationKey)) return;
+    mutationsInFlightRef.current.add(mutationKey);
     setPendingReset(userId);
     setActionMessage("");
     try {
@@ -216,10 +220,14 @@ export function UsersScreen() {
     } catch (err) {
       setActionMessage(err?.message || "Quota reset failed.");
     } finally {
-      setPendingReset("");
+      mutationsInFlightRef.current.delete(mutationKey);
+      setPendingReset((current) => (current === userId ? "" : current));
     }
   };
   const deleteUser = async (userId) => {
+    const mutationKey = `delete:${userId}`;
+    if (mutationsInFlightRef.current.has(mutationKey)) return;
+    mutationsInFlightRef.current.add(mutationKey);
     setPendingDelete(userId);
     setActionMessage("");
     try {
@@ -229,7 +237,8 @@ export function UsersScreen() {
     } catch (err) {
       setActionMessage(err?.message || "User deletion failed.");
     } finally {
-      setPendingDelete("");
+      mutationsInFlightRef.current.delete(mutationKey);
+      setPendingDelete((current) => (current === userId ? "" : current));
     }
   };
 

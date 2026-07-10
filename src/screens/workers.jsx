@@ -689,6 +689,7 @@ function LogStreamPanel({ source, workerId = "", title }) {
   const lastSequenceRef = useRef(0);
   const pollingRef = useRef(false);
   const sessionRef = useRef(null);
+  const mutationInFlightRef = useRef(false);
 
   useEffect(() => {
     sessionRef.current = session;
@@ -748,6 +749,8 @@ function LogStreamPanel({ source, workerId = "", title }) {
   }, [listening, pollLines, session?.id]);
 
   const startListening = async () => {
+    if (mutationInFlightRef.current) return;
+    mutationInFlightRef.current = true;
     setBusy(true);
     setError("");
     try {
@@ -764,11 +767,14 @@ function LogStreamPanel({ source, workerId = "", title }) {
       setError(err?.message || "Unable to start log listening.");
       setListening(false);
     } finally {
+      mutationInFlightRef.current = false;
       setBusy(false);
     }
   };
 
   const pauseListening = async () => {
+    if (mutationInFlightRef.current) return;
+    mutationInFlightRef.current = true;
     setBusy(true);
     setError("");
     const activeSession = session;
@@ -788,6 +794,7 @@ function LogStreamPanel({ source, workerId = "", title }) {
       }
       setError(err?.message || "Unable to pause log listening.");
     } finally {
+      mutationInFlightRef.current = false;
       setBusy(false);
     }
   };
@@ -941,6 +948,7 @@ function CreateWorkerModal({ onClose, onCreated }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
+  const busyRef = useRef(false);
 
   useEffect(() => {
     let disposed = false;
@@ -962,7 +970,8 @@ function CreateWorkerModal({ onClose, onCreated }) {
 
   const createWorker = async (event) => {
     event.preventDefault();
-    if (busy || result) return;
+    if (busyRef.current || result) return;
+    busyRef.current = true;
     setBusy(true);
     setError("");
     setResult(null);
@@ -977,6 +986,7 @@ function CreateWorkerModal({ onClose, onCreated }) {
     } catch (err) {
       setError(err?.message || "Worker creation failed.");
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   };
@@ -1354,6 +1364,8 @@ export function WorkersScreen() {
   const refreshingRef = useRef(false);
   const latestReleaseRef = useRef("");
   const retainedCleanupWorkerIdsRef = useRef(new Set());
+  const releaseInFlightRef = useRef(false);
+  const actionsInFlightRef = useRef(new Set());
 
   const loadWorkers = useCallback(async (options = {}) => {
     const preserveRotatedTokens = options?.preserveRotatedTokens === true;
@@ -1496,12 +1508,13 @@ export function WorkersScreen() {
 
   const handleReleaseWorker = async (event) => {
     event.preventDefault();
-    if (releaseBusy) return;
+    if (releaseInFlightRef.current) return;
     const version = textValue(releaseVersion);
     if (!version) {
       setActionMessage("Enter a worker release version.");
       return;
     }
+    releaseInFlightRef.current = true;
     setReleaseBusy(true);
     setActionMessage("");
     try {
@@ -1515,12 +1528,15 @@ export function WorkersScreen() {
     } catch (err) {
       setActionMessage(err?.message || "Worker release failed.");
     } finally {
+      releaseInFlightRef.current = false;
       setReleaseBusy(false);
     }
   };
 
   const handleAction = async (action, workerId, payload = {}) => {
     const actionKey = `${action}:${workerId}`;
+    if (actionsInFlightRef.current.has(actionKey)) return null;
+    actionsInFlightRef.current.add(actionKey);
     setPendingAction(actionKey);
     setActionMessage("");
     try {
@@ -1578,7 +1594,8 @@ export function WorkersScreen() {
       setActionMessage(err?.message || "Action failed.");
       return null;
     } finally {
-      setPendingAction("");
+      actionsInFlightRef.current.delete(actionKey);
+      setPendingAction((current) => (current === actionKey ? "" : current));
     }
   };
 
@@ -1681,7 +1698,6 @@ export function WorkersScreen() {
     </main>
   );
 }
-
 
 
 

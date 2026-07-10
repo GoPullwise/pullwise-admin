@@ -309,6 +309,8 @@ describe("SettingsScreen", () => {
           smtpHost: "smtp.example.com",
           smtpPort: 465,
           smtpUsername: "mailer",
+          smtpSsl: true,
+          smtpStarttls: false,
         },
       },
     });
@@ -320,8 +322,8 @@ describe("SettingsScreen", () => {
     const user = userEvent.setup();
     render(<SettingsScreen />);
 
-    const ssl = await screen.findByLabelText("SMTP SSL");
-    const starttls = screen.getByLabelText("SMTP STARTTLS");
+    const ssl = await screen.findByLabelText(/^SMTP SSL/i);
+    const starttls = screen.getByLabelText(/^SMTP STARTTLS/i);
     expect(ssl).toBeChecked();
     expect(starttls).not.toBeChecked();
 

@@ -6,7 +6,6 @@ const REFRESH_MS = 15000;
 const WORKER_PAGE_SIZE = 50;
 const LOG_STREAM_POLL_MS = 1000;
 const LOG_STREAM_CLIENT_LINE_LIMIT = 500;
-const DEFAULT_WORKER_PROVIDER_CHAIN = ["codex"];
 const WORKER_TOKEN_PROMPT_PREFIX =
   "read -rsp 'Pullwise worker token: ' PULLWISE_WORKER_TOKEN; echo; export PULLWISE_WORKER_TOKEN; ";
 const WORKER_COMMAND_ACTIVE_STATUSES = new Set(["pending", "running"]);
@@ -970,8 +969,6 @@ function CreateWorkerModal({ onClose, onCreated }) {
     try {
       const payload = await pullwiseApi.system.createWorker({
         name: name.trim() || "Worker",
-        provider: "codex",
-        providerChain: DEFAULT_WORKER_PROVIDER_CHAIN,
         region: region.trim(),
         version: version.trim(),
       });
@@ -1000,8 +997,8 @@ function CreateWorkerModal({ onClose, onCreated }) {
               <input value={name} onChange={(event) => setName(event.target.value)} placeholder="US-East Worker" />
             </label>
             <label className="field">
-              <span>Region</span>
-              <input value={region} onChange={(event) => setRegion(event.target.value)} placeholder="us-east" />
+              <span>Location label</span>
+              <input value={region} onChange={(event) => setRegion(event.target.value)} placeholder="US East" />
             </label>
             <label className="field">
               <span>Version</span>
@@ -1119,6 +1116,10 @@ function WorkerDetail({ worker, onWorkerChange }) {
         <h3>Health</h3>
         <dl>
           <div>
+            <dt>Version</dt>
+            <dd>{displayedWorker.version || "Unavailable"}</dd>
+          </div>
+          <div>
             <dt>Provider</dt>
             <dd>{displayedWorker.provider || "codex"}</dd>
           </div>
@@ -1194,7 +1195,6 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const [detailWorker, setDetailWorker] = useState(null);
   const [editing, setEditing] = useState(false);
   const [editRegion, setEditRegion] = useState(worker.region || "");
-  const [editVersion, setEditVersion] = useState(worker.version || "");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const displayedWorker = mergeWorkerRecords(worker, detailWorker);
 
@@ -1205,9 +1205,8 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   useEffect(() => {
     if (!editing) {
       setEditRegion(displayedWorker.region || "");
-      setEditVersion(displayedWorker.version || "");
     }
-  }, [displayedWorker.region, displayedWorker.version, editing]);
+  }, [displayedWorker.region, editing]);
 
   const workerId = displayedWorker.worker_id;
   const isDisabled = displayedWorker.enabled === false;
@@ -1221,7 +1220,6 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
   const save = async () => {
     const result = await onAction("save", workerId, {
       region: editRegion,
-      version: editVersion,
     });
     if (result) setEditing(false);
   };
@@ -1294,7 +1292,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
           <WorkerTokenBlock token={rotatedToken} />
           <div className="edit-panel">
             <div className="edit-head">
-              <h3>Configuration</h3>
+              <h3>Metadata</h3>
               {editing ? (
                 <div className="inline-actions">
                   <button className="btn ghost sm" type="button" onClick={() => setEditing(false)}>
@@ -1317,18 +1315,10 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
             </div>
             <div className="form-grid compact">
               <label className="field">
-                <span>Region</span>
+                <span>Location label</span>
                 <input
                   value={editRegion}
                   onChange={(event) => setEditRegion(event.target.value)}
-                  disabled={!editing || Boolean(cleanupLifecycle)}
-                />
-              </label>
-              <label className="field">
-                <span>Version</span>
-                <input
-                  value={editVersion}
-                  onChange={(event) => setEditVersion(event.target.value)}
                   disabled={!editing || Boolean(cleanupLifecycle)}
                 />
               </label>

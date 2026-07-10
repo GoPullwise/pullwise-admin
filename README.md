@@ -22,7 +22,6 @@ npm run dev
 Local defaults:
 
 ```bash
-VITE_APP_URL=http://localhost:5174
 VITE_API_BASE_URL=http://localhost:8080
 ```
 
@@ -37,7 +36,6 @@ admin Worker:
 
 ```bash
 # .env.production
-VITE_APP_URL=https://admin.pull-wise.com
 VITE_API_BASE_URL=/api
 ```
 

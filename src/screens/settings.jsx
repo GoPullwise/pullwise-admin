@@ -451,7 +451,15 @@ export function SettingsScreen() {
   );
 
   const updateField = (path, value) => {
-    setSettings((current) => setValueAt(current, path, value));
+    setSettings((current) => {
+      let next = setValueAt(current, path, value);
+      if (path === "alerts.email.smtpSsl" && value === true) {
+        next = setValueAt(next, "alerts.email.smtpStarttls", false);
+      } else if (path === "alerts.email.smtpStarttls" && value === true) {
+        next = setValueAt(next, "alerts.email.smtpSsl", false);
+      }
+      return next;
+    });
   };
 
   const saveSettings = async () => {

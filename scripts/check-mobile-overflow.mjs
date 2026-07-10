@@ -1,3 +1,4 @@
+/* global Buffer, URL, WebSocket, console, fetch, process, setTimeout */
 import { spawn } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:net";

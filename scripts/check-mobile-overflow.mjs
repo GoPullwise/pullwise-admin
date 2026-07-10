@@ -78,6 +78,23 @@ function createCdpClient(url) {
   };
 }
 
+async function stopChild(child) {
+  if (!child || child.exitCode !== null || child.signalCode) return;
+  let exited = false;
+  const exit = new Promise((resolve) => {
+    child.once("exit", () => {
+      exited = true;
+      resolve();
+    });
+  });
+  child.kill("SIGTERM");
+  await Promise.race([exit, new Promise((resolve) => setTimeout(resolve, 5_000))]);
+  if (!exited) {
+    child.kill("SIGKILL");
+    await exit;
+  }
+}
+
 function apiPayload(url) {
   const pathname = new URL(url).pathname;
   if (pathname.endsWith("/auth/session")) {
@@ -190,7 +207,6 @@ try {
   );
 } finally {
   cdp?.close();
-  preview.kill("SIGTERM");
-  chrome.kill("SIGTERM");
-  await rm(chromeProfile, { recursive: true, force: true });
+  await Promise.all([stopChild(preview), stopChild(chrome)]);
+  await rm(chromeProfile, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 }

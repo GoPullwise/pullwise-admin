@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
@@ -131,5 +131,27 @@ describe("UsersScreen", () => {
     await waitFor(() => expect(pullwiseApi.system.deleteUser).toHaveBeenCalledWith("usr_user"));
     expect(screen.queryByText("Authorized User")).not.toBeInTheDocument();
     expect(screen.getByText(/related pullwise records were deleted/i)).toBeInTheDocument();
+  });
+
+  it("coalesces same-frame user deletion confirmations", async () => {
+    const user = userEvent.setup();
+    let resolveDelete;
+    pullwiseApi.system.deleteUser.mockReturnValue(
+      new Promise((resolve) => {
+        resolveDelete = resolve;
+      })
+    );
+    render(<UsersScreen />);
+
+    await screen.findByText("Authorized User");
+    await user.click(screen.getAllByRole("button", { name: /delete user/i }).find((button) => !button.disabled));
+    const confirm = screen.getByRole("button", { name: /confirm delete/i });
+    act(() => {
+      confirm.click();
+      confirm.click();
+    });
+
+    expect(pullwiseApi.system.deleteUser).toHaveBeenCalledTimes(1);
+    await act(async () => resolveDelete({ deleted: true }));
   });
 });

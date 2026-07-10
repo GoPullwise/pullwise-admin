@@ -992,6 +992,37 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText("Worker instance deleted.")).not.toBeInTheDocument();
   });
 
+  it("coalesces same-frame worker deletion confirmations", async () => {
+    const user = userEvent.setup();
+    let resolveDelete;
+    pullwiseApi.system.deleteWorker.mockReturnValue(
+      new Promise((resolve) => {
+        resolveDelete = resolve;
+      })
+    );
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
+    const confirm = screen.getByRole("button", { name: /confirm delete instance/i });
+    act(() => {
+      confirm.click();
+      confirm.click();
+    });
+
+    expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      resolveDelete({
+        deleted: false,
+        worker: {
+          ...workers[0],
+          enabled: false,
+          latest_command: { command: "uninstall", status: "pending" },
+        },
+      })
+    );
+  });
+
   it("keeps a worker visible across refresh when delete returns no cleanup lifecycle metadata", async () => {
     const user = userEvent.setup();
     const command = { id: "cmd_uninstall", worker_id: "wk_1", command: "uninstall", status: "pending" };
@@ -1108,7 +1139,6 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText(/unsupported\.sh/)).not.toBeInTheDocument();
   });
 });
-
 
 
 

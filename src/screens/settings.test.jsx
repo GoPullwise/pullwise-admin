@@ -318,6 +318,25 @@ describe("SettingsScreen", () => {
     expect(submitted).not.toHaveProperty("billing");
     expect(submitted.alerts.email).not.toHaveProperty("smtpPassword");
   });
+
+  it("coalesces same-frame system config saves", async () => {
+    let resolveSave;
+    pullwiseApi.system.updateSystemConfig.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    render(<SettingsScreen />);
+
+    const save = await screen.findByRole("button", { name: /^save$/i });
+    act(() => {
+      save.click();
+      save.click();
+    });
+
+    expect(pullwiseApi.system.updateSystemConfig).toHaveBeenCalledTimes(1);
+    await act(async () => resolveSave({ settings: {}, groups: [] }));
+  });
   it("keeps SMTP SSL and STARTTLS mutually exclusive", async () => {
     const user = userEvent.setup();
     render(<SettingsScreen />);
@@ -351,6 +370,26 @@ describe("SettingsScreen", () => {
     expect(
       await screen.findByText("Pullwise server restart started."),
     ).toBeInTheDocument();
+  });
+
+  it("coalesces same-frame confirmed server restarts", async () => {
+    let resolveRestart;
+    pullwiseApi.system.restartServer.mockReturnValue(
+      new Promise((resolve) => {
+        resolveRestart = resolve;
+      })
+    );
+    render(<SettingsScreen />);
+
+    fireEvent.click(await screen.findByRole("button", { name: /restart server/i }));
+    const confirm = screen.getByRole("button", { name: /confirm restart/i });
+    act(() => {
+      confirm.click();
+      confirm.click();
+    });
+
+    expect(pullwiseApi.system.restartServer).toHaveBeenCalledTimes(1);
+    await act(async () => resolveRestart({ message: "Pullwise server restart started." }));
   });
 
   it("expires restart confirmation before dispatching a restart", async () => {

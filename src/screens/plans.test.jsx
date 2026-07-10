@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
@@ -157,6 +157,30 @@ describe("PlansScreen", () => {
       reviewWorker: { turnTimeoutSeconds: 3600, scanDeadlineSeconds: 14400 },
     });
     expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();
+  });
+
+  it("coalesces same-frame plan agent saves", async () => {
+    let resolveSave;
+    pullwiseApi.system.updatePlanAgentConfig.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    render(<PlansScreen />);
+
+    const save = await screen.findByRole("button", { name: /save pro/i });
+    act(() => {
+      save.click();
+      save.click();
+    });
+
+    expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      resolveSave({
+        plan: proPlan,
+        agentConfig: proPlan.agentConfig,
+      })
+    );
   });
 
   it("blocks saving when a plan timeout is blank instead of sending a default", async () => {

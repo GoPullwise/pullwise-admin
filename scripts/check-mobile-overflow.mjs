@@ -1,0 +1,195 @@
+import { spawn } from "node:child_process";
+import { mkdtemp, rm } from "node:fs/promises";
+import { createServer } from "node:net";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+const VIEWPORT_WIDTH = 390;
+const VIEWPORT_HEIGHT = 844;
+
+function freePort() {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.unref();
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", () => {
+      const address = server.address();
+      server.close(() => resolve(address.port));
+    });
+  });
+}
+
+async function waitFor(check, label, timeoutMs = 15_000) {
+  const deadline = Date.now() + timeoutMs;
+  let lastError;
+  while (Date.now() < deadline) {
+    try {
+      const result = await check();
+      if (result) return result;
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  throw new Error(`${label} did not become ready.${lastError ? ` ${lastError.message}` : ""}`);
+}
+
+function createCdpClient(url) {
+  const socket = new WebSocket(url);
+  let nextId = 1;
+  const pending = new Map();
+  const listeners = new Map();
+  const opened = new Promise((resolve, reject) => {
+    socket.addEventListener("open", resolve, { once: true });
+    socket.addEventListener("error", () => reject(new Error("Chrome DevTools connection failed.")), {
+      once: true,
+    });
+  });
+  socket.addEventListener("message", (event) => {
+    const message = JSON.parse(String(event.data));
+    if (message.id) {
+      const waiter = pending.get(message.id);
+      if (!waiter) return;
+      pending.delete(message.id);
+      if (message.error) waiter.reject(new Error(message.error.message));
+      else waiter.resolve(message.result || {});
+      return;
+    }
+    for (const listener of listeners.get(message.method) || []) listener(message.params || {});
+  });
+
+  return {
+    opened,
+    on(method, listener) {
+      listeners.set(method, [...(listeners.get(method) || []), listener]);
+    },
+    async send(method, params = {}) {
+      await opened;
+      const id = nextId;
+      nextId += 1;
+      const result = new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
+      socket.send(JSON.stringify({ id, method, params }));
+      return result;
+    },
+    close() {
+      socket.close();
+    },
+  };
+}
+
+function apiPayload(url) {
+  const pathname = new URL(url).pathname;
+  if (pathname.endsWith("/auth/session")) {
+    return {
+      authenticated: true,
+      admin: true,
+      user: {
+        id: "mobile-overflow-admin",
+        email: "a-very-long-admin-identity-for-mobile-overflow@example.com",
+      },
+    };
+  }
+  if (pathname.endsWith("/admin/workers/defaults")) {
+    return { workerVersion: "0.0.0", latestWorkerVersion: "0.0.0" };
+  }
+  if (pathname.endsWith("/admin/workers")) {
+    return {
+      workers: [],
+      items: [],
+      total: 0,
+      limit: 50,
+      offset: 0,
+      hasMore: false,
+      summary: { total: 0, active: 0, degraded: 0, disabled: 0 },
+    };
+  }
+  return {};
+}
+
+const previewPort = await freePort();
+const debuggingPort = await freePort();
+const chromeProfile = await mkdtemp(join(tmpdir(), "pullwise-admin-mobile-"));
+const preview = spawn(
+  process.execPath,
+  ["node_modules/vite/bin/vite.js", "preview", "--host", "127.0.0.1", "--port", String(previewPort)],
+  { stdio: "ignore" }
+);
+const chrome = spawn(
+  process.env.CHROME_BIN || "google-chrome",
+  [
+    "--headless=new",
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    `--remote-debugging-port=${debuggingPort}`,
+    `--user-data-dir=${chromeProfile}`,
+    "about:blank",
+  ],
+  { stdio: "ignore" }
+);
+
+let cdp;
+try {
+  const pageUrl = `http://127.0.0.1:${previewPort}/workers`;
+  await waitFor(async () => (await fetch(pageUrl)).ok, "Vite preview");
+  await waitFor(
+    async () => (await fetch(`http://127.0.0.1:${debuggingPort}/json/version`)).ok,
+    "headless Chrome"
+  );
+  const target = await fetch(
+    `http://127.0.0.1:${debuggingPort}/json/new?${encodeURIComponent("about:blank")}`,
+    { method: "PUT" }
+  ).then((response) => response.json());
+  cdp = createCdpClient(target.webSocketDebuggerUrl);
+  cdp.on("Fetch.requestPaused", ({ requestId, request }) => {
+    const body = Buffer.from(JSON.stringify(apiPayload(request.url))).toString("base64");
+    void cdp.send("Fetch.fulfillRequest", {
+      requestId,
+      responseCode: 200,
+      responseHeaders: [
+        { name: "Content-Type", value: "application/json" },
+        { name: "Cache-Control", value: "no-store" },
+      ],
+      body,
+    });
+  });
+  await cdp.send("Page.enable");
+  await cdp.send("Fetch.enable", {
+    patterns: [{ urlPattern: "*://*/api/*", requestStage: "Request" }],
+  });
+  await cdp.send("Emulation.setDeviceMetricsOverride", {
+    width: VIEWPORT_WIDTH,
+    height: VIEWPORT_HEIGHT,
+    deviceScaleFactor: 1,
+    mobile: true,
+  });
+  await cdp.send("Page.navigate", { url: pageUrl });
+
+  const measurement = await waitFor(async () => {
+    const result = await cdp.send("Runtime.evaluate", {
+      expression: `(() => ({
+        ready: document.readyState === "complete" && Boolean(document.querySelector(".admin-shell")),
+        scrollWidth: document.documentElement.scrollWidth,
+        clientWidth: document.documentElement.clientWidth,
+        innerWidth: window.innerWidth
+      }))()`,
+      returnByValue: true,
+    });
+    const value = result.result?.value;
+    return value?.ready ? value : null;
+  }, "authenticated admin shell");
+
+  if (measurement.clientWidth !== VIEWPORT_WIDTH || measurement.innerWidth !== VIEWPORT_WIDTH) {
+    throw new Error(`Expected a ${VIEWPORT_WIDTH}px viewport, received ${JSON.stringify(measurement)}.`);
+  }
+  if (measurement.scrollWidth !== measurement.clientWidth) {
+    throw new Error(`Admin shell overflows at ${VIEWPORT_WIDTH}px: ${JSON.stringify(measurement)}.`);
+  }
+  console.log(
+    `Mobile overflow check passed: scrollWidth=${measurement.scrollWidth}, clientWidth=${measurement.clientWidth}.`
+  );
+} finally {
+  cdp?.close();
+  preview.kill("SIGTERM");
+  chrome.kill("SIGTERM");
+  await rm(chromeProfile, { recursive: true, force: true });
+}

@@ -13,10 +13,11 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "test": "vitest run --passWithNoTests",
+    "test:mobile": "npm run build && node scripts/check-mobile-overflow.mjs",
     "test:watch": "vitest --passWithNoTests",
     "preview:workers": "npm run build && wrangler dev --var PULLWISE_API_ORIGIN:http://localhost:8080",
     "deploy:workers": "npm run check && wrangler deploy --env production",
-    "check": "npm run lint && npm run test && npm run build"
+    "check": "npm run lint && npm run test && npm run test:mobile"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

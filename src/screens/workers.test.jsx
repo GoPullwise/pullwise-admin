@@ -1009,37 +1009,36 @@ describe("WorkersScreen", () => {
 
   it("ignores an older worker-list response after a newer page load completes", async () => {
     const user = userEvent.setup();
-    const older = deferredPromise();
+    const olderRefresh = deferredPromise();
     const pageTwoWorker = { ...workers[0], worker_id: "wk_2", name: "Page Two Worker" };
     pullwiseApi.system.listWorkers
-      .mockReturnValueOnce(older.promise)
+      .mockResolvedValueOnce({
+        workers,
+        total: 51,
+        limit: 50,
+        offset: 0,
+        hasMore: true,
+        nextOffset: 50,
+      })
+      .mockReturnValueOnce(olderRefresh.promise)
       .mockResolvedValueOnce({
         workers: [pageTwoWorker],
-        total: 2,
-        limit: 1,
-        offset: 1,
+        total: 51,
+        limit: 50,
+        offset: 50,
         hasMore: false,
       });
 
     render(<WorkersScreen />);
-    older.resolve({ workers, total: 2, limit: 1, offset: 0, hasMore: true, nextOffset: 1 });
     expect(await screen.findByText("US-East Worker")).toBeInTheDocument();
 
-    const pageOneReload = deferredPromise();
-    pullwiseApi.system.listWorkers
-      .mockReturnValueOnce(pageOneReload.promise)
-      .mockResolvedValueOnce({
-        workers: [pageTwoWorker],
-        total: 2,
-        limit: 1,
-        offset: 1,
-        hasMore: false,
-      });
-    await user.click(screen.getByRole("button", { name: /next page/i }));
+    act(() => screen.getByRole("button", { name: /^refresh$/i }).click());
+    await waitFor(() => expect(pullwiseApi.system.listWorkers).toHaveBeenCalledTimes(2));
+    await user.click(screen.getByRole("button", { name: /^next$/i }));
     expect(await screen.findByText("Page Two Worker")).toBeInTheDocument();
 
-    pageOneReload.resolve({ workers, total: 2, limit: 1, offset: 0, hasMore: true, nextOffset: 1 });
-    await act(async () => pageOneReload.promise);
+    olderRefresh.resolve({ workers, total: 51, limit: 50, offset: 0, hasMore: true, nextOffset: 50 });
+    await act(async () => olderRefresh.promise);
     expect(screen.getByText("Page Two Worker")).toBeInTheDocument();
     expect(screen.queryByText("US-East Worker")).not.toBeInTheDocument();
   });

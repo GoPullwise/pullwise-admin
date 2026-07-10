@@ -141,6 +141,8 @@ Admin worker/status views must handle large worker and scan counts.
 ## Admin Visual And Interaction Resilience
 
 - Keep Admin compact, square, and operational. Use continuous divided KPI bands for fleet summaries instead of a loose grid of decorative cards.
+- Keep the authenticated Admin shell split into a persistent desktop control sidebar and an `.admin-view` content region. Below the desktop breakpoint, preserve every route in the sticky horizontally scrollable navigation and keep `aria-current="page"` on the active route.
+- Use semantic `MemoryStick` and `HardDrive` icons for RAM and storage telemetry. Keep metric identity on `data-metric` and use the shared `--metric-memory` / `--metric-storage` colors so server and worker performance panels remain consistent.
 - Mobile topbar navigation must remain horizontally reachable without widening the document. Long admin identities must truncate within available space, while action buttons such as Sign out remain single-line and non-shrinking.
 - Manual refresh and other async mutations need a synchronous in-flight guard in addition to disabled button state so rapid clicks in one render frame cannot issue duplicate requests.
 - Frontend regression coverage should include timeout/abort errors, failed-load versus empty-state isolation, pagination/large-count contracts, stale or duplicate operations, long identifiers, and a real 390px browser check where document scrollWidth equals clientWidth.

@@ -28,7 +28,7 @@ describe("SettingsScreen", () => {
           jobRetryAttempts: 1,
           jobLeaseSeconds: 14400,
         },
-        worker: { codexTimeoutSeconds: 3600 },
+        worker: { defaultVersion: "" },
         alerts: {
           email: {
             enabled: false,
@@ -111,10 +111,9 @@ describe("SettingsScreen", () => {
           description: "Worker settings.",
           fields: [
             {
-              path: "worker.codexTimeoutSeconds",
-              label: "Codex timeout seconds",
-              type: "integer",
-              min: 60,
+              path: "worker.defaultVersion",
+              label: "Default worker version",
+              type: "string",
             },
           ],
         },
@@ -153,6 +152,16 @@ describe("SettingsScreen", () => {
               path: "alerts.email.smtpPassword",
               label: "SMTP password",
               type: "password",
+            },
+            {
+              path: "alerts.email.smtpSsl",
+              label: "SMTP SSL",
+              type: "boolean",
+            },
+            {
+              path: "alerts.email.smtpStarttls",
+              label: "SMTP STARTTLS",
+              type: "boolean",
             },
           ],
         },
@@ -216,7 +225,7 @@ describe("SettingsScreen", () => {
     expect(screen.getByLabelText("Scan job retry attempts")).toHaveValue(1);
     expect(screen.queryByLabelText("Max claim jobs")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Scan job lease seconds")).toHaveValue(14400);
-    expect(screen.getByLabelText("Codex timeout seconds")).toHaveValue(3600);
+    expect(screen.getByLabelText("Default worker version")).toHaveValue("");
     expect(screen.getByLabelText("Alert recipients")).toHaveValue(
       "ops@example.com",
     );
@@ -265,7 +274,7 @@ describe("SettingsScreen", () => {
     pullwiseApi.system.updateSystemConfig.mockResolvedValue({
       settings: {
         scan: { maxQueuedScansGlobal: 1000, jobRetryAttempts: 2, jobLeaseSeconds: 14400 },
-        worker: { codexTimeoutSeconds: 3600 },
+        worker: { defaultVersion: "" },
         alerts: {
           email: {
             enabled: false,
@@ -292,7 +301,7 @@ describe("SettingsScreen", () => {
     const submitted = pullwiseApi.system.updateSystemConfig.mock.calls[0][0].settings;
     expect(submitted).toEqual({
       scan: { maxQueuedScansGlobal: 1000, jobRetryAttempts: 2, jobLeaseSeconds: 14400 },
-      worker: { codexTimeoutSeconds: 3600 },
+      worker: { defaultVersion: "" },
       alerts: {
         email: {
           enabled: false,
@@ -306,6 +315,23 @@ describe("SettingsScreen", () => {
     expect(submitted).not.toHaveProperty("plans");
     expect(submitted).not.toHaveProperty("billing");
     expect(submitted.alerts.email).not.toHaveProperty("smtpPassword");
+  });
+  it("keeps SMTP SSL and STARTTLS mutually exclusive", async () => {
+    const user = userEvent.setup();
+    render(<SettingsScreen />);
+
+    const ssl = await screen.findByLabelText("SMTP SSL");
+    const starttls = screen.getByLabelText("SMTP STARTTLS");
+    expect(ssl).toBeChecked();
+    expect(starttls).not.toBeChecked();
+
+    await user.click(starttls);
+    expect(starttls).toBeChecked();
+    expect(ssl).not.toBeChecked();
+
+    await user.click(ssl);
+    expect(ssl).toBeChecked();
+    expect(starttls).not.toBeChecked();
   });
   it("requires confirmation before restarting the Pullwise server", async () => {
     const user = userEvent.setup();

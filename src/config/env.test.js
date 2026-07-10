@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { parseEnv } from "./env.js";
 
 describe("parseEnv", () => {
+  it("ignores the removed app URL setting", () => {
+    expect(parseEnv({ VITE_APP_URL: "not-a-url" })).toEqual({});
+  });
+
   it("accepts a root-relative API base URL for same-origin Cloudflare proxying", () => {
     expect(parseEnv({ VITE_API_BASE_URL: "/api" }).VITE_API_BASE_URL).toBe("/api");
   });

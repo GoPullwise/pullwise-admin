@@ -210,17 +210,17 @@ describe("WorkersScreen", () => {
 
     await user.click(await screen.findByRole("button", { name: /register worker/i }));
     await user.type(screen.getByLabelText(/^name/i), "New Worker");
-    await user.type(screen.getByLabelText(/^region/i), "eu-west");
+    await user.type(screen.getByLabelText(/^location label/i), "eu-west");
     await user.click(screen.getByRole("button", { name: /^create worker$/i }));
 
     await waitFor(() => expect(pullwiseApi.system.createWorker).toHaveBeenCalled());
     const payload = pullwiseApi.system.createWorker.mock.calls.at(-1)[0];
     expect(payload).toMatchObject({
       name: "New Worker",
-      provider: "codex",
-      providerChain: ["codex"],
       region: "eu-west",
     });
+    expect(payload).not.toHaveProperty("provider");
+    expect(payload).not.toHaveProperty("providerChain");
     expect(payload).not.toHaveProperty("max_concurrent_jobs");
     expect(payload).not.toHaveProperty("provider_chain");
     expect(screen.queryByLabelText(/max concurrent jobs/i)).not.toBeInTheDocument();
@@ -301,10 +301,12 @@ describe("WorkersScreen", () => {
     expect(screen.queryByRole("button", { name: /health check/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^stop service$/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^remove record$/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Metadata")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^version$/i)).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /^disable$/i }));
     await user.click(screen.getByRole("button", { name: /edit/i }));
-    await user.clear(screen.getByLabelText(/region/i));
-    await user.type(screen.getByLabelText(/region/i), "eu-west");
+    await user.clear(screen.getByLabelText(/location label/i));
+    await user.type(screen.getByLabelText(/location label/i), "eu-west");
     await user.click(screen.getByRole("button", { name: /save/i }));
     await user.click(screen.getByRole("button", { name: /rotate token/i }));
     const rotatedToken = await screen.findByText("pwk_rotated");
@@ -315,7 +317,7 @@ describe("WorkersScreen", () => {
     await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
 
     await waitFor(() => expect(pullwiseApi.system.disableWorker).toHaveBeenCalledWith("wk_1"));
-    expect(pullwiseApi.system.updateWorker).toHaveBeenCalledWith("wk_1", expect.objectContaining({ region: "eu-west" }));
+    expect(pullwiseApi.system.updateWorker).toHaveBeenCalledWith("wk_1", { region: "eu-west" });
     expect(pullwiseApi.system.rotateWorkerToken).toHaveBeenCalledWith("wk_1");
     expect(pullwiseApi.system.deleteWorker).toHaveBeenCalledWith("wk_1");
     expect(await screen.findByText("Cleanup pending.")).toBeInTheDocument();
@@ -886,15 +888,15 @@ describe("WorkersScreen", () => {
 
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
     await user.click(screen.getByRole("button", { name: /edit/i }));
-    const region = screen.getByLabelText(/region/i);
+    const region = screen.getByLabelText(/location label/i);
     await user.clear(region);
     await user.type(region, "eu-west");
     await user.click(screen.getByRole("button", { name: /^save$/i }));
 
     expect(await screen.findByText("patch failed")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^save$/i })).toBeInTheDocument();
-    expect(screen.getByLabelText(/region/i)).toBeEnabled();
-    expect(screen.getByLabelText(/region/i)).toHaveValue("eu-west");
+    expect(screen.getByLabelText(/location label/i)).toBeEnabled();
+    expect(screen.getByLabelText(/location label/i)).toHaveValue("eu-west");
   });
 
   it("disables instance deletion while a listed operational command is active", async () => {

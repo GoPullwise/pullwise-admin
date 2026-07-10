@@ -77,6 +77,11 @@ admin flows.
   - Codex: model and reasoning effort.
 - Admin worker install payloads should preserve provider chain order and should
   not imply that global Codex config is shared across workers.
+- Treat worker `region` as an operator-defined location label only; it is
+  metadata and must not imply scheduler affinity or routing behavior.
+- After registration, show the heartbeat-reported worker version as read-only.
+  Use the global worker default version plus the registration-time version for
+  package selection; do not offer a post-registration desired-version editor.
 - Do not expose Codex CLI command/release/version pinning in worker registration UI, plan policy UI, or payloads; server-managed installs use the `openai-codex` SDK with the latest official worker-local standalone CLI and SDK-based device login.
 - Do not expose old Codex app-server lifecycle controls in worker registration UI or payloads. SDK-based workers should not receive `PULLWISE_CODEX_APP_SERVER_MAX_AGE_SECONDS` or `PULLWISE_CODEX_APP_SERVER_MAX_TURNS` from admin flows.
 
@@ -99,6 +104,9 @@ non-finite, or out-of-range values before saving. `turnTimeoutSeconds` is an
 integer from 60 through 3600; `scanDeadlineSeconds` is an integer from 0
 through 21600, where 0 disables the deadline. Never silently replace invalid
 operator input with a default.
+
+SMTP SSL and SMTP STARTTLS are mutually exclusive transport modes. Enabling one
+in Admin must disable the other before saving.
 
 Admin worker status should preserve server-sanitized Codex app-server quota
 telemetry (`codexQuota` / `codex_quota`) from v1 heartbeats. Keep quota-exhausted

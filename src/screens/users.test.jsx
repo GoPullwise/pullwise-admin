@@ -154,4 +154,24 @@ describe("UsersScreen", () => {
     expect(pullwiseApi.system.deleteUser).toHaveBeenCalledTimes(1);
     await act(async () => resolveDelete({ deleted: true }));
   });
+
+  it("coalesces same-frame user refreshes", async () => {
+    render(<UsersScreen />);
+    await screen.findByText("Authorized User");
+    let resolveUsers;
+    pullwiseApi.system.listUsers.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveUsers = resolve;
+      })
+    );
+
+    const refresh = screen.getByRole("button", { name: /^refresh$/i });
+    act(() => {
+      refresh.click();
+      refresh.click();
+    });
+
+    expect(pullwiseApi.system.listUsers).toHaveBeenCalledTimes(2);
+    await act(async () => resolveUsers({ users: [] }));
+  });
 });

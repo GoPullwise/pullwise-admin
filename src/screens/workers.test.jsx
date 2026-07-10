@@ -36,6 +36,16 @@ const workers = [
   },
 ];
 
+function deferredPromise() {
+  let resolve;
+  let reject;
+  const promise = new Promise((next, fail) => {
+    resolve = next;
+    reject = fail;
+  });
+  return { promise, resolve, reject };
+}
+
 describe("WorkersScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -963,6 +973,77 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(pullwiseApi.system.disableWorker).toHaveBeenCalledWith("wk_1"));
   });
 
+  it("keeps both worker rows busy while actions on different workers are pending", async () => {
+    const user = userEvent.setup();
+    const secondWorker = { ...workers[0], worker_id: "wk_2", name: "EU Worker", region: "eu-west" };
+    const firstDisable = deferredPromise();
+    const secondDisable = deferredPromise();
+    pullwiseApi.system.listWorkers.mockResolvedValue({ workers: [workers[0], secondWorker] });
+    pullwiseApi.system.getWorker.mockImplementation((workerId) =>
+      Promise.resolve({
+        worker: workerId === "wk_2" ? secondWorker : workers[0],
+        auditEvents: [],
+        taskActivity: [],
+      })
+    );
+    pullwiseApi.system.disableWorker
+      .mockReturnValueOnce(firstDisable.promise)
+      .mockReturnValueOnce(secondDisable.promise);
+
+    render(<WorkersScreen />);
+
+    const firstRow = (await screen.findByText("US-East Worker")).closest(".worker-row");
+    const secondRow = (await screen.findByText("EU Worker")).closest(".worker-row");
+    await user.click(within(firstRow).getByRole("button", { name: /US-East Worker/i }));
+    await user.click(within(secondRow).getByRole("button", { name: /EU Worker/i }));
+    await user.click(within(firstRow).getByRole("button", { name: /^disable$/i }));
+    await user.click(within(secondRow).getByRole("button", { name: /^disable$/i }));
+
+    expect(within(firstRow).getByRole("button", { name: /^disable$/i })).toBeDisabled();
+    expect(within(secondRow).getByRole("button", { name: /^disable$/i })).toBeDisabled();
+
+    firstDisable.resolve({ worker: { ...workers[0], enabled: false } });
+    secondDisable.resolve({ worker: { ...secondWorker, enabled: false } });
+    await waitFor(() => expect(pullwiseApi.system.disableWorker).toHaveBeenCalledTimes(2));
+  });
+
+  it("ignores an older worker-list response after a newer page load completes", async () => {
+    const user = userEvent.setup();
+    const older = deferredPromise();
+    const pageTwoWorker = { ...workers[0], worker_id: "wk_2", name: "Page Two Worker" };
+    pullwiseApi.system.listWorkers
+      .mockReturnValueOnce(older.promise)
+      .mockResolvedValueOnce({
+        workers: [pageTwoWorker],
+        total: 2,
+        limit: 1,
+        offset: 1,
+        hasMore: false,
+      });
+
+    render(<WorkersScreen />);
+    older.resolve({ workers, total: 2, limit: 1, offset: 0, hasMore: true, nextOffset: 1 });
+    expect(await screen.findByText("US-East Worker")).toBeInTheDocument();
+
+    const pageOneReload = deferredPromise();
+    pullwiseApi.system.listWorkers
+      .mockReturnValueOnce(pageOneReload.promise)
+      .mockResolvedValueOnce({
+        workers: [pageTwoWorker],
+        total: 2,
+        limit: 1,
+        offset: 1,
+        hasMore: false,
+      });
+    await user.click(screen.getByRole("button", { name: /next page/i }));
+    expect(await screen.findByText("Page Two Worker")).toBeInTheDocument();
+
+    pageOneReload.resolve({ workers, total: 2, limit: 1, offset: 0, hasMore: true, nextOffset: 1 });
+    await act(async () => pageOneReload.promise);
+    expect(screen.getByText("Page Two Worker")).toBeInTheDocument();
+    expect(screen.queryByText("US-East Worker")).not.toBeInTheDocument();
+  });
+
   it("keeps worker edits open when saving fails", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.updateWorker.mockRejectedValueOnce(new Error("patch failed"));
@@ -1138,6 +1219,43 @@ describe("WorkersScreen", () => {
     expect(screen.getByText("US-East Worker")).toBeInTheDocument();
     expect(screen.getByText("Cleanup pending.")).toBeInTheDocument();
     expect(screen.queryByText("Worker instance deleted.")).not.toBeInTheDocument();
+  });
+
+  it("retains and retries a cleanup worker after a transient detail error", async () => {
+    const user = userEvent.setup();
+    const command = { id: "cmd_uninstall", worker_id: "wk_1", command: "uninstall", status: "pending" };
+    const cleanupWorker = {
+      ...workers[0],
+      enabled: false,
+      latest_command: command,
+    };
+    pullwiseApi.system.deleteWorker.mockResolvedValue({
+      deleted: false,
+      worker: cleanupWorker,
+      command,
+    });
+    pullwiseApi.system.listWorkers
+      .mockResolvedValueOnce({ workers, items: workers })
+      .mockResolvedValue({ workers: [], items: [] });
+    pullwiseApi.system.getWorker
+      .mockResolvedValueOnce({ worker: workers[0], auditEvents: [], taskActivity: [] })
+      .mockRejectedValueOnce(new Error("temporary detail outage"))
+      .mockResolvedValue({ worker: cleanupWorker, auditEvents: [], taskActivity: [] });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
+    await waitFor(() => expect(pullwiseApi.system.deleteWorker).toHaveBeenCalled());
+
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+    expect(screen.getByText("US-East Worker")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+    await waitFor(() => expect(pullwiseApi.system.getWorker).toHaveBeenCalledTimes(3));
+    expect(screen.getByText("US-East Worker")).toBeInTheDocument();
+    expect(screen.getAllByText("Cleanup pending").length).toBeGreaterThan(0);
   });
 
   it("surfaces failed worker cleanup without removing the instance", async () => {

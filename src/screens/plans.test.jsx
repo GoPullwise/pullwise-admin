@@ -183,6 +183,26 @@ describe("PlansScreen", () => {
     );
   });
 
+  it("coalesces same-frame plan refreshes", async () => {
+    const refresh = {};
+    refresh.promise = new Promise((resolve) => {
+      refresh.resolve = resolve;
+    });
+    render(<PlansScreen />);
+    await screen.findByText("Plan Agent Configs");
+    pullwiseApi.system.listPlanAgentConfigs.mockReturnValueOnce(refresh.promise);
+
+    const button = screen.getByRole("button", { name: /^refresh$/i });
+    act(() => {
+      button.click();
+      button.click();
+    });
+
+    expect(pullwiseApi.system.listPlanAgentConfigs).toHaveBeenCalledTimes(2);
+    refresh.resolve({ plans: [proPlan] });
+    await act(async () => refresh.promise);
+  });
+
   it("blocks saving when a plan timeout is blank instead of sending a default", async () => {
     const user = userEvent.setup();
     render(<PlansScreen />);

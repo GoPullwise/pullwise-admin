@@ -172,23 +172,36 @@ export function UsersScreen() {
   const [pendingReset, setPendingReset] = useState("");
   const [actionMessage, setActionMessage] = useState("");
   const mutationsInFlightRef = useRef(new Set());
+  const loadingRef = useRef(false);
+  const loadRequestRef = useRef(0);
 
   const loadUsers = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    const requestId = loadRequestRef.current + 1;
+    loadRequestRef.current = requestId;
     setLoading(true);
     try {
       const payload = await pullwiseApi.system.listUsers();
+      if (loadRequestRef.current !== requestId) return;
       setUsers(itemsFrom(payload, "users", "items"));
       setError("");
     } catch (err) {
+      if (loadRequestRef.current !== requestId) return;
       setUsers([]);
       setError(err?.message || "Unable to load users.");
     } finally {
-      setLoading(false);
+      loadingRef.current = false;
+      if (loadRequestRef.current === requestId) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     loadUsers();
+    return () => {
+      loadRequestRef.current += 1;
+      loadingRef.current = false;
+    };
   }, [loadUsers]);
 
   const summary = useMemo(

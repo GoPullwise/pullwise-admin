@@ -1205,7 +1205,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
   );
 }
 
-function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
+function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken }) {
   const [expanded, setExpanded] = useState(false);
   const [detailWorker, setDetailWorker] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -1225,8 +1225,7 @@ function WorkerRow({ worker, onAction, pendingAction, rotatedToken }) {
 
   const workerId = displayedWorker.worker_id;
   const isDisabled = displayedWorker.enabled === false;
-  const pendingWorkerId = pendingAction ? pendingAction.replace(/^[^:]+:/, "") : "";
-  const busy = pendingWorkerId === String(workerId);
+  const busy = pendingWorkerIds.has(String(workerId));
   const hasActiveCommand = hasActiveWorkerCommand(displayedWorker);
   const cleanupLifecycle = workerCleanupLifecycle(displayedWorker);
   const readiness = workerReadinessDetail(displayedWorker);
@@ -1352,7 +1351,7 @@ export function WorkersScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [showCreate, setShowCreate] = useState(false);
-  const [pendingAction, setPendingAction] = useState("");
+  const [pendingWorkerIds, setPendingWorkerIds] = useState(() => new Set());
   const [actionMessage, setActionMessage] = useState("");
   const [rotatedTokens, setRotatedTokens] = useState({});
   const [releaseInfo, setReleaseInfo] = useState({ latestVersion: "", loading: true });
@@ -1369,12 +1368,16 @@ export function WorkersScreen() {
   const refreshingRef = useRef(false);
   const latestReleaseRef = useRef("");
   const retainedCleanupWorkerIdsRef = useRef(new Set());
+  const retainedCleanupWorkersRef = useRef(new Map());
   const releaseInFlightRef = useRef(false);
-  const actionsInFlightRef = useRef(new Set());
+  const actionWorkerIdsInFlightRef = useRef(new Set());
+  const workerListRequestRef = useRef(0);
 
   const loadWorkers = useCallback(async (options = {}) => {
     const preserveRotatedTokens = options?.preserveRotatedTokens === true;
     const requestPage = { limit: workerPage.limit, offset: workerPage.offset };
+    const requestId = workerListRequestRef.current + 1;
+    workerListRequestRef.current = requestId;
     try {
       const payload = await pullwiseApi.system.listWorkers(requestPage);
       const listedWorkers = itemsFrom(payload, "workers", "items");
@@ -1393,25 +1396,38 @@ export function WorkersScreen() {
       );
       const listedWorkerIds = new Set(listedWorkers.map((worker) => textValue(worker.worker_id)).filter(Boolean));
       const retainedWorkerIds = Array.from(retainedCleanupWorkerIdsRef.current).filter((workerId) => !listedWorkerIds.has(workerId));
-      const retainedWorkers = await Promise.all(
+      const retainedWorkerResults = await Promise.all(
         retainedWorkerIds.map(async (workerId) => {
           try {
             const detail = await pullwiseApi.system.getWorker(workerId);
-            return objectValue(detail?.worker);
-          } catch {
-            retainedCleanupWorkerIdsRef.current.delete(workerId);
-            return null;
+            return { worker: objectValue(detail?.worker), notFound: false };
+          } catch (error) {
+            const status = Number(error?.status || error?.response?.status || 0);
+            return {
+              worker: status === 404 ? null : retainedCleanupWorkersRef.current.get(workerId) || null,
+              notFound: status === 404,
+            };
           }
         })
       );
+      if (workerListRequestRef.current !== requestId) return;
       const nextWorkers = [...listedWorkers];
-      for (const worker of retainedWorkers) {
+      for (let index = 0; index < retainedWorkerResults.length; index += 1) {
+        const retainedWorkerId = retainedWorkerIds[index];
+        const { worker, notFound } = retainedWorkerResults[index];
+        if (notFound) {
+          retainedCleanupWorkerIdsRef.current.delete(retainedWorkerId);
+          retainedCleanupWorkersRef.current.delete(retainedWorkerId);
+          continue;
+        }
         const workerId = textValue(worker?.worker_id);
         const lifecycle = workerCleanupLifecycle(worker);
         if (workerId && lifecycle && !cleanupLifecycleComplete(lifecycle)) {
           nextWorkers.push(worker);
+          retainedCleanupWorkersRef.current.set(workerId, worker);
         } else if (workerId) {
           retainedCleanupWorkerIdsRef.current.delete(workerId);
+          retainedCleanupWorkersRef.current.delete(workerId);
         }
       }
       for (const worker of listedWorkers) {
@@ -1420,8 +1436,10 @@ export function WorkersScreen() {
         if (!workerId) continue;
         if (lifecycle && !cleanupLifecycleComplete(lifecycle)) {
           retainedCleanupWorkerIdsRef.current.add(workerId);
+          retainedCleanupWorkersRef.current.set(workerId, worker);
         } else {
           retainedCleanupWorkerIdsRef.current.delete(workerId);
+          retainedCleanupWorkersRef.current.delete(workerId);
         }
       }
       setWorkerPage({ limit, offset, total, hasMore, nextOffset: hasMore ? nextOffset ?? offset + limit : null });
@@ -1429,15 +1447,18 @@ export function WorkersScreen() {
       setWorkers(nextWorkers);
       setError("");
     } catch (err) {
+      if (workerListRequestRef.current !== requestId) return;
       setWorkers([]);
       setWorkerSummary(null);
       setWorkerPage((current) => ({ ...current, total: 0, hasMore: false, nextOffset: null }));
       setError(err?.message || "Unable to load workers.");
     } finally {
-      if (!preserveRotatedTokens) {
-        setRotatedTokens({});
+      if (workerListRequestRef.current === requestId) {
+        if (!preserveRotatedTokens) {
+          setRotatedTokens({});
+        }
+        setLoading(false);
       }
-      setLoading(false);
     }
   }, [workerPage.limit, workerPage.offset]);
 
@@ -1539,10 +1560,10 @@ export function WorkersScreen() {
   };
 
   const handleAction = async (action, workerId, payload = {}) => {
-    const actionKey = `${action}:${workerId}`;
-    if (actionsInFlightRef.current.has(actionKey)) return null;
-    actionsInFlightRef.current.add(actionKey);
-    setPendingAction(actionKey);
+    const normalizedWorkerId = String(workerId);
+    if (actionWorkerIdsInFlightRef.current.has(normalizedWorkerId)) return null;
+    actionWorkerIdsInFlightRef.current.add(normalizedWorkerId);
+    setPendingWorkerIds((current) => new Set(current).add(normalizedWorkerId));
     setActionMessage("");
     try {
       let result;
@@ -1569,6 +1590,7 @@ export function WorkersScreen() {
         const cleanupLifecycle = workerCleanupLifecycle(retainedWorker);
         if (retainedWorker && cleanupLifecycle && !cleanupLifecycleComplete(cleanupLifecycle)) {
           retainedCleanupWorkerIdsRef.current.add(String(workerId));
+          retainedCleanupWorkersRef.current.set(String(workerId), retainedWorker);
           setWorkers((current) => upsertWorker(current, retainedWorker));
           setActionMessage(`${cleanupLifecycle.label}.`);
         } else if (!retainedWorker && result?.deleted === true && currentWorker) {
@@ -1579,10 +1601,12 @@ export function WorkersScreen() {
             latest_command: objectValue(currentWorker.latest_command) || { command: "uninstall", status: "pending" },
           };
           retainedCleanupWorkerIdsRef.current.add(String(workerId));
+          retainedCleanupWorkersRef.current.set(String(workerId), pendingWorker);
           setWorkers((current) => upsertWorker(current, pendingWorker));
           setActionMessage("Cleanup pending.");
         } else {
           retainedCleanupWorkerIdsRef.current.delete(String(workerId));
+          retainedCleanupWorkersRef.current.delete(String(workerId));
           setWorkers((current) => current.filter((worker) => worker.worker_id !== workerId));
           setRotatedTokens((current) => {
             const next = { ...current };
@@ -1599,8 +1623,12 @@ export function WorkersScreen() {
       setActionMessage(err?.message || "Action failed.");
       return null;
     } finally {
-      actionsInFlightRef.current.delete(actionKey);
-      setPendingAction((current) => (current === actionKey ? "" : current));
+      actionWorkerIdsInFlightRef.current.delete(normalizedWorkerId);
+      setPendingWorkerIds((current) => {
+        const next = new Set(current);
+        next.delete(normalizedWorkerId);
+        return next;
+      });
     }
   };
 
@@ -1668,7 +1696,7 @@ export function WorkersScreen() {
               key={worker.worker_id || worker.name}
               worker={worker}
               onAction={handleAction}
-              pendingAction={pendingAction}
+              pendingWorkerIds={pendingWorkerIds}
               rotatedToken={rotatedTokens[worker.worker_id]}
             />
           ))
@@ -1703,5 +1731,3 @@ export function WorkersScreen() {
     </main>
   );
 }
-
-

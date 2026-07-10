@@ -58,6 +58,31 @@ export function settingsPayloadForGroups(settings, groups, options = {}) {
   }
   return next;
 }
+
+export function settingsValidationError(settings, groups) {
+  for (const group of Array.isArray(groups) ? groups : []) {
+    for (const field of Array.isArray(group?.fields) ? group.fields : []) {
+      if (field?.type !== "integer" && field?.type !== "number") continue;
+      const label = field.label || field.path || "Setting";
+      const rawValue = valueAt(settings, field.path);
+      const value = typeof rawValue === "string" ? rawValue.trim() : rawValue;
+      const number = Number(value);
+      if (value === "" || !Number.isFinite(number)) {
+        return `${label} must be a valid number.`;
+      }
+      if (field.type === "integer" && !Number.isInteger(number)) {
+        return `${label} must be an integer.`;
+      }
+      if (field.min !== undefined && number < Number(field.min)) {
+        return `${label} must be at least ${field.min}.`;
+      }
+      if (field.max !== undefined && number > Number(field.max)) {
+        return `${label} must be at most ${field.max}.`;
+      }
+    }
+  }
+  return "";
+}
 export function textValue(value) {
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "boolean") return value ? "true" : "false";
@@ -330,8 +355,9 @@ export function parseFieldValue(field, value) {
   if (field.type === "password") return String(value || "");
   if (field.type === "integer") {
     if (value === "") return "";
-    const parsed = Number.parseInt(value, 10);
-    return Number.isFinite(parsed) ? parsed : "";
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return "";
+    return Number.isInteger(parsed) ? parsed : String(value);
   }
   if (field.type === "number") {
     if (value === "") return "";
@@ -380,6 +406,8 @@ export function SettingField({ field, value, defaults, secret, onChange }) {
           id={id}
           type={field.type === "integer" || field.type === "number" ? "number" : isPassword ? "password" : "text"}
           min={field.min ?? undefined}
+          max={field.max ?? undefined}
+          step={field.step ?? (field.type === "integer" ? 1 : undefined)}
           value={textValue(value)}
           placeholder={savedSecret ? "Saved password configured" : undefined}
           autoComplete={isPassword ? "new-password" : undefined}
@@ -409,6 +437,8 @@ export function SettingsScreen() {
   const restartConfirmTimerRef = useRef(null);
   const savingRef = useRef(false);
   const restartingRef = useRef(false);
+  const loadingRef = useRef(false);
+  const loadRequestRef = useRef(0);
 
   const clearRestartConfirmTimer = useCallback(() => {
     if (restartConfirmTimerRef.current) {
@@ -420,6 +450,10 @@ export function SettingsScreen() {
   useEffect(() => clearRestartConfirmTimer, [clearRestartConfirmTimer]);
 
   const loadSettings = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    const requestId = loadRequestRef.current + 1;
+    loadRequestRef.current = requestId;
     setLoading(true);
     setError("");
     setMetricsError("");
@@ -428,6 +462,7 @@ export function SettingsScreen() {
         pullwiseApi.system.getSystemConfig(),
         pullwiseApi.system.getServerMetrics(),
       ]);
+      if (loadRequestRef.current !== requestId) return;
 
       if (configResult.status === "fulfilled") {
         const nextPayload = configResult.value;
@@ -446,12 +481,17 @@ export function SettingsScreen() {
         setMetricsError(metricsResult.reason?.message || "Unable to load server metrics.");
       }
     } finally {
-      setLoading(false);
+      loadingRef.current = false;
+      if (loadRequestRef.current === requestId) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     loadSettings();
+    return () => {
+      loadRequestRef.current += 1;
+      loadingRef.current = false;
+    };
   }, [loadSettings]);
 
   const groups = useMemo(
@@ -473,6 +513,12 @@ export function SettingsScreen() {
 
   const saveSettings = async () => {
     if (savingRef.current) return;
+    const validationError = settingsValidationError(settings, groups);
+    if (validationError) {
+      setError(validationError);
+      setMessage("");
+      return;
+    }
     savingRef.current = true;
     setSaving(true);
     setError("");

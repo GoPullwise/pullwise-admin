@@ -96,6 +96,7 @@ describe("SettingsScreen", () => {
               label: "Scan job retry attempts",
               type: "integer",
               min: 0,
+              max: 5,
             },
             {
               path: "scan.jobLeaseSeconds",
@@ -339,6 +340,25 @@ describe("SettingsScreen", () => {
     expect(pullwiseApi.system.updateSystemConfig).toHaveBeenCalledTimes(1);
     await act(async () => resolveSave({ settings: {}, groups: [] }));
   });
+  it("coalesces same-frame system config refreshes", async () => {
+    render(<SettingsScreen />);
+    await screen.findByText("System Settings");
+    let resolveConfig;
+    pullwiseApi.system.getSystemConfig.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveConfig = resolve;
+      })
+    );
+
+    const refresh = screen.getByRole("button", { name: /^refresh$/i });
+    act(() => {
+      refresh.click();
+      refresh.click();
+    });
+
+    expect(pullwiseApi.system.getSystemConfig).toHaveBeenCalledTimes(2);
+    await act(async () => resolveConfig({ settings: {}, groups: [] }));
+  });
   it("keeps SMTP SSL and STARTTLS mutually exclusive", async () => {
     const user = userEvent.setup();
     render(<SettingsScreen />);
@@ -441,5 +461,24 @@ describe("SettingsScreen", () => {
   it("normalizes invalid numeric system setting edits to an empty value", () => {
     expect(parseFieldValue({ type: "integer" }, "abc")).toBe("");
     expect(parseFieldValue({ type: "number" }, "abc")).toBe("");
+  });
+
+  it("preserves fractional integer edits and blocks saving outside schema constraints", async () => {
+    const user = userEvent.setup();
+    render(<SettingsScreen />);
+
+    const retries = await screen.findByLabelText("Scan job retry attempts");
+    expect(retries).toHaveAttribute("min", "0");
+    expect(retries).toHaveAttribute("max", "5");
+    expect(retries).toHaveAttribute("step", "1");
+    await user.clear(retries);
+    await user.type(retries, "2.5");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(pullwiseApi.system.updateSystemConfig).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Scan job retry attempts must be an integer."
+    );
+    expect(parseFieldValue({ type: "integer" }, "60.5")).toBe("60.5");
   });
 });

@@ -6,6 +6,7 @@ import {
   isPlanSettingGroup,
   SettingField,
   settingsPayloadForGroups,
+  settingsValidationError,
   setValueAt,
   valueAt,
 } from "./settings.jsx";
@@ -287,8 +288,14 @@ export function PlansScreen() {
   const [savingPlan, setSavingPlan] = useState("");
   const [savingPlanSettings, setSavingPlanSettings] = useState(false);
   const savesInFlightRef = useRef(new Set());
+  const loadingRef = useRef(false);
+  const loadRequestRef = useRef(0);
 
   const loadPlans = useCallback(async () => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    const requestId = loadRequestRef.current + 1;
+    loadRequestRef.current = requestId;
     setLoading(true);
     setError("");
     try {
@@ -296,6 +303,7 @@ export function PlansScreen() {
         pullwiseApi.system.listPlanAgentConfigs(),
         pullwiseApi.system.getSystemConfig(),
       ]);
+      if (loadRequestRef.current !== requestId) return;
       const nextForms = {};
       for (const plan of itemsFrom(payload)) {
         const form = formFromPlan(plan);
@@ -305,17 +313,23 @@ export function PlansScreen() {
       setSystemPayload(nextSystemPayload);
       setPlanSettings(cloneSettings(nextSystemPayload?.settings));
     } catch (err) {
+      if (loadRequestRef.current !== requestId) return;
       setError(err?.message || "Unable to load plan settings.");
       setForms({});
       setSystemPayload(null);
       setPlanSettings({});
     } finally {
-      setLoading(false);
+      loadingRef.current = false;
+      if (loadRequestRef.current === requestId) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     loadPlans();
+    return () => {
+      loadRequestRef.current += 1;
+      loadingRef.current = false;
+    };
   }, [loadPlans]);
 
   const plans = useMemo(() => sortPlans(Object.values(forms)), [forms]);
@@ -338,6 +352,12 @@ export function PlansScreen() {
   const savePlanSettings = async () => {
     const saveKey = "plan-settings";
     if (savesInFlightRef.current.has(saveKey)) return;
+    const validationError = settingsValidationError(planSettings, groups);
+    if (validationError) {
+      setError(validationError);
+      setMessage("");
+      return;
+    }
     savesInFlightRef.current.add(saveKey);
     setSavingPlanSettings(true);
     setError("");

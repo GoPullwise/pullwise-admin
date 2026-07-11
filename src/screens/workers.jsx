@@ -1066,7 +1066,7 @@ function CreateWorkerModal({ onClose, onCreated }) {
   );
 }
 
-function WorkerDetail({ worker, onWorkerChange }) {
+function WorkerDetail({ worker, onWorkerChange, refreshGeneration = 0 }) {
   const [detailWorker, setDetailWorker] = useState(null);
   const [auditEvents, setAuditEvents] = useState([]);
   const [taskActivity, setTaskActivity] = useState([]);
@@ -1076,6 +1076,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
   const detailRequestRef = useRef(0);
   const detailRefreshInFlightRef = useRef(false);
   const detailWorkerRef = useRef(null);
+  const refreshGenerationRef = useRef(refreshGeneration);
   const workerRef = useRef(worker);
   workerRef.current = worker;
   const workerId = worker.worker_id;
@@ -1169,6 +1170,12 @@ function WorkerDetail({ worker, onWorkerChange }) {
       detailRequestRef.current += 1;
     };
   }, [loadWorkerDetail]);
+
+  useEffect(() => {
+    if (refreshGenerationRef.current === refreshGeneration) return;
+    refreshGenerationRef.current = refreshGeneration;
+    loadWorkerDetail({ manual: true });
+  }, [loadWorkerDetail, refreshGeneration]);
 
   const displayedWorker = mergeWorkerRecords(worker, detailWorker);
   const cleanupLifecycle = workerCleanupLifecycle(displayedWorker);
@@ -1269,7 +1276,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
   );
 }
 
-function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken }) {
+function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken, refreshGeneration }) {
   const [expanded, setExpanded] = useState(false);
   const [detailWorker, setDetailWorker] = useState(null);
   const [editing, setEditing] = useState(false);
@@ -1402,7 +1409,11 @@ function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken }) {
               </label>
             </div>
           </div>
-          <WorkerDetail worker={displayedWorker} onWorkerChange={setDetailWorker} />
+          <WorkerDetail
+            worker={displayedWorker}
+            onWorkerChange={setDetailWorker}
+            refreshGeneration={refreshGeneration}
+          />
         </div>
       )}
     </article>
@@ -1421,6 +1432,7 @@ export function WorkersScreen() {
   const [releaseInfo, setReleaseInfo] = useState({ latestVersion: "", loading: true });
   const [releaseVersion, setReleaseVersion] = useState("");
   const [releaseBusy, setReleaseBusy] = useState(false);
+  const [detailRefreshGeneration, setDetailRefreshGeneration] = useState(0);
   const [workerPage, setWorkerPage] = useState({
     limit: WORKER_PAGE_SIZE,
     offset: 0,
@@ -1559,6 +1571,7 @@ export function WorkersScreen() {
     if (refreshingRef.current) return;
     refreshingRef.current = true;
     setRefreshing(true);
+    setDetailRefreshGeneration((current) => current + 1);
     try {
       await Promise.all([loadWorkers(), loadWorkerDefaults({ refresh: true })]);
     } finally {
@@ -1762,6 +1775,7 @@ export function WorkersScreen() {
               onAction={handleAction}
               pendingWorkerIds={pendingWorkerIds}
               rotatedToken={rotatedTokens[worker.worker_id]}
+              refreshGeneration={detailRefreshGeneration}
             />
           ))
         )}

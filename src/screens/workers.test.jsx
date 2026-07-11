@@ -725,20 +725,30 @@ describe("WorkersScreen", () => {
 
   it("uses newer quota telemetry returned by the page refresh for an expanded worker", async () => {
     const user = userEvent.setup();
-    pullwiseApi.system.getWorker.mockResolvedValueOnce({
-      worker: {
-        ...workers[0],
-        codexQuota: {
-          planType: "pro",
-          status: "ok",
-          ready: true,
-          checkedAt: 1781200060,
-          windows: [{ windowKind: "five_hour", usedPercent: 22, remainingPercent: 78 }],
-        },
+    const detailWorker = {
+      ...workers[0],
+      codexQuota: {
+        planType: "pro",
+        status: "ok",
+        ready: true,
+        checkedAt: 1781200060,
+        windows: [{ windowKind: "five_hour", usedPercent: 22, remainingPercent: 78 }],
       },
-      auditEvents: [],
-      taskActivity: [],
-    });
+    };
+    pullwiseApi.system.getWorker
+      .mockResolvedValueOnce({ worker: detailWorker, auditEvents: [], taskActivity: [] })
+      .mockResolvedValueOnce({
+        worker: {
+          ...detailWorker,
+          latest_command: {
+            id: "cmd_quota_refresh",
+            command: "refresh_codex_quota",
+            status: "succeeded",
+          },
+        },
+        auditEvents: [],
+        taskActivity: [],
+      });
     pullwiseApi.system.listWorkers
       .mockResolvedValueOnce({ workers, items: workers })
       .mockResolvedValueOnce({
@@ -764,6 +774,7 @@ describe("WorkersScreen", () => {
 
     await user.click(screen.getByRole("button", { name: /^refresh$/i }));
 
+    await waitFor(() => expect(pullwiseApi.system.refreshWorkerQuota).toHaveBeenCalledWith("wk_1"));
     expect(await within(quotaSection).findByText("41% remaining")).toBeInTheDocument();
     expect(within(quotaSection).queryByText("78% remaining")).not.toBeInTheDocument();
   });

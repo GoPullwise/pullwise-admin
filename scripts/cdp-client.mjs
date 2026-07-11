@@ -1,3 +1,4 @@
+import { clearTimeout, setTimeout } from "node:timers";
 import WebSocket from "ws";
 
 const DEFAULT_COMMAND_TIMEOUT_MS = 10_000;

@@ -12,7 +12,41 @@ import {
 } from "./settings.jsx";
 
 const PLAN_ORDER = ["free", "pro", "max"];
-const EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
+const DEFAULT_EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
+
+function effortPolicyFrom(payload) {
+  const source = payload?.capabilities?.codex?.reasoningEffort;
+  const defaultOptions = Array.isArray(source?.defaultOptions)
+    ? source.defaultOptions.filter((option) => typeof option === "string" && option)
+    : [];
+  const modelFamilies = Array.isArray(source?.modelFamilies)
+    ? source.modelFamilies
+        .map((family) => ({
+          modelPrefix: textValue(family?.modelPrefix).toLowerCase(),
+          options: Array.isArray(family?.options)
+            ? family.options.filter((option) => typeof option === "string" && option)
+            : [],
+        }))
+        .filter((family) => family.modelPrefix && family.options.length > 0)
+    : [];
+  return {
+    defaultOptions: defaultOptions.length > 0 ? defaultOptions : DEFAULT_EFFORT_OPTIONS,
+    modelFamilies,
+  };
+}
+
+function effortOptionsForModel(model, policy) {
+  const normalizedModel = textValue(model).toLowerCase();
+  const family = (policy?.modelFamilies || []).find(
+    ({ modelPrefix }) =>
+      normalizedModel === modelPrefix || normalizedModel.startsWith(`${modelPrefix}-`)
+  );
+  return family?.options?.length
+    ? family.options
+    : policy?.defaultOptions?.length
+      ? policy.defaultOptions
+      : DEFAULT_EFFORT_OPTIONS;
+}
 
 function itemsFrom(payload) {
   const plans = payload?.plans;
@@ -32,9 +66,14 @@ function textValue(value, fallback = "") {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
-function effortValue(value) {
-  const effort = textValue(value).toLowerCase();
-  return EFFORT_OPTIONS.includes(effort) ? effort : "medium";
+function effortValue(value, model, policy) {
+    const effort = textValue(value).toLowerCase();
+  const options = effortOptionsForModel(model, policy);
+  return options.includes(effort)
+    ? effort
+    : options.includes("medium")
+      ? "medium"
+      : options[0];
 }
 
 function numberText(value, fallback) {
@@ -49,7 +88,11 @@ function integerFieldValue(value) {
   return Number.isSafeInteger(number) ? number : null;
 }
 
-function planFormValidationError(form) {
+function planFormValidationError(form, effortPolicy) {
+  const effortOptions = effortOptionsForModel(form.codexModel, effortPolicy);
+  if (!effortOptions.includes(form.codexReasoningEffort)) {
+    return `Codex reasoning effort must be one of: ${effortOptions.join(", ")}.`;
+  }
   const turnTimeoutSeconds = integerFieldValue(form.turnTimeoutSeconds);
   if (
     turnTimeoutSeconds === null ||
@@ -69,7 +112,7 @@ function planFormValidationError(form) {
   return "";
 }
 
-function formFromPlan(plan) {
+function formFromPlan(plan, effortPolicy) {
   const agentConfig = plan?.agentConfig || {};
   const codex = agentConfig.codex || {};
   const reviewWorker = agentConfig.reviewWorker || {};
@@ -79,7 +122,7 @@ function formFromPlan(plan) {
     name: textValue(plan?.name, titleCase(id)),
     reviewLimit: plan?.reviewLimit ?? "",
     codexModel: textValue(codex.model, "gpt-5.5"),
-    codexReasoningEffort: effortValue(codex.reasoningEffort),
+    codexReasoningEffort: effortValue(codex.reasoningEffort, codex.model, effortPolicy),
     turnTimeoutSeconds: numberText(reviewWorker.turnTimeoutSeconds, 3600),
 
     scanDeadlineSeconds: numberText(reviewWorker.scanDeadlineSeconds, 14400),
@@ -150,6 +193,7 @@ function TextField({
   max,
   step,
   inputMode,
+  onBlur,
 }) {
   return (
     <label className="field">
@@ -163,13 +207,18 @@ function TextField({
         inputMode={inputMode}
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onBlur={onBlur}
       />
       {description && <small className="field-help">{description}</small>}
     </label>
   );
 }
 
-function PlanConfigCard({ form, saving, onChange, onSave }) {
+function PlanConfigCard({ form, effortPolicy, saving, onChange, onModelBlur, onSave }) {
+  const effortOptions = effortOptionsForModel(form.codexModel, effortPolicy);
+  const unsupportedEffort = !effortOptions.includes(form.codexReasoningEffort)
+    ? form.codexReasoningEffort
+    : "";
   return (
     <article className="plan-config-card">
       <div className="plan-config-head">
@@ -199,6 +248,7 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
             ariaLabel={`${form.name} Codex model`}
             value={form.codexModel}
             onChange={(value) => onChange(form.id, "codexModel", value)}
+            onBlur={() => onModelBlur(form.id)}
             description="Codex model used for this plan."
           />
           <SelectField
@@ -208,9 +258,14 @@ function PlanConfigCard({ form, saving, onChange, onSave }) {
             onChange={(value) =>
               onChange(form.id, "codexReasoningEffort", value)
             }
-            description="Codex reasoning effort used for this plan."
+            description={`Available for this model: ${effortOptions.join(", ")}.`}
           >
-            {EFFORT_OPTIONS.map((option) => (
+            {unsupportedEffort && (
+              <option value={unsupportedEffort} disabled>
+                {unsupportedEffort} (unsupported)
+              </option>
+            )}
+            {effortOptions.map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
@@ -287,6 +342,7 @@ export function PlansScreen() {
   const [message, setMessage] = useState("");
   const [savingPlan, setSavingPlan] = useState("");
   const [savingPlanSettings, setSavingPlanSettings] = useState(false);
+  const [effortPolicy, setEffortPolicy] = useState(() => effortPolicyFrom(null));
   const savesInFlightRef = useRef(new Set());
   const loadingRef = useRef(false);
   const loadRequestRef = useRef(0);
@@ -304,18 +360,21 @@ export function PlansScreen() {
         pullwiseApi.system.getSystemConfig(),
       ]);
       if (loadRequestRef.current !== requestId) return;
+      const nextEffortPolicy = effortPolicyFrom(payload);
       const nextForms = {};
       for (const plan of itemsFrom(payload)) {
-        const form = formFromPlan(plan);
+        const form = formFromPlan(plan, nextEffortPolicy);
         nextForms[form.id] = form;
       }
       setForms(nextForms);
+      setEffortPolicy(nextEffortPolicy);
       setSystemPayload(nextSystemPayload);
       setPlanSettings(cloneSettings(nextSystemPayload?.settings));
     } catch (err) {
       if (loadRequestRef.current !== requestId) return;
       setError(err?.message || "Unable to load plan settings.");
       setForms({});
+      setEffortPolicy(effortPolicyFrom(null));
       setSystemPayload(null);
       setPlanSettings({});
     } finally {
@@ -343,6 +402,22 @@ export function PlansScreen() {
       ...current,
       [planId]: { ...current[planId], [field]: value },
     }));
+  };
+
+  const normalizeModelEffort = (planId) => {
+    setForms((current) => {
+      const form = current[planId];
+      if (!form) return current;
+      const options = effortOptionsForModel(form.codexModel, effortPolicy);
+      if (options.includes(form.codexReasoningEffort)) return current;
+      return {
+        ...current,
+        [planId]: {
+          ...form,
+          codexReasoningEffort: options[options.length - 1],
+        },
+      };
+    });
   };
 
   const updatePlanSetting = (path, value) => {
@@ -380,7 +455,7 @@ export function PlansScreen() {
   const savePlan = async (planId) => {
     const form = forms[planId];
     if (!form) return;
-    const validationError = planFormValidationError(form);
+    const validationError = planFormValidationError(form, effortPolicy);
     if (validationError) {
       setError(validationError);
       setMessage("");
@@ -403,6 +478,7 @@ export function PlansScreen() {
           name: form.name,
           agentConfig: payload.agentConfig,
         },
+        effortPolicy,
       );
       setForms((current) => ({ ...current, [planId]: updated }));
       setMessage(`${updated.name} agent config saved.`);
@@ -515,8 +591,10 @@ export function PlansScreen() {
               <PlanConfigCard
                 key={form.id}
                 form={form}
+                effortPolicy={effortPolicy}
                 saving={savingPlan === form.id}
                 onChange={updateField}
+                onModelBlur={normalizeModelEffort}
                 onSave={savePlan}
               />
             ))}

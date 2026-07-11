@@ -27,6 +27,20 @@ const proPlan = {
   },
 };
 
+const agentCapabilities = {
+  codex: {
+    reasoningEffort: {
+      defaultOptions: ["low", "medium", "high", "xhigh"],
+      modelFamilies: [
+        {
+          modelPrefix: "gpt-5.6",
+          options: ["low", "medium", "high", "xhigh", "max", "ultra"],
+        },
+      ],
+    },
+  },
+};
+
 const systemConfigPayload = {
   settings: {
     plans: {
@@ -94,7 +108,10 @@ const systemConfigPayload = {
 describe("PlansScreen", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({ plans: [proPlan] });
+    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({
+      plans: [proPlan],
+      capabilities: agentCapabilities,
+    });
     pullwiseApi.system.getSystemConfig.mockResolvedValue(systemConfigPayload);
   });
 
@@ -157,6 +174,61 @@ describe("PlansScreen", () => {
       reviewWorker: { turnTimeoutSeconds: 3600, scanDeadlineSeconds: 14400 },
     });
     expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();
+  });
+
+  it("shows model-aware reasoning efforts and clamps an unsupported effort on model blur", async () => {
+    const user = userEvent.setup();
+    render(<PlansScreen />);
+
+    await screen.findByText("Pro");
+    const model = screen.getByLabelText("Pro Codex model");
+    const effort = screen.getByLabelText("Pro Codex effort");
+    expect(within(effort).queryByRole("option", { name: "max" })).not.toBeInTheDocument();
+    expect(within(effort).queryByRole("option", { name: "ultra" })).not.toBeInTheDocument();
+
+    await user.clear(model);
+    await user.type(model, "gpt-5.6-sol");
+    expect(within(effort).getByRole("option", { name: "max" })).toBeInTheDocument();
+    expect(within(effort).getByRole("option", { name: "ultra" })).toBeInTheDocument();
+    await user.selectOptions(effort, "ultra");
+
+    await user.clear(model);
+    await user.type(model, "gpt-5.5");
+    await user.tab();
+
+    expect(effort).toHaveValue("xhigh");
+    expect(within(effort).queryByRole("option", { name: "max" })).not.toBeInTheDocument();
+    expect(within(effort).queryByRole("option", { name: "ultra" })).not.toBeInTheDocument();
+  });
+
+  it("saves ultra for a GPT-5.6 family model", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.updatePlanAgentConfig.mockResolvedValue({
+      plan: {
+        ...proPlan,
+        agentConfig: {
+          ...proPlan.agentConfig,
+          codex: { model: "gpt-5.6-terra", reasoningEffort: "ultra" },
+        },
+      },
+    });
+    render(<PlansScreen />);
+
+    await screen.findByText("Pro");
+    const model = screen.getByLabelText("Pro Codex model");
+    await user.clear(model);
+    await user.type(model, "gpt-5.6-terra");
+    await user.selectOptions(screen.getByLabelText("Pro Codex effort"), "ultra");
+    await user.click(screen.getByRole("button", { name: /save pro/i }));
+
+    await waitFor(() =>
+      expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith(
+        "pro",
+        expect.objectContaining({
+          codex: { model: "gpt-5.6-terra", reasoningEffort: "ultra" },
+        })
+      )
+    );
   });
 
   it("coalesces same-frame plan agent saves", async () => {

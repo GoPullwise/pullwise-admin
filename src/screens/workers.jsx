@@ -1323,9 +1323,15 @@ function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken, refreshGe
   const isDisabled = displayedWorker.enabled === false;
   const busy = pendingWorkerIds.has(String(workerId));
   const hasActiveCommand = hasActiveWorkerCommand(displayedWorker);
+  const activeCommandName = hasActiveCommand
+    ? textValue(latestWorkerCommand(displayedWorker)?.command).toLowerCase()
+    : "";
+  const lifecycleActionCanPreempt = activeCommandName === "refresh_codex_quota";
   const cleanupLifecycle = workerCleanupLifecycle(displayedWorker);
   const readiness = workerReadinessDetail(displayedWorker);
   const actionsDisabled = busy || hasActiveCommand || Boolean(cleanupLifecycle);
+  const lifecycleActionsDisabled =
+    busy || Boolean(cleanupLifecycle) || (hasActiveCommand && !lifecycleActionCanPreempt);
 
   const save = async () => {
     const result = await onAction("save", workerId, {
@@ -1376,7 +1382,7 @@ function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken, refreshGe
                 Enable
               </button>
             ) : (
-              <button className="btn sm" type="button" disabled={actionsDisabled} onClick={() => onAction("disable", workerId)}>
+              <button className="btn sm" type="button" disabled={lifecycleActionsDisabled} onClick={() => onAction("disable", workerId)}>
                 Disable
               </button>
             )}
@@ -1386,7 +1392,7 @@ function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken, refreshGe
             <button
               className="btn sm danger"
               type="button"
-              disabled={actionsDisabled}
+              disabled={lifecycleActionsDisabled}
               onClick={() => {
                 if (confirmDelete) {
                   setConfirmDelete(false);

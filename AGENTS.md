@@ -164,6 +164,7 @@ Admin worker/status views must handle large worker and scan counts.
 - Worker list loads must use a latest-request generation so an older page, interval, or refresh response cannot overwrite newer pagination state.
 - Pending cleanup workers must remain cached and retained across transient detail failures; remove the retained id only after an explicit 404 or a terminal cleanup lifecycle.
 - Serialize all mutations per worker id, while still allowing independent workers to act concurrently. Rendering busy state from only the most recently started action is insufficient.
+- Keep Disable and Delete instance available when the worker's only active command is `refresh_codex_quota`; lifecycle actions preempt telemetry commands. Continue blocking unrelated mutations and lifecycle actions behind non-telemetry active commands or cleanup lifecycle state.
 - Schema-driven numeric inputs must render `min`, `max`, and integer `step`, preserve fractional edits long enough to report them, and reject blank, non-finite, fractional integer, or out-of-range values before saving.
 - Keep `scripts/check-mobile-overflow.mjs` in the normal check path. It must load an authenticated production Admin shell in a real headless Chrome 390px viewport and assert `document.documentElement.scrollWidth === clientWidth`.
 - API helpers must reject an already-aborted caller signal before starting `fetch`. Cloudflare Worker and Pages proxies must stream body-bearing requests to the authenticated upstream instead of cloning and materializing the full client body at the edge.

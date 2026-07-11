@@ -1169,6 +1169,32 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(pullwiseApi.system.disableWorker).toHaveBeenCalledWith("wk_1"));
   });
 
+  it("keeps disable and delete available while an idle worker has a quota refresh command", async () => {
+    const user = userEvent.setup();
+    const workerWithQuotaRefresh = {
+      ...workers[0],
+      latest_command: {
+        id: "cmd_quota_refresh",
+        command: "refresh_codex_quota",
+        status: "pending",
+      },
+    };
+    pullwiseApi.system.listWorkers.mockResolvedValue({ workers: [workerWithQuotaRefresh] });
+    pullwiseApi.system.getWorker.mockResolvedValue({
+      worker: workerWithQuotaRefresh,
+      auditEvents: [],
+      taskActivity: [],
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    expect(screen.getByRole("button", { name: /^disable$/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /^delete instance$/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /rotate token/i })).toBeDisabled();
+  });
+
   it("keeps both worker rows busy while actions on different workers are pending", async () => {
     const user = userEvent.setup();
     const secondWorker = { ...workers[0], worker_id: "wk_2", name: "EU Worker", region: "eu-west" };

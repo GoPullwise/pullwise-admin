@@ -291,6 +291,32 @@ describe("WorkersScreen", () => {
     );
   });
 
+  it("keeps worker registration open until a pending one-time token response arrives", async () => {
+    const user = userEvent.setup();
+    let resolveCreate;
+    pullwiseApi.system.createWorker.mockReturnValue(
+      new Promise((resolve) => {
+        resolveCreate = resolve;
+      })
+    );
+    render(<WorkersScreen />);
+
+    await user.click(await screen.findByRole("button", { name: /register worker/i }));
+    await user.click(screen.getByRole("button", { name: /^create worker$/i }));
+
+    const cancel = screen.getByRole("button", { name: /^cancel$/i });
+    const close = screen.getByRole("button", { name: /^close$/i });
+    expect(cancel).toBeDisabled();
+    expect(close).toBeDisabled();
+    await user.click(cancel);
+    expect(screen.getByRole("heading", { name: /register new worker/i })).toBeInTheDocument();
+
+    await act(async () =>
+      resolveCreate({ worker: { worker_id: "wk_new", name: "Worker" }, worker_token: "pwk_late_once" })
+    );
+    expect(await screen.findByText(/pwk_late_once/)).toBeInTheDocument();
+  });
+
   it("does not show Agent CLI copy in the register worker modal", async () => {
     const user = userEvent.setup();
 
@@ -992,6 +1018,30 @@ describe("WorkersScreen", () => {
     await act(async () =>
       resolvePause({ session: { id: "log_server", source: "server", status: "paused", nextSequence: 1 } })
     );
+  });
+
+  it("pauses a worker log session that is created after its panel unmounts", async () => {
+    const user = userEvent.setup();
+    let resolveStart;
+    pullwiseApi.system.createLogStream.mockReturnValue(
+      new Promise((resolve) => {
+        resolveStart = resolve;
+      })
+    );
+    render(<WorkersScreen />);
+
+    const workerRow = (await screen.findByText("US-East Worker")).closest(".worker-row-main");
+    await user.click(workerRow);
+    const workerLog = await screen.findByRole("log", { name: "Worker logs" });
+    await user.click(within(workerLog.closest(".log-stream-panel")).getByRole("button", { name: /enable listening/i }));
+    await user.click(workerRow);
+
+    await act(async () =>
+      resolveStart({ session: { id: "log_late", source: "worker", status: "active", nextSequence: 1 } })
+    );
+
+    await waitFor(() => expect(pullwiseApi.system.pauseLogStream).toHaveBeenCalledWith("log_late"));
+    expect(pullwiseApi.system.pauseLogStream).toHaveBeenCalledTimes(1);
   });
 
   it("keeps log listening active when pausing the stream fails", async () => {

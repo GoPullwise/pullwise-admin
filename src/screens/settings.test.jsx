@@ -340,6 +340,24 @@ describe("SettingsScreen", () => {
     expect(pullwiseApi.system.updateSystemConfig).toHaveBeenCalledTimes(1);
     await act(async () => resolveSave({ settings: {}, groups: [] }));
   });
+
+  it("locks setting inputs while their submitted snapshot is saving", async () => {
+    let resolveSave;
+    pullwiseApi.system.updateSystemConfig.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      })
+    );
+    render(<SettingsScreen />);
+
+    const retryAttempts = await screen.findByLabelText("Scan job retry attempts");
+    const save = screen.getByRole("button", { name: /^save$/i });
+    act(() => save.click());
+
+    expect(retryAttempts).toBeDisabled();
+    await act(async () => resolveSave({ settings: {}, groups: [] }));
+  });
+
   it("coalesces same-frame system config refreshes", async () => {
     render(<SettingsScreen />);
     await screen.findByText("System Settings");

@@ -75,6 +75,14 @@ admin flows.
 - Review agent policy is plan-scoped and should preserve a single provider plus
   Codex-specific settings:
   - Codex: model and reasoning effort.
+- Plan reasoning-effort controls must be capability-driven. Prefer exact Codex
+  `model/list` entries (`id`/`model` plus object-shaped
+  `supportedReasoningEfforts`), then the longest matching server-provided model
+  family fallback, then default options. Do not hardcode model/effort pairs in
+  the Admin UI; keep unknown future catalog entries data-driven.
+- When a model edit makes the selected effort unsupported, preserve the edit
+  until model-field blur, then clamp to that model's highest advertised effort.
+  Server validation remains authoritative for the saved model/effort pair.
 - Admin worker install payloads should preserve provider chain order and should
   not imply that global Codex config is shared across workers.
 - Treat worker `region` as an operator-defined location label only; it is
@@ -84,6 +92,9 @@ admin flows.
   package selection; do not offer a post-registration desired-version editor.
 - Do not expose Codex CLI command/release/version pinning in worker registration UI, plan policy UI, or payloads; server-managed installs use the `openai-codex` SDK with the latest official worker-local standalone CLI and SDK-based device login.
 - Do not expose old Codex app-server lifecycle controls in worker registration UI or payloads. SDK-based workers should not receive `PULLWISE_CODEX_APP_SERVER_MAX_AGE_SECONDS` or `PULLWISE_CODEX_APP_SERVER_MAX_TURNS` from admin flows.
+- Do not reduce plan model/effort choices to the intersection supported by a
+  mixed-version worker fleet. Operators may roll out newer worker versions
+  gradually; worker replacement/version routing is a separate deployment concern.
 
 ## Review Worker Protocol And Copy
 

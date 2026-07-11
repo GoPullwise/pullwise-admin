@@ -407,6 +407,32 @@ describe("PlansScreen", () => {
     );
   });
 
+  it("does not start a stale plan refresh while a save is pending", async () => {
+    let resolveSave;
+    pullwiseApi.system.updatePlanAgentConfig.mockReturnValue(
+      new Promise((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+    render(<PlansScreen />);
+
+    const save = await screen.findByRole("button", { name: /save pro/i });
+    const refresh = screen.getByRole("button", { name: /^refresh$/i });
+    act(() => {
+      save.click();
+      refresh.click();
+    });
+
+    expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledTimes(1);
+    expect(pullwiseApi.system.listPlanAgentConfigs).toHaveBeenCalledTimes(1);
+    await act(async () =>
+      resolveSave({
+        plan: proPlan,
+        agentConfig: proPlan.agentConfig,
+      }),
+    );
+  });
+
   it("coalesces same-frame plan refreshes", async () => {
     const refresh = {};
     refresh.promise = new Promise((resolve) => {

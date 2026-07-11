@@ -133,6 +133,37 @@ describe("UsersScreen", () => {
     expect(screen.getByText(/related pullwise records were deleted/i)).toBeInTheDocument();
   });
 
+  it("does not let an older user refresh resurrect a successfully deleted user", async () => {
+    const user = userEvent.setup();
+    let resolveRefresh;
+    render(<UsersScreen />);
+    await screen.findByText("Authorized User");
+    pullwiseApi.system.listUsers.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveRefresh = resolve;
+      })
+    );
+
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+    await user.click(screen.getAllByRole("button", { name: /delete user/i }).find((button) => !button.disabled));
+    await user.click(screen.getByRole("button", { name: /confirm delete/i }));
+    await waitFor(() => expect(screen.queryByText("Authorized User")).not.toBeInTheDocument());
+
+    await act(async () =>
+      resolveRefresh({
+        users: [
+          {
+            id: "usr_user",
+            name: "Authorized User",
+            email: "user@example.com",
+          },
+        ],
+      })
+    );
+
+    expect(screen.queryByText("Authorized User")).not.toBeInTheDocument();
+  });
+
   it("coalesces same-frame user deletion confirmations", async () => {
     const user = userEvent.setup();
     let resolveDelete;

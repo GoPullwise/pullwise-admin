@@ -27,6 +27,11 @@ export const pullwiseApi = {
     releaseWorker: (payload = {}) => request("/admin/workers/releases", { method: "POST", body: payload }),
     createWorker: (payload = {}) => request("/admin/workers", { method: "POST", body: payload }),
     getWorker: (workerId) => request(`/admin/workers/${pathSegment(workerId)}`),
+    refreshWorkerQuota: (workerId) =>
+      request(`/admin/workers/${pathSegment(workerId)}/commands`, {
+        method: "POST",
+        body: { command: "refresh_codex_quota" },
+      }),
     updateWorker: (workerId, payload = {}) =>
       request(`/admin/workers/${pathSegment(workerId)}`, { method: "PATCH", body: payload }),
     enableWorker: (workerId) =>

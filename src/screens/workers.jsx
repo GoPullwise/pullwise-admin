@@ -9,7 +9,10 @@ const LOG_STREAM_CLIENT_LINE_LIMIT = 500;
 const WORKER_TOKEN_PROMPT_PREFIX =
   "read -rsp 'Pullwise worker token: ' PULLWISE_WORKER_TOKEN; echo; export PULLWISE_WORKER_TOKEN; ";
 const WORKER_COMMAND_ACTIVE_STATUSES = new Set(["pending", "running"]);
+const WORKER_COMMAND_TERMINAL_STATUSES = new Set(["succeeded", "failed", "cancelled"]);
 const WORKER_CLEANUP_COMPLETE_STATUSES = new Set(["succeeded"]);
+const WORKER_QUOTA_REFRESH_POLL_MS = 500;
+const WORKER_QUOTA_REFRESH_TIMEOUT_MS = 30000;
 
 function itemsFrom(payload, ...keys) {
   for (const key of keys) {
@@ -31,6 +34,7 @@ function commandLabel(command) {
   const value = textValue(command, "command");
   if (value === "uninstall") return "Delete instance";
   if (value === "stop") return "Disable";
+  if (value === "refresh_codex_quota") return "Refresh Codex quota";
   return statusLabel(value);
 }
 
@@ -104,17 +108,22 @@ function cleanupStatusTone(status) {
 function mergeWorkerRecords(worker, detailWorker) {
   if (!detailWorker) return worker;
   const merged = { ...worker, ...detailWorker };
-  for (const key of ["codexQuota", "codex_quota", "machineMetrics", "machine_metrics"]) {
-    if (hasOwn(detailWorker, key)) {
-      merged[key] = detailWorker[key];
-    }
-  }
-  if (!hasOwn(merged, "machineMetrics") && hasOwn(merged, "machine_metrics")) {
-    merged.machineMetrics = merged.machine_metrics;
-  }
-  if (!hasOwn(merged, "codexQuota") && hasOwn(merged, "codex_quota")) {
-    merged.codexQuota = merged.codex_quota;
-  }
+  const listQuota = objectValue(worker?.codexQuota) || objectValue(worker?.codex_quota);
+  const detailQuota = objectValue(detailWorker?.codexQuota) || objectValue(detailWorker?.codex_quota);
+  const quota =
+    listQuota && timestampValue(listQuota.checkedAt ?? listQuota.checked_at) > timestampValue(detailQuota?.checkedAt ?? detailQuota?.checked_at)
+      ? listQuota
+      : detailQuota || listQuota;
+  if (quota) merged.codexQuota = quota;
+  const listMetrics = objectValue(worker?.machineMetrics) || objectValue(worker?.machine_metrics);
+  const detailMetrics = objectValue(detailWorker?.machineMetrics) || objectValue(detailWorker?.machine_metrics);
+  const metrics =
+    listMetrics &&
+    timestampValue(listMetrics.collectedAt ?? listMetrics.collected_at) >
+      timestampValue(detailMetrics?.collectedAt ?? detailMetrics?.collected_at)
+      ? listMetrics
+      : detailMetrics || listMetrics;
+  if (metrics) merged.machineMetrics = metrics;
   const workerCommand = latestWorkerCommand(worker);
   const detailCommand = latestWorkerCommand(detailWorker);
   if (workerCommand || detailCommand) {
@@ -126,6 +135,15 @@ function mergeWorkerRecords(worker, detailWorker) {
 function timestampValue(value) {
   const number = Number(value);
   return Number.isFinite(number) && number > 0 ? number : 0;
+}
+
+function workerQuotaCheckedAt(worker) {
+  const quota = objectValue(worker?.codexQuota) || objectValue(worker?.codex_quota);
+  return timestampValue(quota?.checkedAt ?? quota?.checked_at);
+}
+
+function waitFor(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
 function hasActiveWorkerCommand(worker) {
@@ -1056,10 +1074,16 @@ function WorkerDetail({ worker, onWorkerChange }) {
   const [detailLoading, setDetailLoading] = useState(true);
   const [detailRefreshing, setDetailRefreshing] = useState(false);
   const detailRequestRef = useRef(0);
+  const detailRefreshInFlightRef = useRef(false);
+  const detailWorkerRef = useRef(null);
+  const workerRef = useRef(worker);
+  workerRef.current = worker;
 
   const loadWorkerDetail = useCallback(
     async (options = {}) => {
       const manual = options?.manual === true;
+      if (manual && detailRefreshInFlightRef.current) return;
+      if (manual) detailRefreshInFlightRef.current = true;
       const requestId = detailRequestRef.current + 1;
       detailRequestRef.current = requestId;
       setDetailError("");
@@ -1070,9 +1094,43 @@ function WorkerDetail({ worker, onWorkerChange }) {
       }
 
       try {
-        const payload = await pullwiseApi.system.getWorker(worker.worker_id);
+        const workerId = workerRef.current.worker_id;
+        let payload;
+        if (manual) {
+          const previousCheckedAt = workerQuotaCheckedAt(
+            mergeWorkerRecords(workerRef.current, detailWorkerRef.current)
+          );
+          const refreshPayload = await pullwiseApi.system.refreshWorkerQuota(workerId);
+          const commandId = textValue(refreshPayload?.command?.id);
+          if (!commandId) throw new Error("Worker did not accept the Codex quota refresh request.");
+          const deadline = Date.now() + WORKER_QUOTA_REFRESH_TIMEOUT_MS;
+          while (true) {
+            payload = await pullwiseApi.system.getWorker(workerId);
+            if (detailRequestRef.current !== requestId) return;
+            const polledWorker = objectValue(payload?.worker);
+            const refreshCommand = latestWorkerCommand(polledWorker);
+            const commandMatches = textValue(refreshCommand?.id) === commandId;
+            const commandStatus = textValue(refreshCommand?.status).toLowerCase();
+            if (commandMatches && WORKER_COMMAND_TERMINAL_STATUSES.has(commandStatus)) {
+              if (commandStatus !== "succeeded") {
+                throw new Error(
+                  textValue(refreshCommand?.error, "Unable to refresh this worker's Codex quota.")
+                );
+              }
+              break;
+            }
+            if (!commandMatches && workerQuotaCheckedAt(polledWorker) > previousCheckedAt) break;
+            if (Date.now() >= deadline) {
+              throw new Error("Timed out waiting for this worker to report refreshed Codex quota.");
+            }
+            await waitFor(WORKER_QUOTA_REFRESH_POLL_MS);
+          }
+        } else {
+          payload = await pullwiseApi.system.getWorker(workerId);
+        }
         if (detailRequestRef.current !== requestId) return;
         const nextWorker = payload?.worker || null;
+        detailWorkerRef.current = nextWorker;
         setDetailWorker(nextWorker);
         onWorkerChange?.(nextWorker);
         setAuditEvents(Array.isArray(payload?.auditEvents) ? payload.auditEvents : []);
@@ -1080,9 +1138,12 @@ function WorkerDetail({ worker, onWorkerChange }) {
       } catch (err) {
         if (detailRequestRef.current !== requestId) return;
         setDetailError(err?.message || "Unable to load worker details.");
-        setAuditEvents([]);
-        setTaskActivity([]);
+        if (!manual) {
+          setAuditEvents([]);
+          setTaskActivity([]);
+        }
       } finally {
+        if (manual) detailRefreshInFlightRef.current = false;
         if (detailRequestRef.current === requestId) {
           if (manual) {
             setDetailRefreshing(false);
@@ -1097,6 +1158,8 @@ function WorkerDetail({ worker, onWorkerChange }) {
 
   useEffect(() => {
     setDetailWorker(null);
+    detailWorkerRef.current = null;
+    detailRefreshInFlightRef.current = false;
     setAuditEvents([]);
     setTaskActivity([]);
     setDetailError("");

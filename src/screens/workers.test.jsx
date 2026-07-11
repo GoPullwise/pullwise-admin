@@ -767,6 +767,84 @@ describe("WorkersScreen", () => {
     expect(await within(quotaSection).findByText("41% remaining")).toBeInTheDocument();
     expect(within(quotaSection).queryByText("78% remaining")).not.toBeInTheDocument();
   });
+
+  it("keeps the previous quota visible when a worker quota refresh fails", async () => {
+    const user = userEvent.setup();
+    const staleWorker = {
+      ...workers[0],
+      codexQuota: {
+        planType: "pro",
+        status: "ok",
+        ready: true,
+        checkedAt: 1781200060,
+        windows: [{ windowKind: "five_hour", usedPercent: 22, remainingPercent: 78 }],
+      },
+    };
+    pullwiseApi.system.getWorker
+      .mockResolvedValueOnce({ worker: staleWorker, auditEvents: [], taskActivity: [] })
+      .mockResolvedValueOnce({
+        worker: {
+          ...staleWorker,
+          latest_command: {
+            id: "cmd_quota_refresh",
+            command: "refresh_codex_quota",
+            status: "failed",
+            error: "Codex rate limits are unavailable.",
+          },
+        },
+        auditEvents: [],
+        taskActivity: [],
+      });
+
+    render(<WorkersScreen />);
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    const quotaSection = (await screen.findByText("Codex quota")).closest(".worker-codex-quota");
+
+    await user.click(screen.getByRole("button", { name: /refresh worker details/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("Codex rate limits are unavailable.");
+    expect(within(quotaSection).getByText("78% remaining")).toBeInTheDocument();
+  });
+
+  it("coalesces same-frame quota refresh requests for one worker", async () => {
+    const refresh = deferredPromise();
+    const initialWorker = {
+      ...workers[0],
+      codexQuota: { status: "ok", ready: true, checkedAt: 100 },
+    };
+    pullwiseApi.system.getWorker
+      .mockResolvedValueOnce({ worker: initialWorker, auditEvents: [], taskActivity: [] })
+      .mockResolvedValueOnce({
+        worker: {
+          ...initialWorker,
+          codexQuota: { status: "ok", ready: true, checkedAt: 200 },
+          latest_command: {
+            id: "cmd_quota_refresh",
+            command: "refresh_codex_quota",
+            status: "succeeded",
+          },
+        },
+        auditEvents: [],
+        taskActivity: [],
+      });
+    pullwiseApi.system.refreshWorkerQuota.mockReturnValueOnce(refresh.promise);
+
+    render(<WorkersScreen />);
+    await userEvent.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    const refreshButton = await screen.findByRole("button", { name: /refresh worker details/i });
+    act(() => {
+      refreshButton.click();
+      refreshButton.click();
+    });
+
+    expect(pullwiseApi.system.refreshWorkerQuota).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      refresh.resolve({
+        command: { id: "cmd_quota_refresh", command: "refresh_codex_quota", status: "pending" },
+      });
+    });
+    await waitFor(() => expect(pullwiseApi.system.getWorker).toHaveBeenCalledTimes(2));
+  });
   it("keeps quota-exhausted workers distinct from offline workers", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.getWorker.mockResolvedValue({

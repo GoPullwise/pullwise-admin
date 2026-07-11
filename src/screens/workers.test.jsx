@@ -12,6 +12,7 @@ vi.mock("../api/pullwise.js", () => ({
       releaseWorker: vi.fn(),
       createWorker: vi.fn(),
       getWorker: vi.fn(),
+      refreshWorkerQuota: vi.fn(),
       updateWorker: vi.fn(),
       enableWorker: vi.fn(),
       disableWorker: vi.fn(),
@@ -58,6 +59,9 @@ describe("WorkersScreen", () => {
       defaults: { providerChain: ["codex"] },
     });
     pullwiseApi.system.getWorker.mockResolvedValue({ worker: workers[0], auditEvents: [], taskActivity: [] });
+    pullwiseApi.system.refreshWorkerQuota.mockResolvedValue({
+      command: { id: "cmd_quota_refresh", command: "refresh_codex_quota", status: "pending" },
+    });
     pullwiseApi.system.createLogStream.mockResolvedValue({
       session: { id: "log_1", source: "server", status: "active", nextSequence: 1 },
     });
@@ -662,6 +666,7 @@ describe("WorkersScreen", () => {
             status: "ok",
             ready: true,
             remainingPercent: 78,
+            checkedAt: 1781200060,
             windows: [{ windowKind: "five_hour", usedPercent: 22, remainingPercent: 78 }],
           },
           machineMetrics: {
@@ -682,7 +687,13 @@ describe("WorkersScreen", () => {
             status: "low",
             ready: false,
             remainingPercent: 41,
+            checkedAt: 1781200120,
             windows: [{ windowKind: "five_hour", usedPercent: 59, remainingPercent: 41 }],
+          },
+          latest_command: {
+            id: "cmd_quota_refresh",
+            command: "refresh_codex_quota",
+            status: "succeeded",
           },
           machineMetrics: {
             collectedAt: 1781200120,
@@ -705,9 +716,55 @@ describe("WorkersScreen", () => {
 
     await user.click(screen.getByRole("button", { name: /refresh worker details/i }));
 
+    await waitFor(() => expect(pullwiseApi.system.refreshWorkerQuota).toHaveBeenCalledWith("wk_1"));
     await waitFor(() => expect(pullwiseApi.system.getWorker).toHaveBeenCalledTimes(2));
     expect(within(quotaSection).getByText("41% remaining")).toBeInTheDocument();
     expect(screen.getByText("71.4%")).toBeInTheDocument();
+    expect(within(quotaSection).queryByText("78% remaining")).not.toBeInTheDocument();
+  });
+
+  it("uses newer quota telemetry returned by the page refresh for an expanded worker", async () => {
+    const user = userEvent.setup();
+    pullwiseApi.system.getWorker.mockResolvedValueOnce({
+      worker: {
+        ...workers[0],
+        codexQuota: {
+          planType: "pro",
+          status: "ok",
+          ready: true,
+          checkedAt: 1781200060,
+          windows: [{ windowKind: "five_hour", usedPercent: 22, remainingPercent: 78 }],
+        },
+      },
+      auditEvents: [],
+      taskActivity: [],
+    });
+    pullwiseApi.system.listWorkers
+      .mockResolvedValueOnce({ workers, items: workers })
+      .mockResolvedValueOnce({
+        workers: [
+          {
+            ...workers[0],
+            codexQuota: {
+              planType: "pro",
+              status: "low",
+              ready: false,
+              checkedAt: 1781200120,
+              windows: [{ windowKind: "five_hour", usedPercent: 59, remainingPercent: 41 }],
+            },
+          },
+        ],
+      });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    const quotaSection = (await screen.findByText("Codex quota")).closest(".worker-codex-quota");
+    expect(within(quotaSection).getByText("78% remaining")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+
+    expect(await within(quotaSection).findByText("41% remaining")).toBeInTheDocument();
     expect(within(quotaSection).queryByText("78% remaining")).not.toBeInTheDocument();
   });
   it("keeps quota-exhausted workers distinct from offline workers", async () => {

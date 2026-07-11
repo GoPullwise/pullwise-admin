@@ -22,8 +22,17 @@ const proPlan = {
   agentConfig: {
     plan: "pro",
     provider: "codex",
-    codex: { cli: "codex", command: "codex", model: "gpt-5.5", reasoningEffort: "medium" },
-    reviewWorker: { reviewerMaxTurnsPerScan: 2, turnTimeoutSeconds: 3600, scanDeadlineSeconds: 14400 },
+    codex: {
+      cli: "codex",
+      command: "codex",
+      model: "gpt-5.5",
+      reasoningEffort: "medium",
+    },
+    reviewWorker: {
+      reviewerMaxTurnsPerScan: 2,
+      turnTimeoutSeconds: 3600,
+      scanDeadlineSeconds: 14400,
+    },
   },
 };
 
@@ -44,9 +53,21 @@ const agentCapabilities = {
 const systemConfigPayload = {
   settings: {
     plans: {
-      free: { userReviewLimit: 5, maxRepoFiles: 200, maxRepoBytes: 5 * 1024 * 1024 },
-      pro: { userReviewLimit: 60, maxRepoFiles: 1000, maxRepoBytes: 20 * 1024 * 1024 },
-      max: { userReviewLimit: 90, maxRepoFiles: 2000, maxRepoBytes: 50 * 1024 * 1024 },
+      free: {
+        userReviewLimit: 5,
+        maxRepoFiles: 200,
+        maxRepoBytes: 5 * 1024 * 1024,
+      },
+      pro: {
+        userReviewLimit: 60,
+        maxRepoFiles: 1000,
+        maxRepoBytes: 20 * 1024 * 1024,
+      },
+      max: {
+        userReviewLimit: 90,
+        maxRepoFiles: 2000,
+        maxRepoBytes: 50 * 1024 * 1024,
+      },
     },
     billing: {
       creemProProductIds: ["prod_monthly"],
@@ -59,7 +80,10 @@ const systemConfigPayload = {
   },
   defaults: {
     billing: {
-      creemProProductIds: ["prod_recommended_monthly", "prod_recommended_yearly"],
+      creemProProductIds: [
+        "prod_recommended_monthly",
+        "prod_recommended_yearly",
+      ],
       creemMaxProductIds: ["prod_recommended_max_monthly"],
     },
   },
@@ -69,14 +93,54 @@ const systemConfigPayload = {
       title: "Plan quotas",
       description: "Monthly scan quotas by subscription plan.",
       fields: [
-        { path: "plans.free.userReviewLimit", label: "Free user review limit", type: "integer", min: 0 },
-        { path: "plans.free.maxRepoFiles", label: "Free repository file limit", type: "integer", min: 1 },
-        { path: "plans.free.maxRepoBytes", label: "Free repository byte limit", type: "integer", min: 1 },
-        { path: "plans.pro.userReviewLimit", label: "Pro user review limit", type: "integer", min: 0 },
-        { path: "plans.pro.maxRepoFiles", label: "Pro repository file limit", type: "integer", min: 1 },
-        { path: "plans.pro.maxRepoBytes", label: "Pro repository byte limit", type: "integer", min: 1 },
-        { path: "plans.max.maxRepoFiles", label: "Max repository file limit", type: "integer", min: 1 },
-        { path: "plans.max.maxRepoBytes", label: "Max repository byte limit", type: "integer", min: 1 },
+        {
+          path: "plans.free.userReviewLimit",
+          label: "Free user review limit",
+          type: "integer",
+          min: 0,
+        },
+        {
+          path: "plans.free.maxRepoFiles",
+          label: "Free repository file limit",
+          type: "integer",
+          min: 1,
+        },
+        {
+          path: "plans.free.maxRepoBytes",
+          label: "Free repository byte limit",
+          type: "integer",
+          min: 1,
+        },
+        {
+          path: "plans.pro.userReviewLimit",
+          label: "Pro user review limit",
+          type: "integer",
+          min: 0,
+        },
+        {
+          path: "plans.pro.maxRepoFiles",
+          label: "Pro repository file limit",
+          type: "integer",
+          min: 1,
+        },
+        {
+          path: "plans.pro.maxRepoBytes",
+          label: "Pro repository byte limit",
+          type: "integer",
+          min: 1,
+        },
+        {
+          path: "plans.max.maxRepoFiles",
+          label: "Max repository file limit",
+          type: "integer",
+          min: 1,
+        },
+        {
+          path: "plans.max.maxRepoBytes",
+          label: "Max repository byte limit",
+          type: "integer",
+          min: 1,
+        },
       ],
     },
     {
@@ -84,7 +148,12 @@ const systemConfigPayload = {
       title: "Repository quota",
       description: "Global monthly repository scan quota.",
       fields: [
-        { path: "quota.repositoryReviewLimit", label: "Repository monthly review limit", type: "integer", min: 0 },
+        {
+          path: "quota.repositoryReviewLimit",
+          label: "Repository monthly review limit",
+          type: "integer",
+          min: 0,
+        },
       ],
     },
     {
@@ -92,15 +161,29 @@ const systemConfigPayload = {
       title: "Billing catalog",
       description: "Non-secret billing provider settings.",
       fields: [
-        { path: "billing.creemProProductIds", label: "Creem Pro product IDs", type: "stringList" },
-        { path: "billing.creemMaxProductIds", label: "Creem Max product IDs", type: "stringList" },
+        {
+          path: "billing.creemProProductIds",
+          label: "Creem Pro product IDs",
+          type: "stringList",
+        },
+        {
+          path: "billing.creemMaxProductIds",
+          label: "Creem Max product IDs",
+          type: "stringList",
+        },
       ],
     },
     {
       id: "scan",
       title: "Scan scheduling",
       description: "Queue settings.",
-      fields: [{ path: "scan.maxQueuedScansGlobal", label: "Max queued scans global", type: "integer" }],
+      fields: [
+        {
+          path: "scan.maxQueuedScansGlobal",
+          label: "Max queued scans global",
+          type: "integer",
+        },
+      ],
     },
   ],
 };
@@ -163,17 +246,30 @@ describe("PlansScreen", () => {
     await user.type(screen.getByLabelText("Pro Codex model"), "gpt-pro");
     await user.selectOptions(screen.getByLabelText("Pro Codex effort"), "high");
     await user.clear(screen.getByLabelText("Pro Codex turn timeout seconds"));
-    await user.type(screen.getByLabelText("Pro Codex turn timeout seconds"), "3600");
+    await user.type(
+      screen.getByLabelText("Pro Codex turn timeout seconds"),
+      "3600",
+    );
     await user.clear(screen.getByLabelText("Pro Scan deadline seconds"));
-    await user.type(screen.getByLabelText("Pro Scan deadline seconds"), "14400");
+    await user.type(
+      screen.getByLabelText("Pro Scan deadline seconds"),
+      "14400",
+    );
     await user.click(screen.getByRole("button", { name: /save pro/i }));
 
-    await waitFor(() => expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalled());
-    expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith("pro", {
-      codex: { model: "gpt-pro", reasoningEffort: "high" },
-      reviewWorker: { turnTimeoutSeconds: 3600, scanDeadlineSeconds: 14400 },
-    });
-    expect(await screen.findByText("Pro agent config saved.")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalled(),
+    );
+    expect(pullwiseApi.system.updatePlanAgentConfig).toHaveBeenCalledWith(
+      "pro",
+      {
+        codex: { model: "gpt-pro", reasoningEffort: "high" },
+        reviewWorker: { turnTimeoutSeconds: 3600, scanDeadlineSeconds: 14400 },
+      },
+    );
+    expect(
+      await screen.findByText("Pro agent config saved."),
+    ).toBeInTheDocument();
   });
 
   it("shows model-aware reasoning efforts and clamps an unsupported effort on model blur", async () => {
@@ -183,13 +279,21 @@ describe("PlansScreen", () => {
     await screen.findByText("Pro");
     const model = screen.getByLabelText("Pro Codex model");
     const effort = screen.getByLabelText("Pro Codex effort");
-    expect(within(effort).queryByRole("option", { name: "max" })).not.toBeInTheDocument();
-    expect(within(effort).queryByRole("option", { name: "ultra" })).not.toBeInTheDocument();
+    expect(
+      within(effort).queryByRole("option", { name: "max" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(effort).queryByRole("option", { name: "ultra" }),
+    ).not.toBeInTheDocument();
 
     await user.clear(model);
     await user.type(model, "gpt-5.6-sol");
-    expect(within(effort).getByRole("option", { name: "max" })).toBeInTheDocument();
-    expect(within(effort).getByRole("option", { name: "ultra" })).toBeInTheDocument();
+    expect(
+      within(effort).getByRole("option", { name: "max" }),
+    ).toBeInTheDocument();
+    expect(
+      within(effort).getByRole("option", { name: "ultra" }),
+    ).toBeInTheDocument();
     await user.selectOptions(effort, "ultra");
 
     await user.clear(model);
@@ -197,8 +301,12 @@ describe("PlansScreen", () => {
     await user.tab();
 
     expect(effort).toHaveValue("xhigh");
-    expect(within(effort).queryByRole("option", { name: "max" })).not.toBeInTheDocument();
-    expect(within(effort).queryByRole("option", { name: "ultra" })).not.toBeInTheDocument();
+    expect(
+      within(effort).queryByRole("option", { name: "max" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(effort).queryByRole("option", { name: "ultra" }),
+    ).not.toBeInTheDocument();
   });
 
   it("saves ultra for a GPT-5.6 family model", async () => {
@@ -218,7 +326,10 @@ describe("PlansScreen", () => {
     const model = screen.getByLabelText("Pro Codex model");
     await user.clear(model);
     await user.type(model, "gpt-5.6-terra");
-    await user.selectOptions(screen.getByLabelText("Pro Codex effort"), "ultra");
+    await user.selectOptions(
+      screen.getByLabelText("Pro Codex effort"),
+      "ultra",
+    );
     await user.click(screen.getByRole("button", { name: /save pro/i }));
 
     await waitFor(() =>
@@ -226,9 +337,50 @@ describe("PlansScreen", () => {
         "pro",
         expect.objectContaining({
           codex: { model: "gpt-5.6-terra", reasoningEffort: "ultra" },
-        })
-      )
+        }),
+      ),
     );
+  });
+
+  it("uses exact model catalog efforts for future models without frontend changes", async () => {
+    pullwiseApi.system.listPlanAgentConfigs.mockResolvedValue({
+      plans: [
+        {
+          ...proPlan,
+          agentConfig: {
+            ...proPlan.agentConfig,
+            codex: { model: "gpt-5.7-orbit", reasoningEffort: "deep" },
+          },
+        },
+      ],
+      capabilities: {
+        codex: {
+          reasoningEffort: {
+            defaultOptions: ["low", "medium", "high", "xhigh"],
+            models: [
+              {
+                id: "gpt-5.7-orbit",
+                supportedReasoningEfforts: [
+                  { reasoningEffort: "low", description: "Fast" },
+                  { reasoningEffort: "medium", description: "Balanced" },
+                  { reasoningEffort: "deep", description: "Deep" },
+                ],
+              },
+            ],
+          },
+        },
+      },
+    });
+    render(<PlansScreen />);
+
+    const effort = await screen.findByLabelText("Pro Codex effort");
+    expect(effort).toHaveValue("deep");
+    expect(
+      within(effort).getByRole("option", { name: "deep" }),
+    ).toBeInTheDocument();
+    expect(
+      within(effort).queryByRole("option", { name: "xhigh" }),
+    ).not.toBeInTheDocument();
   });
 
   it("coalesces same-frame plan agent saves", async () => {
@@ -236,7 +388,7 @@ describe("PlansScreen", () => {
     pullwiseApi.system.updatePlanAgentConfig.mockReturnValue(
       new Promise((resolve) => {
         resolveSave = resolve;
-      })
+      }),
     );
     render(<PlansScreen />);
 
@@ -251,7 +403,7 @@ describe("PlansScreen", () => {
       resolveSave({
         plan: proPlan,
         agentConfig: proPlan.agentConfig,
-      })
+      }),
     );
   });
 
@@ -262,7 +414,9 @@ describe("PlansScreen", () => {
     });
     render(<PlansScreen />);
     await screen.findByText("Plan Agent Configs");
-    pullwiseApi.system.listPlanAgentConfigs.mockReturnValueOnce(refresh.promise);
+    pullwiseApi.system.listPlanAgentConfigs.mockReturnValueOnce(
+      refresh.promise,
+    );
 
     const button = screen.getByRole("button", { name: /^refresh$/i });
     act(() => {
@@ -285,34 +439,51 @@ describe("PlansScreen", () => {
 
     expect(pullwiseApi.system.updatePlanAgentConfig).not.toHaveBeenCalled();
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Codex turn timeout must be an integer between 60 and 3600 seconds."
+      "Codex turn timeout must be an integer between 60 and 3600 seconds.",
     );
   });
 
   it.each([
-    ["Pro Codex turn timeout seconds", "60.5", "Codex turn timeout must be an integer between 60 and 3600 seconds."],
-    ["Pro Scan deadline seconds", "21601", "Scan deadline must be an integer between 0 and 21600 seconds."],
-  ])("blocks saving an invalid timeout in %s", async (label, value, expectedMessage) => {
-    const user = userEvent.setup();
-    render(<PlansScreen />);
+    [
+      "Pro Codex turn timeout seconds",
+      "60.5",
+      "Codex turn timeout must be an integer between 60 and 3600 seconds.",
+    ],
+    [
+      "Pro Scan deadline seconds",
+      "21601",
+      "Scan deadline must be an integer between 0 and 21600 seconds.",
+    ],
+  ])(
+    "blocks saving an invalid timeout in %s",
+    async (label, value, expectedMessage) => {
+      const user = userEvent.setup();
+      render(<PlansScreen />);
 
-    await screen.findByText("Pro");
-    const input = screen.getByLabelText(label);
-    await user.clear(input);
-    await user.type(input, value);
-    await user.click(screen.getByRole("button", { name: /save pro/i }));
+      await screen.findByText("Pro");
+      const input = screen.getByLabelText(label);
+      await user.clear(input);
+      await user.type(input, value);
+      await user.click(screen.getByRole("button", { name: /save pro/i }));
 
-    expect(pullwiseApi.system.updatePlanAgentConfig).not.toHaveBeenCalled();
-    expect(await screen.findByRole("alert")).toHaveTextContent(expectedMessage);
-  });
+      expect(pullwiseApi.system.updatePlanAgentConfig).not.toHaveBeenCalled();
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        expectedMessage,
+      );
+    },
+  );
 
   it("does not show an empty plan state when loading plans fails", async () => {
-    pullwiseApi.system.listPlanAgentConfigs.mockRejectedValueOnce(new Error("plans down"));
+    pullwiseApi.system.listPlanAgentConfigs.mockRejectedValueOnce(
+      new Error("plans down"),
+    );
 
     render(<PlansScreen />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("plans down");
-    expect(screen.queryByText("No plan settings returned.")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("No plan settings returned."),
+    ).not.toBeInTheDocument();
   });
 
   it("shows plan quotas and billing catalog from system config and saves them", async () => {
@@ -323,7 +494,10 @@ describe("PlansScreen", () => {
         ...systemConfigPayload.settings,
         plans: {
           ...systemConfigPayload.settings.plans,
-          pro: { ...systemConfigPayload.settings.plans.pro, userReviewLimit: 75 },
+          pro: {
+            ...systemConfigPayload.settings.plans.pro,
+            userReviewLimit: 75,
+          },
         },
       },
     });
@@ -338,38 +512,61 @@ describe("PlansScreen", () => {
     expect(screen.getByText("Plan Agent Configs")).toBeInTheDocument();
     expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Pro user review limit")).toHaveValue(60);
-    expect(screen.getByLabelText("Pro repository file limit")).toHaveValue(1000);
-    expect(screen.getByLabelText("Pro repository byte limit")).toHaveValue(20 * 1024 * 1024);
-    expect(screen.getByLabelText("Repository monthly review limit")).toHaveValue(1000);
-    expect(screen.getByLabelText("Creem Pro product IDs")).toHaveValue("prod_monthly");
+    expect(screen.getByLabelText("Pro repository file limit")).toHaveValue(
+      1000,
+    );
+    expect(screen.getByLabelText("Pro repository byte limit")).toHaveValue(
+      20 * 1024 * 1024,
+    );
+    expect(
+      screen.getByLabelText("Repository monthly review limit"),
+    ).toHaveValue(1000);
+    expect(screen.getByLabelText("Creem Pro product IDs")).toHaveValue(
+      "prod_monthly",
+    );
 
     await user.clear(screen.getByLabelText("Pro user review limit"));
     await user.type(screen.getByLabelText("Pro user review limit"), "75");
     await user.clear(screen.getByLabelText("Pro repository file limit"));
     await user.type(screen.getByLabelText("Pro repository file limit"), "1200");
     await user.clear(screen.getByLabelText("Repository monthly review limit"));
-    await user.type(screen.getByLabelText("Repository monthly review limit"), "1500");
-    await user.click(screen.getByRole("button", { name: /save plan settings/i }));
+    await user.type(
+      screen.getByLabelText("Repository monthly review limit"),
+      "1500",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /save plan settings/i }),
+    );
 
     await waitFor(() =>
       expect(pullwiseApi.system.updateSystemConfig).toHaveBeenCalledWith(
         expect.objectContaining({
           settings: expect.objectContaining({
             plans: expect.objectContaining({
-              pro: expect.objectContaining({ userReviewLimit: 75, maxRepoFiles: 1200 }),
+              pro: expect.objectContaining({
+                userReviewLimit: 75,
+                maxRepoFiles: 1200,
+              }),
             }),
           }),
-        })
-      )
+        }),
+      ),
     );
-    const submitted = pullwiseApi.system.updateSystemConfig.mock.calls[0][0].settings;
+    const submitted =
+      pullwiseApi.system.updateSystemConfig.mock.calls[0][0].settings;
     expect(submitted).not.toHaveProperty("scan");
     expect(submitted).not.toHaveProperty("worker");
     expect(submitted).not.toHaveProperty("alerts");
     expect(submitted.plans.pro).toEqual(
-      expect.objectContaining({ userReviewLimit: 75, maxRepoFiles: 1200 })
+      expect.objectContaining({ userReviewLimit: 75, maxRepoFiles: 1200 }),
     );
-    expect(Object.keys(submitted.plans.pro).some((key) => key.toLowerCase().includes("repository") && key.toLowerCase().includes("reviewlimit"))).toBe(false);
+    expect(
+      Object.keys(submitted.plans.pro).some(
+        (key) =>
+          key.toLowerCase().includes("repository") &&
+          key.toLowerCase().includes("reviewlimit"),
+      ),
+    ).toBe(false);
     expect(submitted.quota).toEqual({ repositoryReviewLimit: 1500 });
     expect(submitted.billing).toEqual({
       creemProProductIds: ["prod_monthly"],

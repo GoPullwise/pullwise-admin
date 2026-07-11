@@ -14,33 +14,63 @@ import {
 const PLAN_ORDER = ["free", "pro", "max"];
 const DEFAULT_EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
 
+function effortOptionsFrom(values) {
+  if (!Array.isArray(values)) return [];
+  return [
+    ...new Set(
+      values
+        .map((value) =>
+          textValue(
+            typeof value === "string" ? value : value?.reasoningEffort,
+          ).toLowerCase(),
+        )
+        .filter(Boolean),
+    ),
+  ];
+}
+
 function effortPolicyFrom(payload) {
   const source = payload?.capabilities?.codex?.reasoningEffort;
-  const defaultOptions = Array.isArray(source?.defaultOptions)
-    ? source.defaultOptions.filter((option) => typeof option === "string" && option)
-    : [];
+  const defaultOptions = effortOptionsFrom(source?.defaultOptions);
   const modelFamilies = Array.isArray(source?.modelFamilies)
     ? source.modelFamilies
         .map((family) => ({
           modelPrefix: textValue(family?.modelPrefix).toLowerCase(),
-          options: Array.isArray(family?.options)
-            ? family.options.filter((option) => typeof option === "string" && option)
-            : [],
+          options: effortOptionsFrom(family?.options),
         }))
         .filter((family) => family.modelPrefix && family.options.length > 0)
     : [];
+  const models = Array.isArray(source?.models)
+    ? source.models
+        .map((model) => ({
+          id: textValue(model?.id || model?.model).toLowerCase(),
+          options: effortOptionsFrom(model?.supportedReasoningEfforts),
+        }))
+        .filter((model) => model.id && model.options.length > 0)
+    : [];
   return {
-    defaultOptions: defaultOptions.length > 0 ? defaultOptions : DEFAULT_EFFORT_OPTIONS,
+    defaultOptions:
+      defaultOptions.length > 0 ? defaultOptions : DEFAULT_EFFORT_OPTIONS,
     modelFamilies,
+    models,
   };
 }
 
 function effortOptionsForModel(model, policy) {
   const normalizedModel = textValue(model).toLowerCase();
-  const family = (policy?.modelFamilies || []).find(
-    ({ modelPrefix }) =>
-      normalizedModel === modelPrefix || normalizedModel.startsWith(`${modelPrefix}-`)
+  const exactModel = (policy?.models || []).find(
+    ({ id }) => normalizedModel === id,
   );
+  if (exactModel?.options?.length) return exactModel.options;
+  const family = (policy?.modelFamilies || [])
+    .filter(
+      ({ modelPrefix }) =>
+        normalizedModel === modelPrefix ||
+        normalizedModel.startsWith(`${modelPrefix}-`),
+    )
+    .sort(
+      (left, right) => right.modelPrefix.length - left.modelPrefix.length,
+    )[0];
   return family?.options?.length
     ? family.options
     : policy?.defaultOptions?.length
@@ -67,7 +97,7 @@ function textValue(value, fallback = "") {
 }
 
 function effortValue(value, model, policy) {
-    const effort = textValue(value).toLowerCase();
+  const effort = textValue(value).toLowerCase();
   const options = effortOptionsForModel(model, policy);
   return options.includes(effort)
     ? effort
@@ -122,7 +152,11 @@ function formFromPlan(plan, effortPolicy) {
     name: textValue(plan?.name, titleCase(id)),
     reviewLimit: plan?.reviewLimit ?? "",
     codexModel: textValue(codex.model, "gpt-5.5"),
-    codexReasoningEffort: effortValue(codex.reasoningEffort, codex.model, effortPolicy),
+    codexReasoningEffort: effortValue(
+      codex.reasoningEffort,
+      codex.model,
+      effortPolicy,
+    ),
     turnTimeoutSeconds: numberText(reviewWorker.turnTimeoutSeconds, 3600),
 
     scanDeadlineSeconds: numberText(reviewWorker.scanDeadlineSeconds, 14400),
@@ -214,7 +248,14 @@ function TextField({
   );
 }
 
-function PlanConfigCard({ form, effortPolicy, saving, onChange, onModelBlur, onSave }) {
+function PlanConfigCard({
+  form,
+  effortPolicy,
+  saving,
+  onChange,
+  onModelBlur,
+  onSave,
+}) {
   const effortOptions = effortOptionsForModel(form.codexModel, effortPolicy);
   const unsupportedEffort = !effortOptions.includes(form.codexReasoningEffort)
     ? form.codexReasoningEffort
@@ -278,7 +319,8 @@ function PlanConfigCard({ form, effortPolicy, saving, onChange, onModelBlur, onS
         <div className="plan-agent-config-head">
           <h3>Review Worker Policy</h3>
           <p>
-            Codex turn timeout and scan deadline policy sent to worker jobs for this plan.
+            Codex turn timeout and scan deadline policy sent to worker jobs for
+            this plan.
           </p>
         </div>
         <div className="form-grid">
@@ -291,9 +333,7 @@ function PlanConfigCard({ form, effortPolicy, saving, onChange, onModelBlur, onS
             step={1}
             inputMode="numeric"
             value={form.turnTimeoutSeconds}
-            onChange={(value) =>
-              onChange(form.id, "turnTimeoutSeconds", value)
-            }
+            onChange={(value) => onChange(form.id, "turnTimeoutSeconds", value)}
             description="Maximum time for one Codex turn (60–3600 seconds)."
           />
 
@@ -342,7 +382,9 @@ export function PlansScreen() {
   const [message, setMessage] = useState("");
   const [savingPlan, setSavingPlan] = useState("");
   const [savingPlanSettings, setSavingPlanSettings] = useState(false);
-  const [effortPolicy, setEffortPolicy] = useState(() => effortPolicyFrom(null));
+  const [effortPolicy, setEffortPolicy] = useState(() =>
+    effortPolicyFrom(null),
+  );
   const savesInFlightRef = useRef(new Set());
   const loadingRef = useRef(false);
   const loadRequestRef = useRef(0);
@@ -582,7 +624,8 @@ export function PlansScreen() {
             <div>
               <h2>Plan Agent Configs</h2>
               <p>
-                Codex model and reasoning effort settings sent to workers for each plan.
+                Codex model and reasoning effort settings sent to workers for
+                each plan.
               </p>
             </div>
           </div>

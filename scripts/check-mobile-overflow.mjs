@@ -1,9 +1,10 @@
-/* global Buffer, URL, WebSocket, console, fetch, process, setTimeout */
+/* global Buffer, URL, console, fetch, process, setTimeout */
 import { spawn } from "node:child_process";
 import { mkdtemp, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { createCdpClient } from "./cdp-client.mjs";
 
 const VIEWPORT_WIDTH = 390;
 const VIEWPORT_HEIGHT = 844;
@@ -33,49 +34,6 @@ async function waitFor(check, label, timeoutMs = 15_000) {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error(`${label} did not become ready.${lastError ? ` ${lastError.message}` : ""}`);
-}
-
-function createCdpClient(url) {
-  const socket = new WebSocket(url);
-  let nextId = 1;
-  const pending = new Map();
-  const listeners = new Map();
-  const opened = new Promise((resolve, reject) => {
-    socket.addEventListener("open", resolve, { once: true });
-    socket.addEventListener("error", () => reject(new Error("Chrome DevTools connection failed.")), {
-      once: true,
-    });
-  });
-  socket.addEventListener("message", (event) => {
-    const message = JSON.parse(String(event.data));
-    if (message.id) {
-      const waiter = pending.get(message.id);
-      if (!waiter) return;
-      pending.delete(message.id);
-      if (message.error) waiter.reject(new Error(message.error.message));
-      else waiter.resolve(message.result || {});
-      return;
-    }
-    for (const listener of listeners.get(message.method) || []) listener(message.params || {});
-  });
-
-  return {
-    opened,
-    on(method, listener) {
-      listeners.set(method, [...(listeners.get(method) || []), listener]);
-    },
-    async send(method, params = {}) {
-      await opened;
-      const id = nextId;
-      nextId += 1;
-      const result = new Promise((resolve, reject) => pending.set(id, { resolve, reject }));
-      socket.send(JSON.stringify({ id, method, params }));
-      return result;
-    },
-    close() {
-      socket.close();
-    },
-  };
 }
 
 async function stopChild(child) {
@@ -160,15 +118,17 @@ try {
   cdp = createCdpClient(target.webSocketDebuggerUrl);
   cdp.on("Fetch.requestPaused", ({ requestId, request }) => {
     const body = Buffer.from(JSON.stringify(apiPayload(request.url))).toString("base64");
-    void cdp.send("Fetch.fulfillRequest", {
-      requestId,
-      responseCode: 200,
-      responseHeaders: [
-        { name: "Content-Type", value: "application/json" },
-        { name: "Cache-Control", value: "no-store" },
-      ],
-      body,
-    });
+    void cdp
+      .send("Fetch.fulfillRequest", {
+        requestId,
+        responseCode: 200,
+        responseHeaders: [
+          { name: "Content-Type", value: "application/json" },
+          { name: "Cache-Control", value: "no-store" },
+        ],
+        body,
+      })
+      .catch(() => {});
   });
   await cdp.send("Page.enable");
   await cdp.send("Fetch.enable", {

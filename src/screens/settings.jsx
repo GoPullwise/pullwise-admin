@@ -373,7 +373,7 @@ export function parseFieldValue(field, value) {
   return value;
 }
 
-export function SettingField({ field, value, defaults, secret, onChange }) {
+export function SettingField({ field, value, defaults, secret, onChange, disabled = false }) {
   const id = `setting-${field.path.replace(/[^A-Za-z0-9_-]/g, "-")}`;
   const update = (nextValue) => onChange(field.path, parseFieldValue(field, nextValue));
   const isPassword = field.type === "password";
@@ -389,12 +389,13 @@ export function SettingField({ field, value, defaults, secret, onChange }) {
             id={id}
             type="checkbox"
             checked={enabled}
+            disabled={disabled}
             onChange={(event) => update(event.target.checked)}
           />
           <span>{enabled ? "Enabled" : "Disabled"}</span>
         </span>
       ) : field.type === "select" ? (
-        <select id={id} value={textValue(value)} onChange={(event) => update(event.target.value)}>
+        <select id={id} value={textValue(value)} disabled={disabled} onChange={(event) => update(event.target.value)}>
           {(Array.isArray(field.options) ? field.options : []).map((option) => (
             <option key={option} value={option}>
               {option}
@@ -411,6 +412,7 @@ export function SettingField({ field, value, defaults, secret, onChange }) {
           value={textValue(value)}
           placeholder={savedSecret ? "Saved password configured" : undefined}
           autoComplete={isPassword ? "new-password" : undefined}
+          disabled={disabled}
           onChange={(event) => update(event.target.value)}
         />
       )}
@@ -623,6 +625,7 @@ export function SettingsScreen() {
                     defaults={payload?.defaults}
                     secret={payload?.secrets?.[field.path]}
                     onChange={updateField}
+                    disabled={saving || restarting}
                   />
                 ))}
               </div>

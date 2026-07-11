@@ -390,7 +390,7 @@ export function PlansScreen() {
   const loadRequestRef = useRef(0);
 
   const loadPlans = useCallback(async () => {
-    if (loadingRef.current) return;
+    if (loadingRef.current || savesInFlightRef.current.size > 0) return;
     loadingRef.current = true;
     const requestId = loadRequestRef.current + 1;
     loadRequestRef.current = requestId;
@@ -476,6 +476,9 @@ export function PlansScreen() {
       return;
     }
     savesInFlightRef.current.add(saveKey);
+    loadRequestRef.current += 1;
+    loadingRef.current = false;
+    setLoading(false);
     setSavingPlanSettings(true);
     setError("");
     setMessage("");
@@ -506,6 +509,9 @@ export function PlansScreen() {
     const saveKey = `plan:${planId}`;
     if (savesInFlightRef.current.has(saveKey)) return;
     savesInFlightRef.current.add(saveKey);
+    loadRequestRef.current += 1;
+    loadingRef.current = false;
+    setLoading(false);
     setSavingPlan(planId);
     setError("");
     setMessage("");
@@ -547,7 +553,7 @@ export function PlansScreen() {
             className="btn"
             type="button"
             onClick={loadPlans}
-            disabled={loading}
+            disabled={loading || savingPlanSettings || Boolean(savingPlan)}
           >
             <I.Refresh size={14} className={loading ? "spin" : ""} /> Refresh
           </button>

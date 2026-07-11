@@ -713,6 +713,7 @@ function LogStreamPanel({ source, workerId = "", title }) {
   const pollingRef = useRef(false);
   const sessionRef = useRef(null);
   const mutationInFlightRef = useRef(false);
+  const disposedRef = useRef(false);
 
   useEffect(() => {
     sessionRef.current = session;
@@ -720,6 +721,7 @@ function LogStreamPanel({ source, workerId = "", title }) {
 
   useEffect(() => {
     return () => {
+      disposedRef.current = true;
       const activeSession = sessionRef.current;
       if (activeSession?.id) {
         pullwiseApi.system.pauseLogStream(activeSession.id).catch(() => {});
@@ -735,6 +737,7 @@ function LogStreamPanel({ source, workerId = "", title }) {
         after: lastSequenceRef.current,
         limit: 200,
       });
+      if (disposedRef.current) return;
       const nextLines = Array.isArray(payload?.lines) ? payload.lines : [];
       if (nextLines.length) {
         lastSequenceRef.current = Math.max(
@@ -744,6 +747,7 @@ function LogStreamPanel({ source, workerId = "", title }) {
         setLines((current) => [...current, ...nextLines].slice(-LOG_STREAM_CLIENT_LINE_LIMIT));
       }
       if (payload?.session) {
+        sessionRef.current = payload.session;
         setSession(payload.session);
         if (payload.session.status && payload.session.status !== "active") {
           setListening(false);
@@ -751,6 +755,7 @@ function LogStreamPanel({ source, workerId = "", title }) {
       }
       setError("");
     } catch (err) {
+      if (disposedRef.current) return;
       if (isMissingLogStreamError(err)) {
         setListening(false);
         setSession(null);
@@ -782,16 +787,24 @@ function LogStreamPanel({ source, workerId = "", title }) {
         ...(source === "worker" ? { worker_id: workerId } : {}),
       });
       const nextSession = payload?.session || null;
+      if (disposedRef.current) {
+        if (nextSession?.id) {
+          await pullwiseApi.system.pauseLogStream(nextSession.id).catch(() => {});
+        }
+        return;
+      }
+      sessionRef.current = nextSession;
       setSession(nextSession);
       setLines([]);
       lastSequenceRef.current = 0;
       setListening(Boolean(nextSession?.id));
     } catch (err) {
+      if (disposedRef.current) return;
       setError(err?.message || "Unable to start log listening.");
       setListening(false);
     } finally {
       mutationInFlightRef.current = false;
-      setBusy(false);
+      if (!disposedRef.current) setBusy(false);
     }
   };
 
@@ -804,7 +817,10 @@ function LogStreamPanel({ source, workerId = "", title }) {
     try {
       if (activeSession?.id) {
         const payload = await pullwiseApi.system.pauseLogStream(activeSession.id);
-        if (payload?.session) setSession(payload.session);
+        if (payload?.session) {
+          sessionRef.current = payload.session;
+          setSession(payload.session);
+        }
       }
       setListening(false);
     } catch (err) {
@@ -973,6 +989,11 @@ function CreateWorkerModal({ onClose, onCreated }) {
   const [result, setResult] = useState(null);
   const busyRef = useRef(false);
 
+  const requestClose = () => {
+    if (busyRef.current) return;
+    onClose();
+  };
+
   useEffect(() => {
     let disposed = false;
     pullwiseApi.system
@@ -1015,11 +1036,11 @@ function CreateWorkerModal({ onClose, onCreated }) {
   };
 
   return (
-    <div className="modal-back" onClick={onClose}>
+    <div className="modal-back" onClick={requestClose}>
       <div className="modal" onClick={(event) => event.stopPropagation()}>
         <div className="modal-head">
           <h2>Register new worker</h2>
-          <button className="btn ghost sm" type="button" onClick={onClose} aria-label="Close">
+          <button className="btn ghost sm" type="button" onClick={requestClose} aria-label="Close" disabled={busy}>
             <I.X size={16} />
           </button>
         </div>
@@ -1027,15 +1048,15 @@ function CreateWorkerModal({ onClose, onCreated }) {
           <div className="form-grid">
             <label className="field">
               <span>Name</span>
-              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="US-East Worker" />
+              <input value={name} onChange={(event) => setName(event.target.value)} placeholder="US-East Worker" disabled={busy} />
             </label>
             <label className="field">
               <span>Location label</span>
-              <input value={region} onChange={(event) => setRegion(event.target.value)} placeholder="US East" />
+              <input value={region} onChange={(event) => setRegion(event.target.value)} placeholder="US East" disabled={busy} />
             </label>
             <label className="field">
               <span>Version</span>
-              <input value={version} onChange={(event) => setVersion(event.target.value)} placeholder="0.1.0" />
+              <input value={version} onChange={(event) => setVersion(event.target.value)} placeholder="0.1.0" disabled={busy} />
             </label>
           </div>
           {error && (
@@ -1046,12 +1067,12 @@ function CreateWorkerModal({ onClose, onCreated }) {
           {result && <ResultBlock result={result} />}
           <div className="modal-foot">
             {result ? (
-              <button className="btn primary" type="button" onClick={onClose}>
+              <button className="btn primary" type="button" onClick={requestClose} disabled={busy}>
                 Close
               </button>
             ) : (
               <>
-                <button className="btn ghost" type="button" onClick={onClose}>
+                <button className="btn ghost" type="button" onClick={requestClose} disabled={busy}>
                   Cancel
                 </button>
                 <button className="btn primary" type="submit" disabled={busy}>

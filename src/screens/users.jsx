@@ -175,6 +175,12 @@ export function UsersScreen() {
   const loadingRef = useRef(false);
   const loadRequestRef = useRef(0);
 
+  const invalidatePendingUserLoad = () => {
+    loadRequestRef.current += 1;
+    loadingRef.current = false;
+    setLoading(false);
+  };
+
   const loadUsers = useCallback(async () => {
     if (loadingRef.current) return;
     loadingRef.current = true;
@@ -222,6 +228,7 @@ export function UsersScreen() {
     setActionMessage("");
     try {
       const payload = await pullwiseApi.system.resetUserQuota(userId);
+      invalidatePendingUserLoad();
       setUsers((current) =>
         current.map((user) => {
           if (user.id !== userId) return user;
@@ -245,6 +252,7 @@ export function UsersScreen() {
     setActionMessage("");
     try {
       await pullwiseApi.system.deleteUser(userId);
+      invalidatePendingUserLoad();
       setUsers((current) => current.filter((user) => user.id !== userId));
       setActionMessage("User and related Pullwise records were deleted.");
     } catch (err) {

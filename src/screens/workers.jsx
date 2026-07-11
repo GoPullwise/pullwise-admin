@@ -1174,6 +1174,10 @@ function WorkerDetail({ worker, onWorkerChange, refreshGeneration = 0 }) {
   useEffect(() => {
     if (refreshGenerationRef.current === refreshGeneration) return;
     refreshGenerationRef.current = refreshGeneration;
+    const currentWorker = mergeWorkerRecords(workerRef.current, detailWorkerRef.current);
+    const quota = objectValue(currentWorker?.codexQuota) || objectValue(currentWorker?.codex_quota);
+    const status = textValue(currentWorker?.status).toLowerCase();
+    if (!quota || !["idle", "degraded"].includes(status)) return;
     loadWorkerDetail({ manual: true });
   }, [loadWorkerDetail, refreshGeneration]);
 

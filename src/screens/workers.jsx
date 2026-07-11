@@ -1078,6 +1078,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
   const detailWorkerRef = useRef(null);
   const workerRef = useRef(worker);
   workerRef.current = worker;
+  const workerId = worker.worker_id;
 
   const loadWorkerDetail = useCallback(
     async (options = {}) => {
@@ -1094,18 +1095,18 @@ function WorkerDetail({ worker, onWorkerChange }) {
       }
 
       try {
-        const workerId = workerRef.current.worker_id;
+        const targetWorkerId = workerId;
         let payload;
         if (manual) {
           const previousCheckedAt = workerQuotaCheckedAt(
             mergeWorkerRecords(workerRef.current, detailWorkerRef.current)
           );
-          const refreshPayload = await pullwiseApi.system.refreshWorkerQuota(workerId);
+          const refreshPayload = await pullwiseApi.system.refreshWorkerQuota(targetWorkerId);
           const commandId = textValue(refreshPayload?.command?.id);
           if (!commandId) throw new Error("Worker did not accept the Codex quota refresh request.");
           const deadline = Date.now() + WORKER_QUOTA_REFRESH_TIMEOUT_MS;
           while (true) {
-            payload = await pullwiseApi.system.getWorker(workerId);
+            payload = await pullwiseApi.system.getWorker(targetWorkerId);
             if (detailRequestRef.current !== requestId) return;
             const polledWorker = objectValue(payload?.worker);
             const refreshCommand = latestWorkerCommand(polledWorker);
@@ -1126,7 +1127,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
             await waitFor(WORKER_QUOTA_REFRESH_POLL_MS);
           }
         } else {
-          payload = await pullwiseApi.system.getWorker(workerId);
+          payload = await pullwiseApi.system.getWorker(targetWorkerId);
         }
         if (detailRequestRef.current !== requestId) return;
         const nextWorker = payload?.worker || null;
@@ -1153,7 +1154,7 @@ function WorkerDetail({ worker, onWorkerChange }) {
         }
       }
     },
-    [onWorkerChange, worker.worker_id]
+    [onWorkerChange, workerId]
   );
 
   useEffect(() => {

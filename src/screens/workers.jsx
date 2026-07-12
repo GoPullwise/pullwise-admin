@@ -1333,8 +1333,17 @@ function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken, refreshGe
   const lifecycleActionsDisabled =
     busy || Boolean(cleanupLifecycle) || (hasActiveCommand && !lifecycleActionCanPreempt);
 
+  const runAction = async (action, workerIdValue, payload = {}) => {
+    const result = await onAction(action, workerIdValue, payload);
+    const nextWorker = objectValue(result?.worker);
+    if (nextWorker) {
+      setDetailWorker((current) => ({ ...(current || {}), ...nextWorker }));
+    }
+    return result;
+  };
+
   const save = async () => {
-    const result = await onAction("save", workerId, {
+    const result = await runAction("save", workerId, {
       region: editRegion,
     });
     if (result) setEditing(false);
@@ -1378,15 +1387,15 @@ function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken, refreshGe
           )}
           <div className="worker-actions">
             {isDisabled ? (
-              <button className="btn sm" type="button" disabled={actionsDisabled} onClick={() => onAction("enable", workerId)}>
+              <button className="btn sm" type="button" disabled={actionsDisabled} onClick={() => runAction("enable", workerId)}>
                 Enable
               </button>
             ) : (
-              <button className="btn sm" type="button" disabled={lifecycleActionsDisabled} onClick={() => onAction("disable", workerId)}>
+              <button className="btn sm" type="button" disabled={lifecycleActionsDisabled} onClick={() => runAction("disable", workerId)}>
                 Disable
               </button>
             )}
-            <button className="btn sm" type="button" disabled={actionsDisabled} onClick={() => onAction("rotate", workerId)}>
+            <button className="btn sm" type="button" disabled={actionsDisabled} onClick={() => runAction("rotate", workerId)}>
               Rotate token
             </button>
             <button
@@ -1396,7 +1405,7 @@ function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken, refreshGe
               onClick={() => {
                 if (confirmDelete) {
                   setConfirmDelete(false);
-                  onAction("delete", workerId);
+                  runAction("delete", workerId);
                 } else {
                   setConfirmDelete(true);
                 }

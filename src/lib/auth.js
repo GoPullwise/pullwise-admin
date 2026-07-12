@@ -3,6 +3,7 @@ import { DEFAULT_API_BASE_URL, env } from "../config/env.js";
 
 export const ADMIN_MANAGEMENT_PATH = "/workers";
 const GITHUB_AUTHORIZE_PATH = "/auth/github/authorize";
+let signOutInFlight = null;
 
 export function adminManagementRedirectUrl() {
   return new URL(ADMIN_MANAGEMENT_PATH, window.location.href).toString();
@@ -23,12 +24,18 @@ export async function startGitHubLogin({ redirectTo, signal, apiBaseUrl } = {}) 
   window.location.assign(githubAuthorizeRedirectUrl(target, apiBaseUrl));
 }
 
-export async function signOut() {
-  try {
-    await pullwiseApi.auth.signOut();
-  } catch (error) {
-    globalThis.alert?.(error?.message || "Unable to sign out.");
-    throw error;
-  }
-  window.location.assign("/login");
+export function signOut() {
+  if (signOutInFlight) return signOutInFlight;
+  signOutInFlight = (async () => {
+    try {
+      await pullwiseApi.auth.signOut();
+    } catch (error) {
+      globalThis.alert?.(error?.message || "Unable to sign out.");
+      throw error;
+    }
+    window.location.assign("/login");
+  })().finally(() => {
+    signOutInFlight = null;
+  });
+  return signOutInFlight;
 }

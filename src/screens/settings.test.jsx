@@ -377,6 +377,52 @@ describe("SettingsScreen", () => {
     expect(pullwiseApi.system.getSystemConfig).toHaveBeenCalledTimes(2);
     await act(async () => resolveConfig({ settings: {}, groups: [] }));
   });
+
+  it("does not let an older refresh overwrite a completed settings save", async () => {
+    render(<SettingsScreen />);
+    const input = await screen.findByLabelText("Scan job retry attempts");
+    const staleRefresh = {};
+    staleRefresh.promise = new Promise((resolve) => {
+      staleRefresh.resolve = resolve;
+    });
+    pullwiseApi.system.getSystemConfig.mockReturnValueOnce(staleRefresh.promise);
+    pullwiseApi.system.updateSystemConfig.mockResolvedValueOnce({
+      settings: { scan: { jobRetryAttempts: 2 } },
+      groups: [
+        {
+          id: "scan",
+          title: "Scan scheduling",
+          fields: [
+            {
+              path: "scan.jobRetryAttempts",
+              label: "Scan job retry attempts",
+              type: "integer",
+              min: 0,
+              max: 5,
+            },
+          ],
+        },
+      ],
+    });
+    fireEvent.change(input, { target: { value: "2" } });
+
+    act(() => {
+      screen.getByRole("button", { name: /^refresh$/i }).click();
+      screen.getByRole("button", { name: /^save$/i }).click();
+    });
+    await waitFor(() => expect(pullwiseApi.system.updateSystemConfig).toHaveBeenCalledOnce());
+    await waitFor(() => expect(screen.getByLabelText("Scan job retry attempts")).toHaveValue(2));
+
+    await act(async () => {
+      staleRefresh.resolve({
+        settings: { scan: { jobRetryAttempts: 1 } },
+        groups: [],
+      });
+      await staleRefresh.promise;
+    });
+
+    expect(screen.getByLabelText("Scan job retry attempts")).toHaveValue(2);
+  });
   it("keeps SMTP SSL and STARTTLS mutually exclusive", async () => {
     const user = userEvent.setup();
     render(<SettingsScreen />);

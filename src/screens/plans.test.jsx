@@ -407,6 +407,35 @@ describe("PlansScreen", () => {
     );
   });
 
+  it("preserves edits made after a plan save starts", async () => {
+    let resolveSave;
+    const pendingSave = new Promise((resolve) => {
+      resolveSave = resolve;
+    });
+    pullwiseApi.system.updatePlanAgentConfig.mockReturnValue(pendingSave);
+    render(<PlansScreen />);
+
+    const model = await screen.findByLabelText("Pro Codex model");
+    fireEvent.change(model, { target: { value: "gpt-first" } });
+    fireEvent.click(screen.getByRole("button", { name: /save pro/i }));
+    fireEvent.change(model, { target: { value: "gpt-second" } });
+
+    await act(async () => {
+      resolveSave({
+        plan: {
+          ...proPlan,
+          agentConfig: {
+            ...proPlan.agentConfig,
+            codex: { model: "gpt-first", reasoningEffort: "medium" },
+          },
+        },
+      });
+      await pendingSave;
+    });
+
+    expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-second");
+  });
+
   it("does not start a stale plan refresh while a save is pending", async () => {
     let resolveSave;
     pullwiseApi.system.updatePlanAgentConfig.mockReturnValue(

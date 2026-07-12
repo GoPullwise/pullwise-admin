@@ -168,3 +168,6 @@ Admin worker/status views must handle large worker and scan counts.
 - Schema-driven numeric inputs must render `min`, `max`, and integer `step`, preserve fractional edits long enough to report them, and reject blank, non-finite, fractional integer, or out-of-range values before saving.
 - Keep `scripts/check-mobile-overflow.mjs` in the normal check path. It must load an authenticated production Admin shell in a real headless Chrome 390px viewport and assert `document.documentElement.scrollWidth === clientWidth`.
 - API helpers must reject an already-aborted caller signal before starting `fetch`. Cloudflare Worker and Pages proxies must stream body-bearing requests to the authenticated upstream instead of cloning and materializing the full client body at the edge.
+- Track a per-plan edit revision across plan saves; apply a save response only when no newer local edit was made after the submitted snapshot.
+- Starting a system-settings save must invalidate any older settings load generation so a late Refresh response cannot replace the saved state.
+- Worker-default/release loads must use a latest-request generation across initial load and manual Refresh; an older defaults response must never replace newer release information or its suggested next version.

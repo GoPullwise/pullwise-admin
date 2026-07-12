@@ -69,6 +69,25 @@ describe("admin auth helpers", () => {
     expect(assign).toHaveBeenCalledWith("/login");
   });
 
+  it("coalesces simultaneous sign-out requests", async () => {
+    const assign = vi.fn();
+    vi.stubGlobal("location", { ...window.location, assign });
+    let resolveSignOut;
+    pullwiseApi.auth.signOut.mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveSignOut = resolve;
+      })
+    );
+
+    const first = signOut();
+    const second = signOut();
+
+    expect(pullwiseApi.auth.signOut).toHaveBeenCalledTimes(1);
+    resolveSignOut({});
+    await Promise.all([first, second]);
+    expect(assign).toHaveBeenCalledTimes(1);
+  });
+
   it("reports sign-out API failures without navigating away", async () => {
     const assign = vi.fn();
     const alert = vi.fn();

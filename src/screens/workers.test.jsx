@@ -434,6 +434,26 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText(/install-worker\.sh/)).not.toBeInTheDocument();
   });
 
+  it("does not let cached expanded detail overwrite a successful lifecycle mutation", async () => {
+    const user = userEvent.setup();
+    const staleDetail = { ...workers[0], enabled: true };
+    const disabledWorker = { ...workers[0], enabled: false };
+    pullwiseApi.system.getWorker.mockResolvedValue({ worker: staleDetail, auditEvents: [], taskActivity: [] });
+    pullwiseApi.system.disableWorker.mockResolvedValue({ worker: disabledWorker });
+    pullwiseApi.system.listWorkers
+      .mockResolvedValueOnce({ workers, items: workers })
+      .mockResolvedValueOnce({ workers: [disabledWorker], items: [disabledWorker] });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await screen.findByText("Instance details");
+    await user.click(screen.getByRole("button", { name: /^disable$/i }));
+
+    expect(await screen.findByRole("button", { name: /^enable$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^disable$/i })).not.toBeInTheDocument();
+  });
+
   it("clears a rotated worker token after refreshing workers", async () => {
     const user = userEvent.setup();
     pullwiseApi.system.rotateWorkerToken.mockResolvedValue({ worker_token: "pwk_rotated" });

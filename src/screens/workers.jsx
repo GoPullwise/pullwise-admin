@@ -1479,6 +1479,7 @@ export function WorkersScreen() {
   const releaseInFlightRef = useRef(false);
   const actionWorkerIdsInFlightRef = useRef(new Set());
   const workerListRequestRef = useRef(0);
+  const workerDefaultsRequestRef = useRef(0);
 
   const loadWorkers = useCallback(async (options = {}) => {
     const preserveRotatedTokens = options?.preserveRotatedTokens === true;
@@ -1570,9 +1571,12 @@ export function WorkersScreen() {
   }, [workerPage.limit, workerPage.offset]);
 
   const loadWorkerDefaults = useCallback(async (options = {}) => {
+    const requestId = workerDefaultsRequestRef.current + 1;
+    workerDefaultsRequestRef.current = requestId;
     setReleaseInfo((current) => ({ ...current, loading: true }));
     try {
       const payload = await pullwiseApi.system.getWorkerDefaults(options?.refresh ? { refresh: "1" } : {});
+      if (workerDefaultsRequestRef.current !== requestId) return;
       const latestVersion = textValue(
         payload?.latestWorkerVersion ||
           payload?.release?.latestVersion ||
@@ -1594,6 +1598,7 @@ export function WorkersScreen() {
         return current;
       });
     } catch {
+      if (workerDefaultsRequestRef.current !== requestId) return;
       setReleaseInfo({ latestVersion: "", error: "Unable to load worker release.", loading: false });
     }
   }, []);
@@ -1615,7 +1620,10 @@ export function WorkersScreen() {
     loadWorkers();
     loadWorkerDefaults();
     const id = setInterval(loadWorkers, REFRESH_MS);
-    return () => clearInterval(id);
+    return () => {
+      clearInterval(id);
+      workerDefaultsRequestRef.current += 1;
+    };
   }, [loadWorkerDefaults, loadWorkers]);
 
   const goToWorkerPage = useCallback((offset) => {

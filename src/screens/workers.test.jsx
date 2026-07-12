@@ -1,4 +1,4 @@
-﻿import { act, render, screen, waitFor, within } from "@testing-library/react";
+﻿import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
@@ -177,6 +177,33 @@ describe("WorkersScreen", () => {
 
     await waitFor(() => expect(pullwiseApi.system.getWorkerDefaults).toHaveBeenLastCalledWith({ refresh: "1" }));
     expect(await screen.findByText("0.5.5")).toBeInTheDocument();
+    expect(screen.getByLabelText(/new release version/i)).toHaveValue("0.5.6");
+  });
+
+  it("ignores an older worker-default response after a newer manual refresh", async () => {
+    const olderDefaults = deferredPromise();
+    pullwiseApi.system.getWorkerDefaults
+      .mockReturnValueOnce(olderDefaults.promise)
+      .mockResolvedValueOnce({
+        workerVersion: "0.5.5",
+        latestWorkerVersion: "0.5.5",
+      });
+    render(<WorkersScreen />);
+
+    await screen.findByText("US-East Worker");
+    fireEvent.click(screen.getByRole("button", { name: /^refresh$/i }));
+    await waitFor(() => expect(pullwiseApi.system.getWorkerDefaults).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("0.5.5")).toBeInTheDocument();
+    expect(screen.getByLabelText(/new release version/i)).toHaveValue("0.5.6");
+
+    olderDefaults.resolve({
+      workerVersion: "0.5.4",
+      latestWorkerVersion: "0.5.4",
+    });
+    await act(async () => olderDefaults.promise);
+
+    expect(screen.getByText("0.5.5")).toBeInTheDocument();
+    expect(screen.queryByText("0.5.4")).not.toBeInTheDocument();
     expect(screen.getByLabelText(/new release version/i)).toHaveValue("0.5.6");
   });
 

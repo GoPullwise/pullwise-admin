@@ -522,6 +522,9 @@ export function SettingsScreen() {
       return;
     }
     savingRef.current = true;
+    loadRequestRef.current += 1;
+    loadingRef.current = false;
+    setLoading(false);
     setSaving(true);
     setError("");
     setMessage("");

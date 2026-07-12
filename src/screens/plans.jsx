@@ -388,6 +388,7 @@ export function PlansScreen() {
   const savesInFlightRef = useRef(new Set());
   const loadingRef = useRef(false);
   const loadRequestRef = useRef(0);
+  const formRevisionRef = useRef({});
 
   const loadPlans = useCallback(async () => {
     if (loadingRef.current || savesInFlightRef.current.size > 0) return;
@@ -440,6 +441,7 @@ export function PlansScreen() {
   );
 
   const updateField = (planId, field, value) => {
+    formRevisionRef.current[planId] = (formRevisionRef.current[planId] || 0) + 1;
     setForms((current) => ({
       ...current,
       [planId]: { ...current[planId], [field]: value },
@@ -509,6 +511,7 @@ export function PlansScreen() {
     const saveKey = `plan:${planId}`;
     if (savesInFlightRef.current.has(saveKey)) return;
     savesInFlightRef.current.add(saveKey);
+    const submittedRevision = formRevisionRef.current[planId] || 0;
     loadRequestRef.current += 1;
     loadingRef.current = false;
     setLoading(false);
@@ -528,7 +531,11 @@ export function PlansScreen() {
         },
         effortPolicy,
       );
-      setForms((current) => ({ ...current, [planId]: updated }));
+      setForms((current) =>
+        (formRevisionRef.current[planId] || 0) === submittedRevision
+          ? { ...current, [planId]: updated }
+          : current,
+      );
       setMessage(`${updated.name} agent config saved.`);
     } catch (err) {
       setError(err?.message || "Unable to save plan agent config.");

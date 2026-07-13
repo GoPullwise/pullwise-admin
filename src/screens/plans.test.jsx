@@ -630,4 +630,44 @@ describe("PlansScreen", () => {
     expect(submitted.billing).not.toHaveProperty("creemTestMode");
     expect(await screen.findByText("Plan settings saved.")).toBeInTheDocument();
   });
+
+  it("locks plan settings during save without overwriting a same-frame edit", async () => {
+    let resolveSave;
+    const pendingSave = new Promise((resolve) => {
+      resolveSave = resolve;
+    });
+    pullwiseApi.system.updateSystemConfig.mockReturnValue(pendingSave);
+    render(<PlansScreen />);
+
+    const limit = await screen.findByLabelText("Pro user review limit");
+    fireEvent.change(limit, { target: { value: "75" } });
+    const save = screen.getByRole("button", { name: /save plan settings/i });
+    act(() => {
+      save.click();
+      fireEvent.change(limit, { target: { value: "80" } });
+    });
+
+    expect(limit).toBeDisabled();
+    expect(limit).toHaveValue(80);
+
+    await act(async () => {
+      resolveSave({
+        ...systemConfigPayload,
+        settings: {
+          ...systemConfigPayload.settings,
+          plans: {
+            ...systemConfigPayload.settings.plans,
+            pro: {
+              ...systemConfigPayload.settings.plans.pro,
+              userReviewLimit: 75,
+            },
+          },
+        },
+      });
+      await pendingSave;
+    });
+
+    expect(screen.getByLabelText("Pro user review limit")).toHaveValue(80);
+    expect(screen.getByLabelText("Pro user review limit")).not.toBeDisabled();
+  });
 });

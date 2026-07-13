@@ -169,6 +169,7 @@ Admin worker/status views must handle large worker and scan counts.
 - Keep `scripts/check-mobile-overflow.mjs` in the normal check path. It must load an authenticated production Admin shell in a real headless Chrome 390px viewport and assert `document.documentElement.scrollWidth === clientWidth`.
 - API helpers must reject an already-aborted caller signal before starting `fetch`. Cloudflare Worker and Pages proxies must stream body-bearing requests to the authenticated upstream instead of cloning and materializing the full client body at the edge.
 - Track a per-plan edit revision across plan saves; apply a save response only when no newer local edit was made after the submitted snapshot.
+- Plan business-setting fields must stay disabled while their save is in flight. Also compare an edit revision before applying the response so a same-render-frame input event cannot be overwritten by the submitted snapshot.
 - Starting a system-settings save must invalidate any older settings load generation so a late Refresh response cannot replace the saved state.
 - Worker-default/release loads must use a latest-request generation across initial load and manual Refresh; an older defaults response must never replace newer release information or its suggested next version.
 - After a worker lifecycle or metadata mutation, merge the returned worker into cached expanded detail before rendering; stale detail must not overwrite the refreshed list's `enabled`, status, command, or lifecycle state.

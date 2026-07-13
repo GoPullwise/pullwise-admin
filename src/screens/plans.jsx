@@ -389,6 +389,7 @@ export function PlansScreen() {
   const loadingRef = useRef(false);
   const loadRequestRef = useRef(0);
   const formRevisionRef = useRef({});
+  const planSettingsRevisionRef = useRef(0);
 
   const loadPlans = useCallback(async () => {
     if (loadingRef.current || savesInFlightRef.current.size > 0) return;
@@ -465,6 +466,7 @@ export function PlansScreen() {
   };
 
   const updatePlanSetting = (path, value) => {
+    planSettingsRevisionRef.current += 1;
     setPlanSettings((current) => setValueAt(current, path, value));
   };
 
@@ -478,6 +480,7 @@ export function PlansScreen() {
       return;
     }
     savesInFlightRef.current.add(saveKey);
+    const submittedRevision = planSettingsRevisionRef.current;
     loadRequestRef.current += 1;
     loadingRef.current = false;
     setLoading(false);
@@ -489,7 +492,11 @@ export function PlansScreen() {
         settings: settingsPayloadForGroups(planSettings, groups),
       });
       setSystemPayload(nextPayload);
-      setPlanSettings(cloneSettings(nextPayload?.settings));
+      setPlanSettings((current) =>
+        planSettingsRevisionRef.current === submittedRevision
+          ? cloneSettings(nextPayload?.settings)
+          : current,
+      );
       setMessage("Plan settings saved.");
     } catch (err) {
       setError(err?.message || "Unable to save plan settings.");
@@ -622,6 +629,7 @@ export function PlansScreen() {
                         value={valueAt(planSettings, field.path)}
                         defaults={systemPayload?.defaults}
                         onChange={updatePlanSetting}
+                        disabled={savingPlanSettings}
                       />
                     ),
                   )}

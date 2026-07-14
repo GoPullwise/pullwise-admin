@@ -1393,6 +1393,48 @@ describe("WorkersScreen", () => {
     expect(pullwiseApi.system.deleteWorker).not.toHaveBeenCalled();
   });
 
+  it("keeps refreshed list lifecycle state ahead of stale expanded detail", async () => {
+    const user = userEvent.setup();
+    const staleDetailWorker = {
+      ...workers[0],
+      enabled: true,
+      status: "idle",
+      cleanup_status: null,
+      cleanupStatus: null,
+      lifecycle_state: null,
+      lifecycleState: null,
+      deleted_at: null,
+      deletedAt: null,
+      latest_command: { id: "cmd_old", command: "refresh_codex_quota", status: "succeeded" },
+    };
+    const refreshedWorker = {
+      ...workers[0],
+      enabled: false,
+      status: "offline",
+      cleanup_status: "running",
+      latest_command: { id: "cmd_cleanup", command: "uninstall", status: "running" },
+    };
+    pullwiseApi.system.listWorkers
+      .mockResolvedValueOnce({ workers, items: workers })
+      .mockResolvedValueOnce({ workers: [refreshedWorker], items: [refreshedWorker] });
+    pullwiseApi.system.getWorker.mockResolvedValue({
+      worker: staleDetailWorker,
+      auditEvents: [],
+      taskActivity: [],
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await waitFor(() => expect(pullwiseApi.system.getWorker).toHaveBeenCalledWith("wk_1"));
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.listWorkers).toHaveBeenCalledTimes(2));
+    expect(await screen.findByRole("button", { name: /^enable$/i })).toBeDisabled();
+    expect(screen.getAllByText("Cleanup running").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Refresh Codex quota \/ succeeded/i)).not.toBeInTheDocument();
+  });
+
   it("removes a worker instance after cleanup is complete", async () => {
     const user = userEvent.setup();
     const command = { id: "cmd_uninstall", worker_id: "wk_1", command: "uninstall", status: "succeeded" };

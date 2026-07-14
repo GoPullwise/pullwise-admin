@@ -1096,8 +1096,15 @@ function CreateWorkerModal({ onClose, onCreated }) {
   );
 }
 
-function WorkerDetail({ worker, onWorkerChange, refreshGeneration = 0 }) {
-  const [detailWorker, setDetailWorker] = useState(null);
+function WorkerDetail({
+  worker,
+  onWorkerChange,
+  refreshGeneration = 0,
+  listGeneration = 0,
+}) {
+  const [detailSnapshot, setDetailSnapshot] = useState(null);
+  const detailWorker =
+    detailSnapshot?.listGeneration === listGeneration ? detailSnapshot.worker : null;
   const [auditEvents, setAuditEvents] = useState([]);
   const [taskActivity, setTaskActivity] = useState([]);
   const [detailError, setDetailError] = useState("");
@@ -1106,6 +1113,8 @@ function WorkerDetail({ worker, onWorkerChange, refreshGeneration = 0 }) {
   const detailRequestRef = useRef(0);
   const detailRefreshInFlightRef = useRef(false);
   const detailWorkerRef = useRef(null);
+  const listGenerationRef = useRef(listGeneration);
+  listGenerationRef.current = listGeneration;
   const refreshGenerationRef = useRef(refreshGeneration);
   const workerRef = useRef(worker);
   workerRef.current = worker;
@@ -1117,6 +1126,7 @@ function WorkerDetail({ worker, onWorkerChange, refreshGeneration = 0 }) {
       if (manual && detailRefreshInFlightRef.current) return;
       if (manual) detailRefreshInFlightRef.current = true;
       const requestId = detailRequestRef.current + 1;
+      const requestListGeneration = listGenerationRef.current;
       detailRequestRef.current = requestId;
       setDetailError("");
       if (manual) {
@@ -1129,8 +1139,13 @@ function WorkerDetail({ worker, onWorkerChange, refreshGeneration = 0 }) {
         const targetWorkerId = workerId;
         let payload;
         if (manual) {
+          const currentDetailSnapshot = detailWorkerRef.current;
+          const currentDetailWorker =
+            currentDetailSnapshot?.listGeneration === requestListGeneration
+              ? currentDetailSnapshot.worker
+              : null;
           const previousCheckedAt = workerQuotaCheckedAt(
-            mergeWorkerRecords(workerRef.current, detailWorkerRef.current)
+            mergeWorkerRecords(workerRef.current, currentDetailWorker)
           );
           const refreshPayload = await pullwiseApi.system.refreshWorkerQuota(targetWorkerId);
           const commandId = textValue(refreshPayload?.command?.id);
@@ -1162,9 +1177,10 @@ function WorkerDetail({ worker, onWorkerChange, refreshGeneration = 0 }) {
         }
         if (detailRequestRef.current !== requestId) return;
         const nextWorker = payload?.worker || null;
-        detailWorkerRef.current = nextWorker;
-        setDetailWorker(nextWorker);
-        onWorkerChange?.(nextWorker);
+        const nextSnapshot = { worker: nextWorker, listGeneration: requestListGeneration };
+        detailWorkerRef.current = nextSnapshot;
+        setDetailSnapshot(nextSnapshot);
+        onWorkerChange?.(nextWorker, requestListGeneration);
         setAuditEvents(Array.isArray(payload?.auditEvents) ? payload.auditEvents : []);
         setTaskActivity(itemsFrom(payload, "taskActivity", "activityEvents", "activity"));
       } catch (err) {
@@ -1189,7 +1205,7 @@ function WorkerDetail({ worker, onWorkerChange, refreshGeneration = 0 }) {
   );
 
   useEffect(() => {
-    setDetailWorker(null);
+    setDetailSnapshot(null);
     detailWorkerRef.current = null;
     detailRefreshInFlightRef.current = false;
     setAuditEvents([]);
@@ -1204,7 +1220,12 @@ function WorkerDetail({ worker, onWorkerChange, refreshGeneration = 0 }) {
   useEffect(() => {
     if (refreshGenerationRef.current === refreshGeneration) return;
     refreshGenerationRef.current = refreshGeneration;
-    const currentWorker = mergeWorkerRecords(workerRef.current, detailWorkerRef.current);
+    const currentDetailSnapshot = detailWorkerRef.current;
+    const currentDetailWorker =
+      currentDetailSnapshot?.listGeneration === listGenerationRef.current
+        ? currentDetailSnapshot.worker
+        : null;
+    const currentWorker = mergeWorkerRecords(workerRef.current, currentDetailWorker);
     const quota = objectValue(currentWorker?.codexQuota) || objectValue(currentWorker?.codex_quota);
     if (!quota || !workerIsOnline(workerRef.current)) return;
     loadWorkerDetail({ manual: true });
@@ -1309,16 +1330,35 @@ function WorkerDetail({ worker, onWorkerChange, refreshGeneration = 0 }) {
   );
 }
 
-function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken, refreshGeneration }) {
+function WorkerRow({
+  worker,
+  onAction,
+  pendingWorkerIds,
+  rotatedToken,
+  refreshGeneration,
+  listGeneration,
+}) {
   const [expanded, setExpanded] = useState(false);
-  const [detailWorker, setDetailWorker] = useState(null);
+  const [detailSnapshot, setDetailSnapshot] = useState(null);
+  const listGenerationRef = useRef(listGeneration);
+  listGenerationRef.current = listGeneration;
+  const detailWorker =
+    detailSnapshot?.listGeneration === listGeneration ? detailSnapshot.worker : null;
+  const updateDetailWorker = useCallback((nextWorker, responseListGeneration) => {
+    setDetailSnapshot({
+      worker: nextWorker,
+      listGeneration: Number.isFinite(responseListGeneration)
+        ? responseListGeneration
+        : listGenerationRef.current,
+    });
+  }, []);
   const [editing, setEditing] = useState(false);
   const [editRegion, setEditRegion] = useState(worker.region || "");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const displayedWorker = mergeWorkerRecords(worker, detailWorker);
 
   useEffect(() => {
-    setDetailWorker(null);
+    setDetailSnapshot(null);
   }, [worker.worker_id]);
 
   useEffect(() => {
@@ -1345,7 +1385,15 @@ function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken, refreshGe
     const result = await onAction(action, workerIdValue, payload);
     const nextWorker = objectValue(result?.worker);
     if (nextWorker) {
-      setDetailWorker((current) => ({ ...(current || {}), ...nextWorker }));
+      setDetailSnapshot((current) => ({
+        worker: {
+          ...(current?.listGeneration === listGenerationRef.current
+            ? current.worker || {}
+            : {}),
+          ...nextWorker,
+        },
+        listGeneration: listGenerationRef.current,
+      }));
     }
     return result;
   };
@@ -1459,8 +1507,9 @@ function WorkerRow({ worker, onAction, pendingWorkerIds, rotatedToken, refreshGe
           </div>
           <WorkerDetail
             worker={displayedWorker}
-            onWorkerChange={setDetailWorker}
+            onWorkerChange={updateDetailWorker}
             refreshGeneration={refreshGeneration}
+            listGeneration={listGeneration}
           />
         </div>
       )}
@@ -1481,6 +1530,7 @@ export function WorkersScreen() {
   const [releaseVersion, setReleaseVersion] = useState("");
   const [releaseBusy, setReleaseBusy] = useState(false);
   const [detailRefreshGeneration, setDetailRefreshGeneration] = useState(0);
+  const [workerListGeneration, setWorkerListGeneration] = useState(0);
   const [workerPage, setWorkerPage] = useState({
     limit: WORKER_PAGE_SIZE,
     offset: 0,
@@ -1570,6 +1620,7 @@ export function WorkersScreen() {
       setWorkerPage({ limit, offset, total, hasMore, nextOffset: hasMore ? nextOffset ?? offset + limit : null });
       setWorkerSummary(objectValue(payload?.summary) || objectValue(payload?.workerSummary) || objectValue(payload?.fleetSummary));
       setWorkers(nextWorkers);
+      setWorkerListGeneration((current) => current + 1);
       setError("");
     } catch (err) {
       if (workerListRequestRef.current !== requestId) return;
@@ -1837,6 +1888,7 @@ export function WorkersScreen() {
               pendingWorkerIds={pendingWorkerIds}
               rotatedToken={rotatedTokens[worker.worker_id]}
               refreshGeneration={detailRefreshGeneration}
+              listGeneration={workerListGeneration}
             />
           ))
         )}

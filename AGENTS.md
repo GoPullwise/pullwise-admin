@@ -116,6 +116,14 @@ integer from 60 through 3600; `scanDeadlineSeconds` is an integer from 0
 through 21600, where 0 disables the deadline. Never silently replace invalid
 operator input with a default.
 
+Plan reviewer concurrency uses the native numeric `reviewerConcurrency` field
+and must reject blank, fractional, non-finite, or out-of-range values before
+saving. Its only valid range is `1..2`: `1` disables reviewer fanout
+concurrency, while `2` permits independent reviewer threads inside one
+worker-owned Codex App Server. Copy must not describe this as job parallelism,
+worker capacity, or additional Codex processes; every worker still has one job
+slot and one auth store.
+
 SMTP SSL and SMTP STARTTLS are mutually exclusive transport modes. Enabling one
 in Admin must disable the other before saving.
 

@@ -170,6 +170,11 @@ Admin worker/status views must handle large worker and scan counts.
 - Worker-detail Refresh must queue `refresh_codex_quota` only for online workers (`idle`, `busy`, or `degraded`), poll that exact command to a terminal state, and keep the previous quota visible if refresh fails. Page-level Refresh must trigger the same quota refresh for expanded online workers that already report quota, and prefer quota and machine telemetry with newer `checkedAt` / `collectedAt` timestamps over cached expanded-detail values.
 - Frontend regression coverage should include timeout/abort errors, failed-load versus empty-state isolation, pagination/large-count contracts, stale or duplicate operations, long identifiers, and a real 390px browser check where document scrollWidth equals clientWidth.
 - Worker list loads must use a latest-request generation so an older page, interval, or refresh response cannot overwrite newer pagination state.
+- Expanded worker-detail snapshots and in-flight detail responses must carry
+  the list generation they were derived from. After a successful list refresh,
+  ignore detail from an older generation for lifecycle/command state; only
+  current-generation detail may contribute fresher health, quota, or telemetry
+  fields.
 - Pending cleanup workers must remain cached and retained across transient detail failures. Remove a retained id after an explicit 404, a successful cleanup lifecycle, or a detail payload with `deleted_at` / `deletedAt`; a timeout-soft-deleted registry row must not remain visible merely because its uninstall command is `cancelled`.
 - Serialize all mutations per worker id, while still allowing independent workers to act concurrently. Rendering busy state from only the most recently started action is insufficient.
 - Keep Disable and Delete instance available when the worker's only active command is `refresh_codex_quota`; lifecycle actions preempt telemetry commands. Continue blocking unrelated mutations and lifecycle actions behind non-telemetry active commands or cleanup lifecycle state.

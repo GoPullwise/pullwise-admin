@@ -29,7 +29,7 @@ const proPlan = {
       reasoningEffort: "medium",
     },
     reviewWorker: {
-      reviewerMaxTurnsPerScan: 2,
+      reviewerConcurrency: 2,
       turnTimeoutSeconds: 3600,
       scanDeadlineSeconds: 14400,
     },
@@ -207,6 +207,9 @@ describe("PlansScreen", () => {
     expect(screen.queryByLabelText("Pro Codex CLI")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Pro Codex effort")).toHaveValue("medium");
+    const reviewerConcurrency = screen.getByLabelText(
+      "Pro Concurrent reviewer assignments",
+    );
     const turnTimeout = screen.getByLabelText("Pro Codex turn timeout seconds");
     const scanDeadline = screen.getByLabelText("Pro Scan deadline seconds");
     expect(turnTimeout).toHaveValue(3600);
@@ -264,7 +267,11 @@ describe("PlansScreen", () => {
       "pro",
       {
         codex: { model: "gpt-pro", reasoningEffort: "high" },
-        reviewWorker: { turnTimeoutSeconds: 3600, scanDeadlineSeconds: 14400 },
+        reviewWorker: {
+          reviewerConcurrency: 2,
+          turnTimeoutSeconds: 3600,
+          scanDeadlineSeconds: 14400,
+        },
       },
     );
     expect(
@@ -509,6 +516,11 @@ describe("PlansScreen", () => {
       "21601",
       "Scan deadline must be an integer between 0 and 21600 seconds.",
     ],
+    [
+      "Pro Concurrent reviewer assignments",
+      "3",
+      "Concurrent reviewer assignments must be an integer between 1 and 2.",
+    ],
   ])(
     "blocks saving an invalid timeout in %s",
     async (label, value, expectedMessage) => {
@@ -671,3 +683,7 @@ describe("PlansScreen", () => {
     expect(screen.getByLabelText("Pro user review limit")).not.toBeDisabled();
   });
 });
+    expect(reviewerConcurrency).toHaveValue(2);
+    expect(reviewerConcurrency).toHaveAttribute("min", "1");
+    expect(reviewerConcurrency).toHaveAttribute("max", "2");
+    expect(reviewerConcurrency).toHaveAttribute("step", "1");

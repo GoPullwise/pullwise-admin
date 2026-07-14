@@ -798,8 +798,9 @@ describe("WorkersScreen", () => {
 
   it("uses newer quota telemetry returned by the page refresh for an expanded worker", async () => {
     const user = userEvent.setup();
+    const busyWorker = { ...workers[0], status: "busy", running_jobs: 1 };
     const detailWorker = {
-      ...workers[0],
+      ...busyWorker,
       codexQuota: {
         planType: "pro",
         status: "ok",
@@ -823,11 +824,11 @@ describe("WorkersScreen", () => {
         taskActivity: [],
       });
     pullwiseApi.system.listWorkers
-      .mockResolvedValueOnce({ workers, items: workers })
+      .mockResolvedValueOnce({ workers: [busyWorker], items: [busyWorker] })
       .mockResolvedValueOnce({
         workers: [
           {
-            ...workers[0],
+            ...busyWorker,
             codexQuota: {
               planType: "pro",
               status: "low",
@@ -850,6 +851,24 @@ describe("WorkersScreen", () => {
     await waitFor(() => expect(pullwiseApi.system.refreshWorkerQuota).toHaveBeenCalledWith("wk_1"));
     expect(await within(quotaSection).findByText("41% remaining")).toBeInTheDocument();
     expect(within(quotaSection).queryByText("78% remaining")).not.toBeInTheDocument();
+  });
+
+  it("does not allow quota refresh for an offline expanded worker", async () => {
+    const user = userEvent.setup();
+    const offlineWorker = {
+      ...workers[0],
+      status: "offline",
+      codexQuota: { status: "ok", ready: true, checkedAt: 100 },
+    };
+    pullwiseApi.system.listWorkers.mockResolvedValueOnce({ workers: [offlineWorker], items: [offlineWorker] });
+    pullwiseApi.system.getWorker.mockResolvedValueOnce({ worker: offlineWorker, auditEvents: [], taskActivity: [] });
+
+    render(<WorkersScreen />);
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+
+    expect(await screen.findByText("Offline: no recent heartbeat")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /refresh worker details/i })).toBeDisabled();
+    expect(pullwiseApi.system.refreshWorkerQuota).not.toHaveBeenCalled();
   });
 
   it("keeps the previous quota visible when a worker quota refresh fails", async () => {

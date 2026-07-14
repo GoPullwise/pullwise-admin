@@ -11,6 +11,7 @@ const WORKER_TOKEN_PROMPT_PREFIX =
 const WORKER_COMMAND_ACTIVE_STATUSES = new Set(["pending", "running"]);
 const WORKER_COMMAND_TERMINAL_STATUSES = new Set(["succeeded", "failed", "cancelled"]);
 const WORKER_CLEANUP_COMPLETE_STATUSES = new Set(["succeeded"]);
+const WORKER_ONLINE_STATUSES = new Set(["idle", "busy", "degraded"]);
 const WORKER_QUOTA_REFRESH_POLL_MS = 500;
 const WORKER_QUOTA_REFRESH_TIMEOUT_MS = 30000;
 
@@ -144,6 +145,10 @@ function workerRegistryDeleted(worker) {
 function workerQuotaCheckedAt(worker) {
   const quota = objectValue(worker?.codexQuota) || objectValue(worker?.codex_quota);
   return timestampValue(quota?.checkedAt ?? quota?.checked_at);
+}
+
+function workerIsOnline(worker) {
+  return worker?.enabled !== false && WORKER_ONLINE_STATUSES.has(textValue(worker?.status).toLowerCase());
 }
 
 function waitFor(milliseconds) {
@@ -1201,8 +1206,7 @@ function WorkerDetail({ worker, onWorkerChange, refreshGeneration = 0 }) {
     refreshGenerationRef.current = refreshGeneration;
     const currentWorker = mergeWorkerRecords(workerRef.current, detailWorkerRef.current);
     const quota = objectValue(currentWorker?.codexQuota) || objectValue(currentWorker?.codex_quota);
-    const status = textValue(currentWorker?.status).toLowerCase();
-    if (!quota || !["idle", "degraded"].includes(status)) return;
+    if (!quota || !workerIsOnline(workerRef.current)) return;
     loadWorkerDetail({ manual: true });
   }, [loadWorkerDetail, refreshGeneration]);
 
@@ -1220,7 +1224,7 @@ function WorkerDetail({ worker, onWorkerChange, refreshGeneration = 0 }) {
           className="btn ghost sm"
           type="button"
           onClick={() => loadWorkerDetail({ manual: true })}
-          disabled={detailBusy}
+          disabled={detailBusy || !workerIsOnline(worker)}
           aria-label="Refresh worker details"
         >
           <I.Refresh size={13} className={detailRefreshing ? "spin" : ""} />

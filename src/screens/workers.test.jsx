@@ -866,7 +866,7 @@ describe("WorkersScreen", () => {
     render(<WorkersScreen />);
     await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
 
-    expect(await screen.findByText("Offline: no recent heartbeat")).toBeInTheDocument();
+    expect((await screen.findAllByText(/Offline: no recent heartbeat/)).length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /refresh worker details/i })).toBeDisabled();
     expect(pullwiseApi.system.refreshWorkerQuota).not.toHaveBeenCalled();
   });

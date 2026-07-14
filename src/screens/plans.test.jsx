@@ -212,6 +212,10 @@ describe("PlansScreen", () => {
     );
     const turnTimeout = screen.getByLabelText("Pro Codex turn timeout seconds");
     const scanDeadline = screen.getByLabelText("Pro Scan deadline seconds");
+    expect(reviewerConcurrency).toHaveValue(2);
+    expect(reviewerConcurrency).toHaveAttribute("min", "1");
+    expect(reviewerConcurrency).toHaveAttribute("max", "2");
+    expect(reviewerConcurrency).toHaveAttribute("step", "1");
     expect(turnTimeout).toHaveValue(3600);
     expect(turnTimeout).toHaveAttribute("type", "number");
     expect(turnTimeout).toHaveAttribute("min", "60");
@@ -683,7 +687,3 @@ describe("PlansScreen", () => {
     expect(screen.getByLabelText("Pro user review limit")).not.toBeDisabled();
   });
 });
-    expect(reviewerConcurrency).toHaveValue(2);
-    expect(reviewerConcurrency).toHaveAttribute("min", "1");
-    expect(reviewerConcurrency).toHaveAttribute("max", "2");
-    expect(reviewerConcurrency).toHaveAttribute("step", "1");

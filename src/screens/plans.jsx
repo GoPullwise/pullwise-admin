@@ -123,6 +123,14 @@ function planFormValidationError(form, effortPolicy) {
   if (!effortOptions.includes(form.codexReasoningEffort)) {
     return `Codex reasoning effort must be one of: ${effortOptions.join(", ")}.`;
   }
+  const reviewerConcurrency = integerFieldValue(form.reviewerConcurrency);
+  if (
+    reviewerConcurrency === null ||
+    reviewerConcurrency < 1 ||
+    reviewerConcurrency > 2
+  ) {
+    return "Concurrent reviewer assignments must be an integer between 1 and 2.";
+  }
   const turnTimeoutSeconds = integerFieldValue(form.turnTimeoutSeconds);
   if (
     turnTimeoutSeconds === null ||
@@ -157,6 +165,7 @@ function formFromPlan(plan, effortPolicy) {
       codex.model,
       effortPolicy,
     ),
+    reviewerConcurrency: numberText(reviewWorker.reviewerConcurrency, 2),
     turnTimeoutSeconds: numberText(reviewWorker.turnTimeoutSeconds, 3600),
 
     scanDeadlineSeconds: numberText(reviewWorker.scanDeadlineSeconds, 14400),
@@ -170,6 +179,7 @@ function payloadFromForm(form) {
       reasoningEffort: form.codexReasoningEffort,
     },
     reviewWorker: {
+      reviewerConcurrency: integerFieldValue(form.reviewerConcurrency),
       turnTimeoutSeconds: integerFieldValue(form.turnTimeoutSeconds),
       scanDeadlineSeconds: integerFieldValue(form.scanDeadlineSeconds),
     },
@@ -319,11 +329,26 @@ function PlanConfigCard({
         <div className="plan-agent-config-head">
           <h3>Review Worker Policy</h3>
           <p>
-            Codex turn timeout and scan deadline policy sent to worker jobs for
-            this plan.
+            Reviewer fanout concurrency, Codex turn timeout, and scan deadline
+            policy sent to worker jobs for this plan.
           </p>
         </div>
         <div className="form-grid">
+          <TextField
+            label="Concurrent reviewer assignments"
+            ariaLabel={`${form.name} Concurrent reviewer assignments`}
+            type="number"
+            min={1}
+            max={2}
+            step={1}
+            inputMode="numeric"
+            value={form.reviewerConcurrency}
+            onChange={(value) =>
+              onChange(form.id, "reviewerConcurrency", value)
+            }
+            description="Independent reviewer threads inside one worker-owned Codex App Server; use 1 to disable fanout concurrency."
+          />
+
           <TextField
             label="Codex turn timeout seconds"
             ariaLabel={`${form.name} Codex turn timeout seconds`}

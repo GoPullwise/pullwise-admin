@@ -137,6 +137,10 @@ function timestampValue(value) {
   return Number.isFinite(number) && number > 0 ? number : 0;
 }
 
+function workerRegistryDeleted(worker) {
+  return timestampValue(worker?.deleted_at ?? worker?.deletedAt) > 0;
+}
+
 function workerQuotaCheckedAt(worker) {
   const quota = objectValue(worker?.codexQuota) || objectValue(worker?.codex_quota);
   return timestampValue(quota?.checkedAt ?? quota?.checked_at);
@@ -1539,7 +1543,7 @@ export function WorkersScreen() {
         }
         const workerId = textValue(worker?.worker_id);
         const lifecycle = workerCleanupLifecycle(worker);
-        if (workerId && lifecycle && !cleanupLifecycleComplete(lifecycle)) {
+        if (workerId && lifecycle && !cleanupLifecycleComplete(lifecycle) && !workerRegistryDeleted(worker)) {
           nextWorkers.push(worker);
           retainedCleanupWorkersRef.current.set(workerId, worker);
         } else if (workerId) {
@@ -1551,7 +1555,7 @@ export function WorkersScreen() {
         const workerId = textValue(worker.worker_id);
         const lifecycle = workerCleanupLifecycle(worker);
         if (!workerId) continue;
-        if (lifecycle && !cleanupLifecycleComplete(lifecycle)) {
+        if (lifecycle && !cleanupLifecycleComplete(lifecycle) && !workerRegistryDeleted(worker)) {
           retainedCleanupWorkerIdsRef.current.add(workerId);
           retainedCleanupWorkersRef.current.set(workerId, worker);
         } else {
@@ -1713,7 +1717,12 @@ export function WorkersScreen() {
         const currentWorker = workers.find((worker) => String(worker.worker_id) === String(workerId));
         const retainedWorker = workerFromDeleteResult(result, workerId, currentWorker);
         const cleanupLifecycle = workerCleanupLifecycle(retainedWorker);
-        if (retainedWorker && cleanupLifecycle && !cleanupLifecycleComplete(cleanupLifecycle)) {
+        if (
+          retainedWorker &&
+          cleanupLifecycle &&
+          !cleanupLifecycleComplete(cleanupLifecycle) &&
+          !workerRegistryDeleted(retainedWorker)
+        ) {
           retainedCleanupWorkerIdsRef.current.add(String(workerId));
           retainedCleanupWorkersRef.current.set(String(workerId), retainedWorker);
           setWorkers((current) => upsertWorker(current, retainedWorker));

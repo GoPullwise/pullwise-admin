@@ -1489,6 +1489,56 @@ describe("WorkersScreen", () => {
     expect(screen.queryByText("Worker instance deleted.")).not.toBeInTheDocument();
   });
 
+  it("removes a retained cleanup worker after the server timeout soft-deletes it", async () => {
+    const user = userEvent.setup();
+    const runningCommand = { id: "cmd_uninstall", worker_id: "wk_1", command: "uninstall", status: "running" };
+    const cancelledCommand = {
+      ...runningCommand,
+      status: "cancelled",
+      error: "cleanup running exceeded timeout; host cleanup was not confirmed",
+    };
+    pullwiseApi.system.listWorkers
+      .mockResolvedValueOnce({ workers, items: workers })
+      .mockResolvedValueOnce({ workers: [], items: [] });
+    pullwiseApi.system.getWorker
+      .mockResolvedValueOnce({ worker: workers[0], auditEvents: [], taskActivity: [] })
+      .mockResolvedValueOnce({
+        worker: {
+          ...workers[0],
+          enabled: false,
+          deleted_at: 1000,
+          latest_command: cancelledCommand,
+        },
+        auditEvents: [],
+        taskActivity: [],
+      });
+    pullwiseApi.system.deleteWorker.mockResolvedValue({
+      deleted: false,
+      deleteQueued: true,
+      worker: {
+        ...workers[0],
+        enabled: false,
+        deleted_at: null,
+        latest_command: runningCommand,
+      },
+      command: runningCommand,
+    });
+
+    render(<WorkersScreen />);
+
+    await user.click((await screen.findByText("US-East Worker")).closest(".worker-row-main"));
+    await user.click(screen.getByRole("button", { name: /^delete instance$/i }));
+    await user.click(screen.getByRole("button", { name: /confirm delete instance/i }));
+    await waitFor(() => expect(screen.getAllByText("Cleanup running").length).toBeGreaterThan(0));
+
+    await user.click(screen.getByRole("button", { name: /^refresh$/i }));
+
+    await waitFor(() => expect(pullwiseApi.system.listWorkers).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(pullwiseApi.system.getWorker).toHaveBeenCalledWith("wk_1"));
+    await waitFor(() => expect(screen.queryByText("US-East Worker")).not.toBeInTheDocument());
+    expect(screen.queryByText("Cleanup cancelled")).not.toBeInTheDocument();
+  });
+
   it("retains and retries a cleanup worker after a transient detail error", async () => {
     const user = userEvent.setup();
     const command = { id: "cmd_uninstall", worker_id: "wk_1", command: "uninstall", status: "pending" };

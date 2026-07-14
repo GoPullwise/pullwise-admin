@@ -467,7 +467,8 @@ export function PlansScreen() {
   );
 
   const updateField = (planId, field, value) => {
-    formRevisionRef.current[planId] = (formRevisionRef.current[planId] || 0) + 1;
+    formRevisionRef.current[planId] =
+      (formRevisionRef.current[planId] || 0) + 1;
     setForms((current) => ({
       ...current,
       [planId]: { ...current[planId], [field]: value },

@@ -124,14 +124,13 @@ worker-owned Codex App Server. Copy must not describe this as job parallelism,
 worker capacity, or additional Codex processes; every worker still has one job
 slot and one auth store.
 
-Plan review resource policy also exposes native numeric `maxBundles` and
-`maxReviewerAssignments` fields. `maxBundles` must be an integer in `1..64`;
-`maxReviewerAssignments` must be an integer in `1..128`. These are hard
-full-review admission limits, not truncation controls: Admin copy must never
-imply that lowering either field drops eligible paths, removes tier-required
-reviewers, or permits partial fanout. The Worker may coalesce same-tier semantic
-groups within its renderer limits, then must fail explicitly before fanout when
-the configured limits still cannot be met.
+Global system settings expose native numeric `reviewWorker.maxBundles` and
+`reviewWorker.maxReviewerAssignments` fields. They are pipeline stage limits,
+not subscription-plan entitlements: never render or send them in a Free, Pro,
+or Max plan-agent form. `maxBundles` must be an integer in `1..64` and
+`maxReviewerAssignments` in `1..128`. Copy must never imply that lowering either
+field drops eligible paths, removes tier-required reviewers, or permits partial
+fanout; an over-limit scan fails before reviewer fanout.
 
 SMTP SSL and SMTP STARTTLS are mutually exclusive transport modes. Enabling one
 in Admin must disable the other before saving.

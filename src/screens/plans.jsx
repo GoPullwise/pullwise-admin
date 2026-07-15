@@ -13,11 +13,6 @@ import {
 
 const PLAN_ORDER = ["free", "pro", "max"];
 const DEFAULT_EFFORT_OPTIONS = ["low", "medium", "high", "xhigh"];
-const DEFAULT_REVIEW_RESOURCE_LIMITS = {
-  free: { maxBundles: 12, maxReviewerAssignments: 24 },
-  pro: { maxBundles: 24, maxReviewerAssignments: 48 },
-  max: { maxBundles: 32, maxReviewerAssignments: 64 },
-};
 
 function effortOptionsFrom(values) {
   if (!Array.isArray(values)) return [];
@@ -136,20 +131,6 @@ function planFormValidationError(form, effortPolicy) {
   ) {
     return "Concurrent reviewer assignments must be an integer between 1 and 2.";
   }
-  const maxBundles = integerFieldValue(form.maxBundles);
-  if (maxBundles === null || maxBundles < 1 || maxBundles > 64) {
-    return "Maximum review bundles must be an integer between 1 and 64.";
-  }
-  const maxReviewerAssignments = integerFieldValue(
-    form.maxReviewerAssignments,
-  );
-  if (
-    maxReviewerAssignments === null ||
-    maxReviewerAssignments < 1 ||
-    maxReviewerAssignments > 128
-  ) {
-    return "Maximum reviewer assignments must be an integer between 1 and 128.";
-  }
   const turnTimeoutSeconds = integerFieldValue(form.turnTimeoutSeconds);
   if (
     turnTimeoutSeconds === null ||
@@ -174,8 +155,6 @@ function formFromPlan(plan, effortPolicy) {
   const codex = agentConfig.codex || {};
   const reviewWorker = agentConfig.reviewWorker || {};
   const id = textValue(plan?.id || agentConfig.plan, "free").toLowerCase();
-  const resourceDefaults =
-    DEFAULT_REVIEW_RESOURCE_LIMITS[id] || DEFAULT_REVIEW_RESOURCE_LIMITS.free;
   return {
     id,
     name: textValue(plan?.name, titleCase(id)),
@@ -187,14 +166,6 @@ function formFromPlan(plan, effortPolicy) {
       effortPolicy,
     ),
     reviewerConcurrency: numberText(reviewWorker.reviewerConcurrency, 2),
-    maxBundles: numberText(
-      reviewWorker.maxBundles,
-      resourceDefaults.maxBundles,
-    ),
-    maxReviewerAssignments: numberText(
-      reviewWorker.maxReviewerAssignments,
-      resourceDefaults.maxReviewerAssignments,
-    ),
     turnTimeoutSeconds: numberText(reviewWorker.turnTimeoutSeconds, 3600),
 
     scanDeadlineSeconds: numberText(reviewWorker.scanDeadlineSeconds, 14400),
@@ -209,8 +180,6 @@ function payloadFromForm(form) {
     },
     reviewWorker: {
       reviewerConcurrency: integerFieldValue(form.reviewerConcurrency),
-      maxBundles: integerFieldValue(form.maxBundles),
-      maxReviewerAssignments: integerFieldValue(form.maxReviewerAssignments),
       turnTimeoutSeconds: integerFieldValue(form.turnTimeoutSeconds),
       scanDeadlineSeconds: integerFieldValue(form.scanDeadlineSeconds),
     },
@@ -360,9 +329,8 @@ function PlanConfigCard({
         <div className="plan-agent-config-head">
           <h3>Review Worker Policy</h3>
           <p>
-            Reviewer fanout concurrency, bundle and assignment budgets, Codex
-            turn timeout, and scan deadline policy sent to worker jobs for this
-            plan.
+            Reviewer fanout concurrency, Codex turn timeout, and scan deadline
+            policy sent to worker jobs for this plan.
           </p>
         </div>
         <div className="form-grid">
@@ -379,34 +347,6 @@ function PlanConfigCard({
               onChange(form.id, "reviewerConcurrency", value)
             }
             description="Independent reviewer threads inside one worker-owned Codex App Server; use 1 to disable fanout concurrency."
-          />
-
-          <TextField
-            label="Maximum review bundles"
-            ariaLabel={`${form.name} Maximum review bundles`}
-            type="number"
-            min={1}
-            max={64}
-            step={1}
-            inputMode="numeric"
-            value={form.maxBundles}
-            onChange={(value) => onChange(form.id, "maxBundles", value)}
-            description="Hard upper bound for Worker-compiled review bundles; scans fail explicitly rather than dropping eligible paths."
-          />
-
-          <TextField
-            label="Maximum reviewer assignments"
-            ariaLabel={`${form.name} Maximum reviewer assignments`}
-            type="number"
-            min={1}
-            max={128}
-            step={1}
-            inputMode="numeric"
-            value={form.maxReviewerAssignments}
-            onChange={(value) =>
-              onChange(form.id, "maxReviewerAssignments", value)
-            }
-            description="Weighted fanout ceiling after P0/P1/P2 reviewer roles are assigned; no reviewer or path is silently removed."
           />
 
           <TextField

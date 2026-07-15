@@ -37,8 +37,6 @@ const proPlan = {
     },
     reviewWorker: {
       reviewerConcurrency: 2,
-      maxBundles: 24,
-      maxReviewerAssignments: 48,
       turnTimeoutSeconds: 3600,
       scanDeadlineSeconds: 14400,
     },
@@ -219,24 +217,12 @@ describe("PlansScreen", () => {
     const reviewerConcurrency = screen.getByLabelText(
       "Pro Concurrent reviewer assignments",
     );
-    const maxBundles = screen.getByLabelText("Pro Maximum review bundles");
-    const maxReviewerAssignments = screen.getByLabelText(
-      "Pro Maximum reviewer assignments",
-    );
     const turnTimeout = screen.getByLabelText("Pro Codex turn timeout seconds");
     const scanDeadline = screen.getByLabelText("Pro Scan deadline seconds");
     expect(reviewerConcurrency).toHaveValue(2);
     expect(reviewerConcurrency).toHaveAttribute("min", "1");
     expect(reviewerConcurrency).toHaveAttribute("max", "2");
     expect(reviewerConcurrency).toHaveAttribute("step", "1");
-    expect(maxBundles).toHaveValue(24);
-    expect(maxBundles).toHaveAttribute("min", "1");
-    expect(maxBundles).toHaveAttribute("max", "64");
-    expect(maxBundles).toHaveAttribute("step", "1");
-    expect(maxReviewerAssignments).toHaveValue(48);
-    expect(maxReviewerAssignments).toHaveAttribute("min", "1");
-    expect(maxReviewerAssignments).toHaveAttribute("max", "128");
-    expect(maxReviewerAssignments).toHaveAttribute("step", "1");
     expect(turnTimeout).toHaveValue(3600);
     expect(turnTimeout).toHaveAttribute("type", "number");
     expect(turnTimeout).toHaveAttribute("min", "60");
@@ -283,15 +269,6 @@ describe("PlansScreen", () => {
       screen.getByLabelText("Pro Scan deadline seconds"),
       "14400",
     );
-    await user.clear(screen.getByLabelText("Pro Maximum review bundles"));
-    await user.type(screen.getByLabelText("Pro Maximum review bundles"), "20");
-    await user.clear(
-      screen.getByLabelText("Pro Maximum reviewer assignments"),
-    );
-    await user.type(
-      screen.getByLabelText("Pro Maximum reviewer assignments"),
-      "40",
-    );
     await user.click(screen.getByRole("button", { name: /save pro/i }));
 
     await waitFor(() =>
@@ -303,8 +280,6 @@ describe("PlansScreen", () => {
         codex: { model: "gpt-pro", reasoningEffort: "high" },
         reviewWorker: {
           reviewerConcurrency: 2,
-          maxBundles: 20,
-          maxReviewerAssignments: 40,
           turnTimeoutSeconds: 3600,
           scanDeadlineSeconds: 14400,
         },
@@ -556,16 +531,6 @@ describe("PlansScreen", () => {
       "Pro Concurrent reviewer assignments",
       "3",
       "Concurrent reviewer assignments must be an integer between 1 and 2.",
-    ],
-    [
-      "Pro Maximum review bundles",
-      "65",
-      "Maximum review bundles must be an integer between 1 and 64.",
-    ],
-    [
-      "Pro Maximum reviewer assignments",
-      "129",
-      "Maximum reviewer assignments must be an integer between 1 and 128.",
     ],
   ])(
     "blocks saving an invalid timeout in %s",

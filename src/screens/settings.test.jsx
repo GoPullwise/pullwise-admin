@@ -28,6 +28,10 @@ describe("SettingsScreen", () => {
           jobRetryAttempts: 1,
           jobLeaseSeconds: 14400,
         },
+        reviewWorker: {
+          maxBundles: 24,
+          maxReviewerAssignments: 48,
+        },
         worker: { defaultVersion: "" },
         alerts: {
           email: {
@@ -115,6 +119,27 @@ describe("SettingsScreen", () => {
               path: "worker.defaultVersion",
               label: "Default worker version",
               type: "string",
+            },
+          ],
+        },
+        {
+          id: "reviewWorker",
+          title: "Review phase limits",
+          description: "Global review-stage limits.",
+          fields: [
+            {
+              path: "reviewWorker.maxBundles",
+              label: "Maximum review bundles",
+              type: "integer",
+              min: 1,
+              max: 64,
+            },
+            {
+              path: "reviewWorker.maxReviewerAssignments",
+              label: "Maximum reviewer assignments",
+              type: "integer",
+              min: 1,
+              max: 128,
             },
           ],
         },
@@ -222,11 +247,22 @@ describe("SettingsScreen", () => {
     expect(screen.queryByText("Repository quota")).not.toBeInTheDocument();
     expect(screen.getByText("Scan scheduling")).toBeInTheDocument();
     expect(screen.getByText("Worker control plane")).toBeInTheDocument();
+    expect(screen.getByText("Review phase limits")).toBeInTheDocument();
     expect(screen.getByText("Operational alerts")).toBeInTheDocument();
     expect(screen.getByLabelText("Scan job retry attempts")).toHaveValue(1);
     expect(screen.queryByLabelText("Max claim jobs")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Scan job lease seconds")).toHaveValue(14400);
     expect(screen.getByLabelText("Default worker version")).toHaveValue("");
+    const maxBundles = screen.getByLabelText("Maximum review bundles");
+    const maxAssignments = screen.getByLabelText(
+      "Maximum reviewer assignments",
+    );
+    expect(maxBundles).toHaveValue(24);
+    expect(maxBundles).toHaveAttribute("min", "1");
+    expect(maxBundles).toHaveAttribute("max", "64");
+    expect(maxBundles).toHaveAttribute("step", "1");
+    expect(maxAssignments).toHaveValue(48);
+    expect(maxAssignments).toHaveAttribute("max", "128");
     expect(screen.getByLabelText("Alert recipients")).toHaveValue(
       "ops@example.com",
     );
@@ -277,6 +313,7 @@ describe("SettingsScreen", () => {
     pullwiseApi.system.updateSystemConfig.mockResolvedValue({
       settings: {
         scan: { maxQueuedScansGlobal: 1000, jobRetryAttempts: 2, jobLeaseSeconds: 14400 },
+        reviewWorker: { maxBundles: 24, maxReviewerAssignments: 48 },
         worker: { defaultVersion: "" },
         alerts: {
           email: {
@@ -304,6 +341,7 @@ describe("SettingsScreen", () => {
     const submitted = pullwiseApi.system.updateSystemConfig.mock.calls[0][0].settings;
     expect(submitted).toEqual({
       scan: { maxQueuedScansGlobal: 1000, jobRetryAttempts: 2, jobLeaseSeconds: 14400 },
+      reviewWorker: { maxBundles: 24, maxReviewerAssignments: 48 },
       worker: { defaultVersion: "" },
       alerts: {
         email: {
@@ -544,5 +582,20 @@ describe("SettingsScreen", () => {
       "Scan job retry attempts must be an integer."
     );
     expect(parseFieldValue({ type: "integer" }, "60.5")).toBe("60.5");
+  });
+
+  it("blocks global review phase limits outside their schema bounds", async () => {
+    const user = userEvent.setup();
+    render(<SettingsScreen />);
+
+    const maxBundles = await screen.findByLabelText("Maximum review bundles");
+    await user.clear(maxBundles);
+    await user.type(maxBundles, "65");
+    await user.click(screen.getByRole("button", { name: /^save$/i }));
+
+    expect(pullwiseApi.system.updateSystemConfig).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Maximum review bundles must be at most 64.",
+    );
   });
 });

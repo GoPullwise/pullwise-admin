@@ -84,6 +84,7 @@ const systemConfigPayload = {
     },
     quota: { repositoryReviewLimit: 1000 },
     scan: { maxQueuedScansGlobal: 1000 },
+    reviewWorker: { maxBundles: 24, maxReviewerAssignments: 48 },
   },
   defaults: {
     billing: {
@@ -192,6 +193,27 @@ const systemConfigPayload = {
         },
       ],
     },
+    {
+      id: "reviewWorker",
+      title: "Review phase limits",
+      description: "Global stage limits independent of subscription plans.",
+      fields: [
+        {
+          path: "reviewWorker.maxBundles",
+          label: "Maximum review bundles",
+          type: "integer",
+          min: 1,
+          max: 64,
+        },
+        {
+          path: "reviewWorker.maxReviewerAssignments",
+          label: "Maximum reviewer assignments",
+          type: "integer",
+          min: 1,
+          max: 128,
+        },
+      ],
+    },
   ],
 };
 
@@ -212,6 +234,10 @@ describe("PlansScreen", () => {
     const card = (await screen.findByText("Pro")).closest(".plan-config-card");
     expect(within(card).getByText("60 scans")).toBeInTheDocument();
     expect(screen.queryByLabelText("Pro Codex CLI")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Maximum review bundles")).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Maximum reviewer assignments"),
+    ).not.toBeInTheDocument();
     expect(screen.getByLabelText("Pro Codex model")).toHaveValue("gpt-5.5");
     expect(screen.getByLabelText("Pro Codex effort")).toHaveValue("medium");
     const reviewerConcurrency = screen.getByLabelText(

@@ -152,7 +152,10 @@ try {
   const measurement = await waitFor(async () => {
     const result = await cdp.send("Runtime.evaluate", {
       expression: `(() => ({
-        ready: document.readyState === "complete" && Boolean(document.querySelector(".admin-shell")),
+        ready:
+          document.readyState === "complete" &&
+          Boolean(document.querySelector(".admin-shell")) &&
+          Boolean(document.querySelector(".worker-row")),
         scrollWidth: document.documentElement.scrollWidth,
         clientWidth: document.documentElement.clientWidth,
         innerWidth: window.innerWidth,

@@ -198,6 +198,9 @@ Admin worker/status views must handle large worker and scan counts.
   the server reports an exact match. Poll conservatively while the page is
   visible, pause while hidden, and preserve the last good deployment snapshot
   across transient refresh failures.
+- Do not expose a direct Pullwise Server restart control or restart API helper
+  in Admin. Production restart ownership belongs to the Git watcher and
+  systemd deployment lifecycle.
 - Worker-default/release loads must use a latest-request generation across initial load and manual Refresh; an older defaults response must never replace newer release information or its suggested next version.
 - After a worker lifecycle or metadata mutation, merge the returned worker into cached expanded detail before rendering; stale detail must not overwrite the refreshed list's `enabled`, status, command, or lifecycle state.
 - Admin sign-out uses a module-level synchronous in-flight promise so simultaneous callers share one idempotent request and one navigation.

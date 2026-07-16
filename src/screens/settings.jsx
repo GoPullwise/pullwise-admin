@@ -4,7 +4,6 @@ import { pullwiseApi } from "../api/pullwise.js";
 import { I } from "../icons.jsx";
 
 const PLAN_SETTING_GROUP_IDS = new Set(["plans", "quota", "billing"]);
-const RESTART_CONFIRM_TIMEOUT_MS = 10000;
 export const DEPLOYMENT_REFRESH_INTERVAL_MS = 15000;
 
 const SUGGESTED_DEFAULTS = {
@@ -505,27 +504,14 @@ export function SettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [deploymentLoading, setDeploymentLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [restarting, setRestarting] = useState(false);
-  const [restartConfirm, setRestartConfirm] = useState(false);
   const [error, setError] = useState("");
   const [metricsError, setMetricsError] = useState("");
   const [deploymentError, setDeploymentError] = useState("");
   const [message, setMessage] = useState("");
-  const restartConfirmTimerRef = useRef(null);
   const savingRef = useRef(false);
-  const restartingRef = useRef(false);
   const loadingRef = useRef(false);
   const loadRequestRef = useRef(0);
   const deploymentRequestRef = useRef(0);
-
-  const clearRestartConfirmTimer = useCallback(() => {
-    if (restartConfirmTimerRef.current) {
-      window.clearTimeout(restartConfirmTimerRef.current);
-      restartConfirmTimerRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => clearRestartConfirmTimer, [clearRestartConfirmTimer]);
 
   const loadSettings = useCallback(async () => {
     if (loadingRef.current) return;
@@ -674,37 +660,6 @@ export function SettingsScreen() {
     }
   };
 
-  const restartServer = async () => {
-    if (!restartConfirm) {
-      clearRestartConfirmTimer();
-      setRestartConfirm(true);
-      setError("");
-      setMessage("");
-      restartConfirmTimerRef.current = window.setTimeout(() => {
-        setRestartConfirm(false);
-        restartConfirmTimerRef.current = null;
-      }, RESTART_CONFIRM_TIMEOUT_MS);
-      return;
-    }
-    if (restartingRef.current) return;
-    restartingRef.current = true;
-    clearRestartConfirmTimer();
-    setRestartConfirm(false);
-    setRestarting(true);
-    setError("");
-    setMessage("");
-    try {
-      const result = await pullwiseApi.system.restartServer();
-      setMessage(result?.message || "Pullwise server restart started.");
-      setRestartConfirm(false);
-    } catch (err) {
-      setError(err?.message || "Unable to restart Pullwise server.");
-    } finally {
-      restartingRef.current = false;
-      setRestarting(false);
-    }
-  };
-
   return (
     <main className="main">
       <div className="page-head">
@@ -713,14 +668,10 @@ export function SettingsScreen() {
           <p>Database-backed server settings for scan scheduling, worker claims, rate limits, alerts, and calibration.</p>
         </div>
         <div className="page-actions">
-          <button className="btn" type="button" onClick={refreshPage} disabled={loading || saving || restarting}>
+          <button className="btn" type="button" onClick={refreshPage} disabled={loading || saving}>
             <I.Refresh size={14} className={loading ? "spin" : ""} /> Refresh
           </button>
-          <button className="btn danger" type="button" onClick={restartServer} disabled={loading || saving || restarting}>
-            {restarting ? <I.Refresh size={14} className="spin" /> : <I.Power size={14} />}
-            {restartConfirm ? "Confirm restart" : "Restart server"}
-          </button>
-          <button className="btn primary" type="button" onClick={saveSettings} disabled={loading || saving || restarting}>
+          <button className="btn primary" type="button" onClick={saveSettings} disabled={loading || saving}>
             {saving ? <I.Refresh size={14} className="spin" /> : <I.Save size={14} />}
             Save
           </button>
@@ -761,7 +712,7 @@ export function SettingsScreen() {
                     defaults={payload?.defaults}
                     secret={payload?.secrets?.[field.path]}
                     onChange={updateField}
-                    disabled={saving || restarting}
+                    disabled={saving}
                   />
                 ))}
               </div>

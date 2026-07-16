@@ -11,7 +11,6 @@ vi.mock("../api/pullwise.js", () => ({
       getServerMetrics: vi.fn(),
       getServerDeployment: vi.fn(),
       updateSystemConfig: vi.fn(),
-      restartServer: vi.fn(),
     },
   },
 }));
@@ -239,11 +238,6 @@ describe("SettingsScreen", () => {
       lastSuccessfulCommit: "0123456789abcdef0123456789abcdef01234567",
       lastSuccessfulAt: "2026-07-16T10:20:30Z",
       serverStartedAt: Date.UTC(2026, 6, 16, 10, 20, 0) / 1000,
-    });
-    pullwiseApi.system.restartServer.mockResolvedValue({
-      ok: true,
-      message: "Pullwise server restart started.",
-      command: "bash launcher.sh restart",
     });
   });
 
@@ -538,75 +532,6 @@ describe("SettingsScreen", () => {
       screen.queryByRole("button", { name: /restart server|confirm restart/i }),
     ).not.toBeInTheDocument();
   });
-  it("requires confirmation before restarting the Pullwise server", async () => {
-    const user = userEvent.setup();
-    render(<SettingsScreen />);
-
-    const restart = await screen.findByRole("button", {
-      name: /restart server/i,
-    });
-    await user.click(restart);
-
-    expect(pullwiseApi.system.restartServer).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: /confirm restart/i }));
-
-    expect(pullwiseApi.system.restartServer).toHaveBeenCalledTimes(1);
-    expect(
-      await screen.findByText("Pullwise server restart started."),
-    ).toBeInTheDocument();
-  });
-
-  it("coalesces same-frame confirmed server restarts", async () => {
-    let resolveRestart;
-    pullwiseApi.system.restartServer.mockReturnValue(
-      new Promise((resolve) => {
-        resolveRestart = resolve;
-      })
-    );
-    render(<SettingsScreen />);
-
-    fireEvent.click(await screen.findByRole("button", { name: /restart server/i }));
-    const confirm = screen.getByRole("button", { name: /confirm restart/i });
-    act(() => {
-      confirm.click();
-      confirm.click();
-    });
-
-    expect(pullwiseApi.system.restartServer).toHaveBeenCalledTimes(1);
-    await act(async () => resolveRestart({ message: "Pullwise server restart started." }));
-  });
-
-  it("expires restart confirmation before dispatching a restart", async () => {
-    render(<SettingsScreen />);
-    const restart = await screen.findByRole("button", {
-      name: /restart server/i,
-    });
-
-    vi.useFakeTimers();
-    try {
-      fireEvent.click(restart);
-      expect(
-        screen.getByRole("button", { name: /confirm restart/i }),
-      ).toBeInTheDocument();
-
-      act(() => {
-        vi.advanceTimersByTime(10001);
-      });
-
-      const expiredRestart = screen.getByRole("button", {
-        name: /restart server/i,
-      });
-      fireEvent.click(expiredRestart);
-
-      expect(pullwiseApi.system.restartServer).not.toHaveBeenCalled();
-      expect(
-        screen.getByRole("button", { name: /confirm restart/i }),
-      ).toBeInTheDocument();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   it("does not show empty config metadata when system config loading fails", async () => {
     pullwiseApi.system.getSystemConfig.mockRejectedValueOnce(
       new Error("config down"),

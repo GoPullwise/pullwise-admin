@@ -1,13 +1,13 @@
 /* global Buffer, URL, console, fetch, process, setTimeout */
 import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createCdpClient } from "./cdp-client.mjs";
 
-const VIEWPORT_WIDTH = 390;
-const VIEWPORT_HEIGHT = 844;
+const VIEWPORT_WIDTH = Number(process.env.ADMIN_VIEWPORT_WIDTH || 390);
+const VIEWPORT_HEIGHT = Number(process.env.ADMIN_VIEWPORT_HEIGHT || 844);
 
 function freePort() {
   return new Promise((resolve, reject) => {
@@ -70,13 +70,20 @@ function apiPayload(url) {
   }
   if (pathname.endsWith("/admin/workers")) {
     return {
-      workers: [],
-      items: [],
-      total: 0,
+      workers: [
+        {
+          worker_id: "worker-mobile-overflow-with-a-very-long-identifier-0123456789",
+          name: "Primary full-repository review worker with a long display name",
+          region: "operator-defined-region-with-a-long-label",
+          status: "idle",
+          enabled: true,
+        },
+      ],
+      total: 1,
       limit: 50,
       offset: 0,
       hasMore: false,
-      summary: { total: 0, active: 0, degraded: 0, disabled: 0 },
+      summary: { total: 1, active: 1, degraded: 0, disabled: 0 },
     };
   }
   return {};
@@ -148,7 +155,19 @@ try {
         ready: document.readyState === "complete" && Boolean(document.querySelector(".admin-shell")),
         scrollWidth: document.documentElement.scrollWidth,
         clientWidth: document.documentElement.clientWidth,
-        innerWidth: window.innerWidth
+        innerWidth: window.innerWidth,
+        heading: document.querySelector("main h1")?.textContent?.trim(),
+        navLabels: [...document.querySelectorAll(".topbar-nav a")].map((item) => item.textContent.trim()),
+        workerRowCount: document.querySelectorAll(".worker-row").length,
+        sidebarWidth: Math.round(document.querySelector(".topbar")?.getBoundingClientRect().width || 0),
+        mainLeft: Math.round(document.querySelector("main")?.getBoundingClientRect().left || 0),
+        decorativeElementCount: [...document.querySelectorAll("*")].filter((element) => {
+          const style = getComputedStyle(element);
+          const hasTransition = style.transitionDuration
+            .split(",")
+            .some((duration) => Number.parseFloat(duration) > 0);
+          return style.backgroundImage !== "none" || style.boxShadow !== "none" || hasTransition;
+        }).length
       }))()`,
       returnByValue: true,
     });
@@ -162,8 +181,30 @@ try {
   if (measurement.scrollWidth !== measurement.clientWidth) {
     throw new Error(`Admin shell overflows at ${VIEWPORT_WIDTH}px: ${JSON.stringify(measurement)}.`);
   }
+  if (measurement.heading !== "Workers") {
+    throw new Error(`Expected the concise Workers heading: ${JSON.stringify(measurement)}.`);
+  }
+  if (measurement.navLabels.join(",") !== "Workers,Users,Plans,Settings") {
+    throw new Error(`Expected concise Admin navigation labels: ${JSON.stringify(measurement)}.`);
+  }
+  if (measurement.workerRowCount !== 1 || measurement.decorativeElementCount !== 0) {
+    throw new Error(`Expected a flat populated worker list without decorative effects: ${JSON.stringify(measurement)}.`);
+  }
+  if (VIEWPORT_WIDTH > 1040 && (measurement.sidebarWidth !== 220 || measurement.mainLeft !== 220)) {
+    throw new Error(`Expected the compact desktop sidebar layout: ${JSON.stringify(measurement)}.`);
+  }
+
+  if (process.env.ADMIN_EMIT_SCREENSHOT === "1") {
+    const screenshot = await cdp.send("Page.captureScreenshot", {
+      format: "png",
+      captureBeyondViewport: false,
+    });
+    if (process.env.ADMIN_SCREENSHOT_PATH) {
+      await writeFile(process.env.ADMIN_SCREENSHOT_PATH, Buffer.from(screenshot.data, "base64"));
+    }
+  }
   console.log(
-    `Mobile overflow check passed: scrollWidth=${measurement.scrollWidth}, clientWidth=${measurement.clientWidth}.`
+    `Admin layout check passed at ${VIEWPORT_WIDTH}px: ${JSON.stringify(measurement)}.`
   );
 } finally {
   cdp?.close();

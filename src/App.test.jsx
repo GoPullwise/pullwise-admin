@@ -202,12 +202,15 @@ describe("Admin App", () => {
   });
 
   it("keeps the Admin data band continuous and the mobile topbar overflow-safe", () => {
-    const styles = readFileSync(resolve(process.cwd(), "src/styles/screens.css"), "utf8");
+    const styles = ["base.css", "screens.css"]
+      .map((file) => readFileSync(resolve(process.cwd(), "src/styles", file), "utf8"))
+      .join("\n");
 
     expect(styles).toMatch(/\.kpis\s*\{[^}]*border:\s*1px solid var\(--border\);[^}]*gap:\s*0;/s);
     expect(styles).toMatch(/\.kpi \+ \.kpi\s*\{[^}]*border-left:\s*1px solid var\(--border\);/s);
     expect(styles).toMatch(/\.topbar-actions \.muted\s*\{[^}]*min-width:\s*0;[^}]*text-overflow:\s*ellipsis;/s);
     expect(styles).toMatch(/\.topbar-actions \.btn\s*\{[^}]*flex:\s*0 0 auto;[^}]*white-space:\s*nowrap;/s);
     expect(styles).toMatch(/@media \(max-width:\s*760px\)[\s\S]*\.topbar-nav\s*\{[^}]*max-width:\s*100%;[^}]*overflow-x:\s*auto;/s);
+    expect(styles).not.toMatch(/(?:linear|radial)-gradient|box-shadow:|transition:/);
   });
 });

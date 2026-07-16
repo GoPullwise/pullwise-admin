@@ -192,6 +192,11 @@ Admin worker/status views must handle large worker and scan counts.
 - Track a per-plan edit revision across plan saves; apply a save response only when no newer local edit was made after the submitted snapshot.
 - Plan business-setting fields must stay disabled while their save is in flight. Also compare an edit revision before applying the response so a same-render-frame input event cannot be overwritten by the submitted snapshot.
 - Starting a system-settings save must invalidate any older settings load generation so a late Refresh response cannot replace the saved state.
+- System Settings deployment status must show the full current server process
+  commit and full last successful watcher commit. Mark it Verified only when
+  the server reports an exact match. Poll conservatively while the page is
+  visible, pause while hidden, and preserve the last good deployment snapshot
+  across transient refresh failures.
 - Worker-default/release loads must use a latest-request generation across initial load and manual Refresh; an older defaults response must never replace newer release information or its suggested next version.
 - After a worker lifecycle or metadata mutation, merge the returned worker into cached expanded detail before rendering; stale detail must not overwrite the refreshed list's `enabled`, status, command, or lifecycle state.
 - Admin sign-out uses a module-level synchronous in-flight promise so simultaneous callers share one idempotent request and one navigation.

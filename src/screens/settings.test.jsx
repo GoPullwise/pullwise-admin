@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { pullwiseApi } from "../api/pullwise.js";
-import { parseFieldValue, SettingsScreen } from "./settings.jsx";
+import { DEPLOYMENT_REFRESH_INTERVAL_MS, parseFieldValue, SettingsScreen } from "./settings.jsx";
 
 vi.mock("../api/pullwise.js", () => ({
   pullwiseApi: {
@@ -310,6 +310,38 @@ describe("SettingsScreen", () => {
     expect(screen.getByText("Current process commit")).toBeInTheDocument();
     expect(screen.getByText("Last successful watcher commit")).toBeInTheDocument();
     expect(pullwiseApi.system.getServerDeployment).toHaveBeenCalled();
+  });
+
+  it("automatically refreshes the displayed server commit while the page is visible", async () => {
+    const nextRevision = "fedcba9876543210fedcba9876543210fedcba98";
+    vi.useFakeTimers();
+    try {
+      render(<SettingsScreen />);
+      await act(async () => {
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      expect(pullwiseApi.system.getServerDeployment).toHaveBeenCalledTimes(1);
+
+      pullwiseApi.system.getServerDeployment.mockResolvedValueOnce({
+        state: "verified",
+        verified: true,
+        runningCommit: nextRevision,
+        lastSuccessfulCommit: nextRevision,
+        lastSuccessfulAt: "2026-07-16T10:21:00Z",
+        serverStartedAt: Date.UTC(2026, 6, 16, 10, 20, 45) / 1000,
+      });
+      await act(async () => {
+        vi.advanceTimersByTime(DEPLOYMENT_REFRESH_INTERVAL_MS);
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(pullwiseApi.system.getServerDeployment).toHaveBeenCalledTimes(2);
+      expect(screen.getAllByText(nextRevision)).toHaveLength(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("renders saved SMTP password state without exposing the password", async () => {

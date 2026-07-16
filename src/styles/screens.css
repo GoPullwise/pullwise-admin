@@ -828,9 +828,9 @@
 }
 
 .deployment-state.pending {
-  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
-  background: color-mix(in srgb, var(--warning) 9%, var(--panel));
-  color: var(--warning);
+  border-color: color-mix(in srgb, var(--warn) 45%, var(--border));
+  background: color-mix(in srgb, var(--warn) 9%, var(--panel));
+  color: var(--warn);
 }
 
 .deployment-body {

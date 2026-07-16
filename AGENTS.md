@@ -168,6 +168,7 @@ Admin worker/status views must handle large worker and scan counts.
 ## Admin Visual And Interaction Resilience
 
 - Keep Admin compact, square, and operational. Use continuous divided KPI bands for fleet summaries instead of a loose grid of decorative cards.
+- Keep Admin utility-first and low-decoration: use flat neutral surfaces, borders, and dividers instead of gradients, decorative shadows, repeated context callouts, or navigation subtitles. Route headings should match the concise navigation labels: Workers, Users, Plans, and Settings.
 - Keep the authenticated Admin shell split into a persistent desktop control sidebar and an `.admin-view` content region. Below the desktop breakpoint, preserve every route in the sticky horizontally scrollable navigation and keep `aria-current="page"` on the active route.
 - Use semantic `MemoryStick` and `HardDrive` icons for RAM and storage telemetry. Keep metric identity on `data-metric` and use the shared `--metric-memory` / `--metric-storage` colors so server and worker performance panels remain consistent.
 - Mobile topbar navigation must remain horizontally reachable without widening the document. Long admin identities must truncate within available space, while action buttons such as Sign out remain single-line and non-shrinking.

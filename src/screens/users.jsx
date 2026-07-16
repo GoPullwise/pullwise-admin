@@ -267,7 +267,7 @@ export function UsersScreen() {
     <main className="main">
       <div className="page-head">
         <div>
-          <h1>User Management</h1>
+          <h1>Users</h1>
           <p>View authorized sign-in users and remove their Pullwise data.</p>
         </div>
         <div className="page-actions">

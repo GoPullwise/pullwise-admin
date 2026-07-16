@@ -118,7 +118,7 @@ describe("Admin App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Worker Registry")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Workers" })).toBeInTheDocument();
     expect(await screen.findByText("Admin Worker")).toBeInTheDocument();
   });
 
@@ -131,7 +131,7 @@ describe("Admin App", () => {
 
     const { container } = render(<App />);
 
-    expect(await screen.findByRole("heading", { name: "Worker Registry" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Workers" })).toBeInTheDocument();
     const navigation = screen.getByRole("navigation", { name: "Admin navigation" });
     const workersLink = within(navigation).getByRole("link", { name: "Workers" });
     expect(workersLink).toHaveAttribute("aria-current", "page");
@@ -158,7 +158,7 @@ describe("Admin App", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("User Management")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Users" })).toBeInTheDocument();
     expect(await screen.findByText("Authorized User")).toBeInTheDocument();
   });
 

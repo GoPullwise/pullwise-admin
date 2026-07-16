@@ -1825,7 +1825,7 @@ export function WorkersScreen() {
     <main className="main">
       <div className="page-head">
         <div>
-          <h1>Worker Registry</h1>
+          <h1>Workers</h1>
           <p>Register, configure, and monitor Pullwise scan workers.</p>
         </div>
         <div className="page-actions">

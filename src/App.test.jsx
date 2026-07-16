@@ -122,7 +122,7 @@ describe("Admin App", () => {
     expect(await screen.findByText("Admin Worker")).toBeInTheDocument();
   });
 
-  it("presents the admin area as a clear navigation and content workspace", async () => {
+  it("presents the admin area as a concise navigation and content workspace", async () => {
     pullwiseApi.auth.getSession.mockResolvedValueOnce({
       authenticated: true,
       admin: true,
@@ -133,14 +133,16 @@ describe("Admin App", () => {
 
     expect(await screen.findByRole("heading", { name: "Worker Registry" })).toBeInTheDocument();
     const navigation = screen.getByRole("navigation", { name: "Admin navigation" });
-    const workersLink = within(navigation).getByRole("link", { name: /Workers/i });
+    const workersLink = within(navigation).getByRole("link", { name: "Workers" });
     expect(workersLink).toHaveAttribute("aria-current", "page");
-    expect(within(navigation).getByRole("link", { name: /Users/i })).toBeInTheDocument();
-    expect(within(navigation).getByRole("link", { name: /Plans/i })).toBeInTheDocument();
-    expect(within(navigation).getByRole("link", { name: /Settings/i })).toBeInTheDocument();
+    expect(within(navigation).getByRole("link", { name: "Users" })).toBeInTheDocument();
+    expect(within(navigation).getByRole("link", { name: "Plans" })).toBeInTheDocument();
+    expect(within(navigation).getByRole("link", { name: "Settings" })).toBeInTheDocument();
     expect(container.querySelector(".admin-shell")).toBeInTheDocument();
     expect(container.querySelector(".admin-view main.main")).toBeInTheDocument();
-    expect(screen.getByText("Operations console")).toBeInTheDocument();
+    expect(screen.queryByText("Operations console")).not.toBeInTheDocument();
+    expect(screen.queryByText("Control center")).not.toBeInTheDocument();
+    expect(screen.queryByText("Restricted workspace")).not.toBeInTheDocument();
   });
 
   it("renders user management for authenticated admins on the users route", async () => {

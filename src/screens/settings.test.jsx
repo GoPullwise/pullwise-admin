@@ -9,6 +9,7 @@ vi.mock("../api/pullwise.js", () => ({
     system: {
       getSystemConfig: vi.fn(),
       getServerMetrics: vi.fn(),
+      getServerDeployment: vi.fn(),
       updateSystemConfig: vi.fn(),
       restartServer: vi.fn(),
     },
@@ -231,6 +232,14 @@ describe("SettingsScreen", () => {
         },
       ],
     });
+    pullwiseApi.system.getServerDeployment.mockResolvedValue({
+      state: "verified",
+      verified: true,
+      runningCommit: "0123456789abcdef0123456789abcdef01234567",
+      lastSuccessfulCommit: "0123456789abcdef0123456789abcdef01234567",
+      lastSuccessfulAt: "2026-07-16T10:20:30Z",
+      serverStartedAt: Date.UTC(2026, 6, 16, 10, 20, 0) / 1000,
+    });
     pullwiseApi.system.restartServer.mockResolvedValue({
       ok: true,
       message: "Pullwise server restart started.",
@@ -290,6 +299,17 @@ describe("SettingsScreen", () => {
     expect(screen.queryByText(/CPU usage/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/logical cores/i)).not.toBeInTheDocument();
     expect(pullwiseApi.system.getServerMetrics).toHaveBeenCalled();
+  });
+
+  it("shows the full running and watcher-confirmed server commit ids", async () => {
+    render(<SettingsScreen />);
+
+    expect(await screen.findByText("Server Deployment")).toBeInTheDocument();
+    expect(screen.getByText("Verified")).toBeInTheDocument();
+    expect(screen.getAllByText("0123456789abcdef0123456789abcdef01234567")).toHaveLength(2);
+    expect(screen.getByText("Current process commit")).toBeInTheDocument();
+    expect(screen.getByText("Last successful watcher commit")).toBeInTheDocument();
+    expect(pullwiseApi.system.getServerDeployment).toHaveBeenCalled();
   });
 
   it("renders saved SMTP password state without exposing the password", async () => {

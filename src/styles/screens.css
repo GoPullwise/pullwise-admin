@@ -794,6 +794,125 @@
   margin-bottom: 16px;
 }
 
+.server-deployment {
+  margin-bottom: 12px;
+}
+
+.deployment-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.deployment-state {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--panel-subtle);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.045em;
+}
+
+.deployment-state.verified {
+  border-color: color-mix(in srgb, var(--success) 45%, var(--border));
+  background: color-mix(in srgb, var(--success) 9%, var(--panel));
+  color: var(--success);
+}
+
+.deployment-state.pending {
+  border-color: color-mix(in srgb, var(--warning) 45%, var(--border));
+  background: color-mix(in srgb, var(--warning) 9%, var(--panel));
+  color: var(--warning);
+}
+
+.deployment-body {
+  display: grid;
+  gap: 12px;
+}
+
+.deployment-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.deployment-commits {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.deployment-commits > div,
+.deployment-meta {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-top: 2px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: var(--panel-subtle);
+  padding: 12px;
+}
+
+.deployment-commits > div {
+  display: grid;
+  gap: 7px;
+}
+
+.deployment-commits span,
+.deployment-meta > span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.deployment-commits code {
+  min-width: 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+
+.deployment-meta {
+  display: grid;
+  grid-template-columns: auto auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px 12px;
+}
+
+.deployment-meta strong {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.deployment-meta small,
+.deployment-refresh-error {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.deployment-meta small {
+  justify-self: end;
+  text-align: right;
+}
+
+.deployment-refresh-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+  color: var(--danger);
+}
+
 .server-machine-monitor {
   display: grid;
   gap: 14px;
@@ -1710,10 +1829,25 @@
   .form-grid.compact,
   .server-machine-facts,
   .server-machine-grid,
+  .deployment-commits,
   .settings-grid,
   .plan-config-columns,
   .worker-detail {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .deployment-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .deployment-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .deployment-meta small {
+    justify-self: start;
+    text-align: left;
   }
 
   .kpi + .kpi {

@@ -48,6 +48,7 @@ export const pullwiseApi = {
     pauseLogStream: (streamId) =>
       request(`/admin/log-streams/${pathSegment(streamId)}/pause`, { method: "POST" }),
     getServerMetrics: () => request("/admin/server-metrics"),
+    getServerDeployment: () => request("/admin/server/deployment"),
     restartServer: () => request("/admin/server/restart", { method: "POST" }),
     getSystemConfig: () => request("/admin/system-config"),
     updateSystemConfig: (payload = {}) =>

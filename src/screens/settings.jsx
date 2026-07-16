@@ -5,6 +5,7 @@ import { I } from "../icons.jsx";
 
 const PLAN_SETTING_GROUP_IDS = new Set(["plans", "quota", "billing"]);
 const RESTART_CONFIRM_TIMEOUT_MS = 10000;
+export const DEPLOYMENT_REFRESH_INTERVAL_MS = 15000;
 
 const SUGGESTED_DEFAULTS = {
   "billing.creemProProductIds": "prod_pro_monthly, prod_pro_yearly",
@@ -129,6 +130,19 @@ function formatChartTime(value) {
   return new Date(number * 1000).toLocaleTimeString(undefined, {
     hour: "2-digit",
     minute: "2-digit",
+  });
+}
+
+function formatDeploymentTimestamp(value) {
+  const date = new Date(value || "");
+  if (!Number.isFinite(date.getTime())) return "Not reported";
+  return date.toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
 }
 
@@ -344,6 +358,64 @@ function ServerMetricsPanel({ metrics, loading, error }) {
   );
 }
 
+function ServerDeploymentPanel({ deployment, loading, error }) {
+  const state = deployment?.state || "unreported";
+  const stateLabel = state === "verified" ? "Verified" : state === "pending" ? "Pending" : "Not reported";
+  const stateDetail =
+    state === "verified"
+      ? "The running process matches the last watcher deployment that passed restart and health checks."
+      : state === "pending"
+        ? "The running process and the last watcher-confirmed commit do not match yet."
+        : "The server has not published a successful watcher deployment yet.";
+
+  return (
+    <section className="settings-section server-deployment">
+      <div className="settings-section-head deployment-section-head">
+        <div className="section-title-with-icon">
+          <span className="section-heading-icon" aria-hidden="true">
+            <I.GitBranch size={18} />
+          </span>
+          <div>
+            <h2>Server Deployment</h2>
+            <p>Full Git commit IDs from the running server and its last successful watcher deployment.</p>
+          </div>
+        </div>
+        <span className={`deployment-state ${state}`} role="status">
+          {state === "verified" ? <I.Check size={14} /> : state === "pending" ? <I.Refresh size={14} /> : <I.X size={14} />}
+          {stateLabel}
+        </span>
+      </div>
+      {error ? (
+        <div className="deployment-refresh-error" role="alert">
+          <I.X size={14} /> {error}
+        </div>
+      ) : null}
+      {loading && !deployment ? (
+        <div className="empty">Loading server deployment...</div>
+      ) : (
+        <div className="deployment-body">
+          <p className="deployment-summary">{stateDetail}</p>
+          <div className="deployment-commits">
+            <div>
+              <span>Current process commit</span>
+              <code>{deployment?.runningCommit || "Unavailable"}</code>
+            </div>
+            <div>
+              <span>Last successful watcher commit</span>
+              <code>{deployment?.lastSuccessfulCommit || "Not reported"}</code>
+            </div>
+          </div>
+          <div className="deployment-meta">
+            <span>Watcher completed</span>
+            <strong>{formatDeploymentTimestamp(deployment?.lastSuccessfulAt)}</strong>
+            <small>Automatically refreshes every {DEPLOYMENT_REFRESH_INTERVAL_MS / 1000} seconds while this page is visible.</small>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export function recommendedValueForField(field, defaults) {
   const configured = valueAt(defaults, field.path);
   if (configured !== undefined && configured !== null && textValue(configured) !== "") return textValue(configured);
@@ -428,19 +500,23 @@ export function SettingField({ field, value, defaults, secret, onChange, disable
 export function SettingsScreen() {
   const [payload, setPayload] = useState(null);
   const [serverMetrics, setServerMetrics] = useState(null);
+  const [deployment, setDeployment] = useState(null);
   const [settings, setSettings] = useState({});
   const [loading, setLoading] = useState(true);
+  const [deploymentLoading, setDeploymentLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [restarting, setRestarting] = useState(false);
   const [restartConfirm, setRestartConfirm] = useState(false);
   const [error, setError] = useState("");
   const [metricsError, setMetricsError] = useState("");
+  const [deploymentError, setDeploymentError] = useState("");
   const [message, setMessage] = useState("");
   const restartConfirmTimerRef = useRef(null);
   const savingRef = useRef(false);
   const restartingRef = useRef(false);
   const loadingRef = useRef(false);
   const loadRequestRef = useRef(0);
+  const deploymentRequestRef = useRef(0);
 
   const clearRestartConfirmTimer = useCallback(() => {
     if (restartConfirmTimerRef.current) {
@@ -488,6 +564,23 @@ export function SettingsScreen() {
     }
   }, []);
 
+  const loadDeployment = useCallback(async () => {
+    const requestId = deploymentRequestRef.current + 1;
+    deploymentRequestRef.current = requestId;
+    setDeploymentLoading(true);
+    try {
+      const nextDeployment = await pullwiseApi.system.getServerDeployment();
+      if (deploymentRequestRef.current !== requestId) return;
+      setDeployment(nextDeployment);
+      setDeploymentError("");
+    } catch (err) {
+      if (deploymentRequestRef.current !== requestId) return;
+      setDeploymentError(err?.message || "Unable to refresh server deployment.");
+    } finally {
+      if (deploymentRequestRef.current === requestId) setDeploymentLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadSettings();
     return () => {
@@ -495,6 +588,44 @@ export function SettingsScreen() {
       loadingRef.current = false;
     };
   }, [loadSettings]);
+
+  useEffect(() => {
+    let intervalId = null;
+    const stopPolling = () => {
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+        intervalId = null;
+      }
+    };
+    const startPolling = () => {
+      stopPolling();
+      if (!document.hidden) {
+        intervalId = window.setInterval(loadDeployment, DEPLOYMENT_REFRESH_INTERVAL_MS);
+      }
+    };
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopPolling();
+      } else {
+        loadDeployment();
+        startPolling();
+      }
+    };
+
+    loadDeployment();
+    startPolling();
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      stopPolling();
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      deploymentRequestRef.current += 1;
+    };
+  }, [loadDeployment]);
+
+  const refreshPage = useCallback(() => {
+    loadSettings();
+    loadDeployment();
+  }, [loadDeployment, loadSettings]);
 
   const groups = useMemo(
     () => (Array.isArray(payload?.groups) ? payload.groups.filter((group) => !isPlanSettingGroup(group)) : []),
@@ -582,7 +713,7 @@ export function SettingsScreen() {
           <p>Database-backed server settings for scan scheduling, worker claims, rate limits, alerts, and calibration.</p>
         </div>
         <div className="page-actions">
-          <button className="btn" type="button" onClick={loadSettings} disabled={loading || saving || restarting}>
+          <button className="btn" type="button" onClick={refreshPage} disabled={loading || saving || restarting}>
             <I.Refresh size={14} className={loading ? "spin" : ""} /> Refresh
           </button>
           <button className="btn danger" type="button" onClick={restartServer} disabled={loading || saving || restarting}>
@@ -606,6 +737,8 @@ export function SettingsScreen() {
           <I.Check size={14} /> {message}
         </div>
       )}
+
+      <ServerDeploymentPanel deployment={deployment} loading={deploymentLoading} error={deploymentError} />
 
       <ServerMetricsPanel metrics={serverMetrics} loading={loading} error={metricsError} />
 

@@ -530,6 +530,14 @@ describe("SettingsScreen", () => {
     expect(ssl).toBeChecked();
     expect(starttls).not.toBeChecked();
   });
+  it("does not expose a direct server restart control", async () => {
+    render(<SettingsScreen />);
+
+    expect(await screen.findByText("System Settings")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /restart server|confirm restart/i }),
+    ).not.toBeInTheDocument();
+  });
   it("requires confirmation before restarting the Pullwise server", async () => {
     const user = userEvent.setup();
     render(<SettingsScreen />);
